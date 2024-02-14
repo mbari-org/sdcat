@@ -8,24 +8,26 @@
 *Sliced Detection and Clustering Analysis Toolkit*
 
 This repository processes images using a sliced detection and clustering workflow.
-If your images look like this:
+If your images look something like the image below, and you want to detect objects in the images, 
+and optionally cluster the detections, then this repository is for you.
+---
+Drone/UAV
+---
+![](docs/imgs/DSC00770_with_logo.png)
+---
+ISIIS Plankton Imager
+---
+![](docs/imgs/CFE_ISIIS-081-2023-07-12_14-38-38.862_000058_with_logo.png)
+---
+DeepSea Imaging System
+---
+![](docs/imgs/1696956731236857_with_logo.png)
 
----
-Drone
----
-![](docs/imgs/DSC00419.JPG)
----
-Plankton
----
-![](docs/imgs/CFE_ISIIS-081-2023-07-12%2014-38-38.862_000058.png)
----
-DeepSea
----
-![](docs/imgs/1696956731236857.jpg)
 
+The clustering is done with a DINO Vision Transformer (ViT) model, and a cosine similarity metric with the HDBSCAN algorithm.
+The defaults are set to produce fine-grained clusters, but the parameters can be adjusted to produce coarser clusters.
+The algorithm workflow looks like this:
 
-And you want to detect objects in the images, and optionally cluster the detections, then this repository is for you.
-The clustering is done with a Facebook Vision Transformer (ViT) model, and a cosine similarity metric with the HDBSCAN algorithm.
 ![](docs/imgs/cluster_workflow.png)
   
 # Installation
@@ -38,7 +40,8 @@ conda env create -f environment.yml
 
 A GPU is recommended for clustering and detection.  If you don't have a GPU, you can still run the code, but it will be slower.
 If running on a CPU, multiple cores are recommended and will speed up processing.
-For large datasets, the RapidsAI cuDF library is recommended for faster processing.
+For large datasets, the RapidsAI cuDF library is recommended for faster processing, although it does not currently support
+custom metrics such as cosine similarity, so the clustering performance will not be as good as with the CPU.
 See: https://rapids.ai/start.html#get-rapids for installation instructions.
 
 # Commands
@@ -46,11 +49,11 @@ See: https://rapids.ai/start.html#get-rapids for installation instructions.
 To get all options available, use the --help option.  For example:
 
 ```shell
-python sdcat.py --help
+python sdcat --help
 ```
 which will print out the following:
 ```shell
-Usage: sdcat.py [OPTIONS] COMMAND [ARGS]...
+Usage: sdcat [OPTIONS] COMMAND [ARGS]...
 
   Process images from a command line.
 
