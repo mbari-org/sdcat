@@ -10,6 +10,7 @@
 This repository processes images using a sliced detection and clustering workflow.
 If your images look something like the image below, and you want to detect objects in the images, 
 and optionally cluster the detections, then this repository is for you.
+
 ---
 Drone/UAV
 ---
@@ -22,8 +23,9 @@ ISIIS Plankton Imager
 DeepSea Imaging System
 ---
 ![](docs/imgs/1696956731236857_with_logo.png)
-
-
+---
+DINO + HDBSCAN Clustering
+---
 The clustering is done with a DINO Vision Transformer (ViT) model, and a cosine similarity metric with the HDBSCAN algorithm.
 The defaults are set to produce fine-grained clusters, but the parameters can be adjusted to produce coarser clusters.
 The algorithm workflow looks like this:
