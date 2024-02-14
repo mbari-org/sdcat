@@ -162,3 +162,4 @@ tests/test_detect.py ...                                                        
 # Related work
 * https://github.com/obss/sahi
 * https://github.com/facebookresearch/dinov2
+* https://arxiv.org/pdf/1911.02282.pdf HDBSCAN
