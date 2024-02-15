@@ -174,6 +174,7 @@ def run_detect(show: bool, image_dir: str, save_dir: str, model: str,
                         for i in range(0, num_images, 1)]
                 pool.starmap(run_saliency_detect_bulk, args)
                 pool.close()
+        with multiprocessing.Pool(num_processes) as pool:
             if not skip_sahi:
                 # Run sahi detection on each image
                 args = [(scale_percent,
