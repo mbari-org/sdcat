@@ -94,7 +94,7 @@ def run_sahi_detect(scale_percent: int,
             # postprocess_match_metrica 'IOU' for intersection over union, 'IOS' for intersection over smaller area.
             perform_standard_pred=True,
             # Perform a standard prediction on top of sliced predictions to increase large object detection
-            postprocess_class_agnostic=True,  # If True, postprocess will ignore category ids.
+            postprocess_class_agnostic=class_agnostic,  # If True, postprocess will ignore category ids.
         )
 
         predictions = []
