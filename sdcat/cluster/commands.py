@@ -24,7 +24,7 @@ from sdcat.cluster.cluster import cluster_vits
 @click.option('--det-dir', help='Input folder(s) with raw detection results', multiple=True)
 @click.option('--save-dir',  help='Output directory to save clustered detection results')
 @click.option('--device', help='Device to use.', type=int)
-def run_cluster(det_dir, save_dir, start_image, end_image, device, config_ini):
+def run_cluster(det_dir, save_dir, device, config_ini):
 
     config = cfg.Config(config_ini)
     max_area = int(config('cluster', 'max_area'))
