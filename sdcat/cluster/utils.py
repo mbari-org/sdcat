@@ -108,7 +108,7 @@ def crop_square_image(row, square_dim: int):
             warn(f'Skipping {row.crop_path} because the image {row.image_path} does not exist')
             return
 
-        if Path(row.crop_path).exists():  # If the crop already exists, skip it if it does not match the dimensions
+        if Path(row.crop_path).exists():  # If the crop already exists, skip it
             return
 
         x1 = int(row.image_width * row.x)
