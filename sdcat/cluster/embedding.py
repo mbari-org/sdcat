@@ -170,10 +170,10 @@ def compute_norm_embedding(model_name: str, images: list):
     if torch.cuda.is_available():
         compute_embedding(images, model_name)
     else:
-        # Use a pool of processes to speed up the embedding generation 250 images at a time on each process
+        # Use a pool of processes to speed up the embedding generation 20 images at a time on each process
         num_processes = min(multiprocessing.cpu_count(), len(images) // 20)
         num_processes = max(1, num_processes)
-        info(f'Using {num_processes} processes to compute {len(images)} embeddings 250 at a time ...')
+        info(f'Using {num_processes} processes to compute {len(images)} embeddings 20 at a time ...')
         with multiprocessing.Pool(num_processes) as pool:
             args = [(images[i:i + 20], model_name) for i in range(0, len(images), 20)]
             pool.starmap(compute_embedding, args)
