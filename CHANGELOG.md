@@ -1,5 +1,13 @@
 # SDCAT Changelog
 
+## [1.0.2](https://github.com/mbari-org/sdcat/compare/v1.0.1...v1.0.2) (2024-02-17)
+
+
+### Bug Fixes
+
+* pass through config agnostic flat ([7b5f940](https://github.com/mbari-org/sdcat/commit/7b5f940bae4a10591f0c7c14b87f2a60b14d69c2))
+* remove unused arguments ([ad06613](https://github.com/mbari-org/sdcat/commit/ad066138a233b0bcb79fda18c50b54da658fe545))
+
 ## [1.0.1](https://github.com/mbari-org/sdcat/compare/v1.0.0...v1.0.1) (2024-02-15)
 
 
