@@ -23,5 +23,8 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
+      - name: Set PYTHONPATH to subdirectory sdcat
+        run: echo "PYTHONPATH=${PWD}/sdcat" >> $GITHUB_ENV
+
       - name: Run pytest
         run: pytest
