@@ -1,6 +1,6 @@
 name: Run pytest
 
-oon:
+on:
   push:
   pull_request:
 
