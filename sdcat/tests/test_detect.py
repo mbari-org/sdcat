@@ -22,7 +22,7 @@ def run_detect(data_dir: Path, scale: int) -> int:
     with tempfile.TemporaryDirectory() as tmp_dir:
         # Run sdcat
         proc = subprocess.Popen(['python3',
-                                 f'{root_dir}/sdcat/__main__.py',
+                                 f'{root_dir}/__main__.py',
                                  'detect',
                                  '--skip-sahi',
                                  '--scale-percent', str(scale),
@@ -76,7 +76,7 @@ def test_plankton():
 
 
 if __name__ == '__main__':
-    # test_bird()
-    # test_pinniped()
+    test_bird()
+    test_pinniped()
     test_plankton()
     print('All tests passed')
