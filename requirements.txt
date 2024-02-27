@@ -9,6 +9,7 @@ hdbscan==0.8.33
 torch
 tator
 piexif
+yolov5==7.0.13
 torchvision
 transformers
 timm
@@ -24,6 +25,6 @@ huggingface-hub==0.19.4
 umap-learn==0.5.5
 hdbscan>=0.8.27
 matplotlib==3.7.0
-numpy==1.24.1
 numba==0.57
 ephem
+jupyter

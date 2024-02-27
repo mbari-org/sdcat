@@ -25,17 +25,19 @@ def run_sahi_detect_bulk(scale_percent: int,
                          slice_width: int,
                          slice_height: int,
                          images: list,
-                         out_path: Path,
+                         csv_out_path: Path,
                          detection_model,
                          allowable_classes: list = None,
                          class_agnostic: bool = False):
     info(f'Processing {len(images)} images')
+    if not csv_out_path.is_dir():
+        csv_out_path.mkdir(parents=True, exist_ok=True)
     for f in images:
         run_sahi_detect(scale_percent,
                         slice_width,
                         slice_height,
                         f,
-                        (out_path / f'{f.stem}.sahi.csv'),
+                        (csv_out_path / f'{f.stem}.sahi.csv'),
                         detection_model,
                         allowable_classes=allowable_classes,
                         class_agnostic=class_agnostic)
@@ -45,7 +47,7 @@ def run_sahi_detect(scale_percent: int,
                     slice_width: int,
                     slice_height: int,
                     image_path: Path,
-                    out_path: Path,
+                    csv_out_path: Path,
                     detection_model,
                     allowable_classes: list = None,
                     class_agnostic: bool = False) -> pd.DataFrame:
@@ -55,7 +57,7 @@ def run_sahi_detect(scale_percent: int,
     :param slice_width: slice size width
     :param slice_height: slice size height
     :param image_path: path to the image
-    :param out_path: output path for the detections
+    :param csv_out_path: output path for the detections
     :param image_color: color image
     :param detection_model: detection model
     :param allowable_classes: list of allowable classes
@@ -63,6 +65,11 @@ def run_sahi_detect(scale_percent: int,
     :return: dataframe of detections
     """
     df = pd.DataFrame()
+    # Abort if the image_path is not a file
+    if not image_path.is_file():
+        exception(f'Image path {image_path} is not a file')
+        return df
+    info(f'Processing {image_path}')
     img_color = cv2.imread(image_path.as_posix())
     img_color_rescaled = rescale(img_color, scale_percent=scale_percent)
 
@@ -148,6 +155,8 @@ def run_sahi_detect(scale_percent: int,
             df[['y', 'xy', 'h']] *= scale_height
 
             # Write out the detections
-            df.to_csv(out_path.as_posix(), index=False)
+            df.to_csv(csv_out_path.as_posix(), index=False)
     except Exception as e:
         exception(f"Error processing {image_path}: {e}")
+
+    return df

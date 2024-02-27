@@ -34,11 +34,22 @@ The algorithm workflow looks like this:
   
 # Installation
 
+This code can be run from a command-line or from a jupyter notebook.  The following instructions are for running from the command-line.
+
 ```shell
 git clone https://github.com/mbari/sdcat.git
 cd sdcat
 conda env create -f environment.yml
 ```
+
+Or, from a jupyter notebook. 
+
+```
+conda activate sdcat
+pip install ipykernel
+python -m ipykernel install --user --name=sdcat
+jupyter notebook
+``` 
 
 A GPU is recommended for clustering and detection.  If you don't have a GPU, you can still run the code, but it will be slower.
 If running on a CPU, multiple cores are recommended and will speed up processing.
