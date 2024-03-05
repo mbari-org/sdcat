@@ -3,8 +3,8 @@ import time
 import cv2
 import numpy as np
 
-from logger import info
-from reflectance import specularity as spc
+from sdcat.logger import info
+from sdcat.reflectance import specularity as spc
 
 
 def specularity_removal(image: np.ndarray) -> np.ndarray:

@@ -4,7 +4,7 @@
 
 import click
 
-from config.config import default_config_ini
+from sdcat.config.config import default_config_ini
 
 # Common arguments for processing commands
 config_ini = click.option('--config-ini',
