@@ -1,5 +1,12 @@
 # SDCAT Changelog
 
+## [1.0.3](https://github.com/mbari-org/sdcat/compare/v1.0.2...v1.0.3) (2024-03-05)
+
+
+### Bug Fixes
+
+* correct import paths ([6ca36e1](https://github.com/mbari-org/sdcat/commit/6ca36e13a321cf8a4460a2598cf8f1e6cf73c2c3))
+
 ## [1.0.2](https://github.com/mbari-org/sdcat/compare/v1.0.1...v1.0.2) (2024-02-17)
 
 
