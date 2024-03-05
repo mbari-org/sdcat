@@ -11,13 +11,12 @@ from huggingface_hub import hf_hub_download
 from sahi import AutoDetectionModel
 from sahi.postprocess.combine import nms
 
-import logger
-import common_args
-from config import config as cfg
-from config.config import default_config_ini
-from detect.sahi_detector import run_sahi_detect_bulk, run_sahi_detect
-from detect.saliency_detector import run_saliency_detect, run_saliency_detect_bulk
-from logger import exception, info, warn
+from sdcat import common_args
+from sdcat.config import config as cfg
+from sdcat.config.config import default_config_ini
+from sdcat.detect.sahi_detector import run_sahi_detect_bulk, run_sahi_detect
+from sdcat.detect.saliency_detector import run_saliency_detect, run_saliency_detect_bulk
+from sdcat.logger import exception, info, warn
 
 default_model = 'MBARI/megamidwater'
 

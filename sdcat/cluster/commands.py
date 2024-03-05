@@ -14,18 +14,18 @@ import pandas as pd
 import pytz
 import torch
 
-import common_args
-from config import config as cfg
-from logger import info, err, warn
+from sdcat import common_args
+from sdcat.config import config as cfg
+from sdcat.logger import info, err, warn
 from sdcat.cluster.cluster import cluster_vits
+
 
 @click.command('cluster', help='Cluster detections. See cluster --config-ini to override cluster defaults.')
 @common_args.config_ini
 @click.option('--det-dir', help='Input folder(s) with raw detection results', multiple=True)
-@click.option('--save-dir',  help='Output directory to save clustered detection results')
+@click.option('--save-dir', help='Output directory to save clustered detection results')
 @click.option('--device', help='Device to use.', type=int)
 def run_cluster(det_dir, save_dir, device, config_ini):
-
     config = cfg.Config(config_ini)
     max_area = int(config('cluster', 'max_area'))
     min_area = int(config('cluster', 'min_area'))
@@ -219,7 +219,8 @@ def run_cluster(det_dir, save_dir, device, config_ini):
         prefix = f'{model}_{datetime.now().strftime("%Y%m%d_%H%M%S")}'
 
         # Cluster the detections
-        df_cluster = cluster_vits(prefix, model, df, save_dir, alpha, cluster_selection_epsilon, min_similarity, min_cluster_size, min_samples)
+        df_cluster = cluster_vits(prefix, model, df, save_dir, alpha, cluster_selection_epsilon, min_similarity,
+                                  min_cluster_size, min_samples)
 
         # Merge the results with the original DataFrame
         df.update(df_cluster)
