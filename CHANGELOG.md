@@ -1,5 +1,12 @@
 # SDCAT Changelog
 
+## [1.0.6](https://github.com/mbari-org/sdcat/compare/v1.0.5...v1.0.6) (2024-03-05)
+
+
+### Bug Fixes
+
+* correct some bugs calling libaries ([d69171b](https://github.com/mbari-org/sdcat/commit/d69171ba9b9caafa218439df810f9b73ace99023))
+
 ## [1.0.5](https://github.com/mbari-org/sdcat/compare/v1.0.4...v1.0.5) (2024-03-05)
 
 
