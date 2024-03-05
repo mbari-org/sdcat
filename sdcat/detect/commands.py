@@ -16,7 +16,7 @@ from sdcat.config import config as cfg
 from sdcat.config.config import default_config_ini
 from sdcat.detect.sahi_detector import run_sahi_detect_bulk, run_sahi_detect
 from sdcat.detect.saliency_detector import run_saliency_detect, run_saliency_detect_bulk
-from sdcat.logger import exception, info, warn
+from sdcat.logger import exception, info, warn, create_logger_file
 
 default_model = 'MBARI/megamidwater'
 
@@ -55,7 +55,7 @@ def run_detect(show: bool, image_dir: str, save_dir: str, model: str,
             allowable_classes = allowable_classes.split(',')
     clahe = config('detect', 'clahe') == 'True'
 
-    logger.create_logger_file(Path.cwd(), 'detect')
+    create_logger_file(Path.cwd(), 'detect')
 
     if not skip_sahi:
         if model == 'yolov8s':
