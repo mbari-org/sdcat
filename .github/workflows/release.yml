@@ -8,20 +8,18 @@ jobs:
     runs-on: ubuntu-latest
     name: Runs semantic release
     steps:
-      - name: Checkout
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
+
+      - uses: codfish/semantic-release-action@v3.1.0
+        id: semantic
         with:
-          fetch-depth: 0
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: "lts/*"
-      - name: Install dependencies
-        run: npm install commitizen @semantic-release/commit-analyzer @semantic-release/release-notes-generator @semantic-release/exec @semantic-release/changelog @semantic-release/npm @semantic-release/git
-      - name: Release
+          dry-run: false
+          branches: |
+            ['main']
+          additional-packages: |
+            ['@semantic-release/git']
+          plugins: |
+            ['@semantic-release/git', '@semantic-release/commit-analyzer', '@semantic-release/release-notes-generator', '@semantic-release/github', '@semantic-release/git']
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: 000000000000000
-          GIT_AUTHOR_NAME: danellecline
-          GIT_COMMITTER_NAME: danellecline
-        run: npx semantic-release
+            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            NPM_TOKEN: 000000000000000
