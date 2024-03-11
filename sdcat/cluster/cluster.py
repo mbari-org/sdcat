@@ -102,20 +102,20 @@ def _run_hdbscan_assign(
             cluster_selection_method='leaf')
         labels = scan.fit_predict(x)
 
-    title_tree = f'HDBSCAN Tree Distances {cluster_selection_epsilon} min_cluster_size {min_cluster_size} min_samples {min_samples} alpha {alpha}'
-    title_linkage = title_tree.replace('Tree Distances', 'Linkage')
+# title_tree = f'HDBSCAN Tree Distances {cluster_selection_epsilon} min_cluster_size {min_cluster_size} min_samples {min_samples} alpha {alpha}'
+# title_linkage = title_tree.replace('Tree Distances', 'Linkage')
 
-    scan.condensed_tree_.plot(select_clusters=True,
-                              selection_palette=sns.color_palette('deep', 8))
-    plt.title(title_tree)
-    plt.xlabel('Index')
-    plt.savefig(f"{out_path}/{prefix}_condensed_tree.png")
+# scan.condensed_tree_.plot(select_clusters=True,
+#                             selection_palette=sns.color_palette('deep', 8))
+# plt.title(title_tree)
+# plt.xlabel('Index')
+# plt.savefig(f"{out_path}/{prefix}_condensed_tree.png")
 
-    plt.figure(figsize=(10, 6))
-    scan.single_linkage_tree_.plot(cmap='viridis', colorbar=True)
-    plt.title(title_linkage)
-    plt.xlabel('Index')
-    plt.savefig(f"{out_path}/{prefix}_tree.png")
+# plt.figure(figsize=(10, 6))
+# scan.single_linkage_tree_.plot(cmap='viridis', colorbar=True)
+# plt.title(title_linkage)
+# plt.xlabel('Index')
+# plt.savefig(f"{out_path}/{prefix}_tree.png")
 
     # Get the unique clusters and sort them; -1 are unassigned clusters
     cluster_df = pd.DataFrame(labels, columns=['cluster'])
