@@ -39,10 +39,12 @@ default_model = 'MBARI/megamidwater'
 @click.option('--model', default=default_model, help=f'Model to use. Defaults to {default_model}')
 @click.option('--slice-size-width', default=900, help='Slice width size, leave blank for auto slicing')
 @click.option('--slice-size-height', default=900, help='Slice height size, leave blank for auto slicing')
+@click.option('--clahe', default=False, help='Run the CLAHE algorithm to contrast enhance before detection useful images with non-uniform lighting')
+
 def run_detect(show: bool, image_dir: str, save_dir: str, model: str,
                slice_size_width: int, slice_size_height: int, scale_percent: int,
                device: str, conf: float, skip_sahi: bool, skip_saliency: bool, spec_remove: bool,
-               config_ini: str):
+               config_ini: str, clahe: bool):
     config = cfg.Config(config_ini)
     max_area = int(config('detect', 'max_area'))
     min_area = int(config('detect', 'min_area'))
@@ -53,7 +55,7 @@ def run_detect(show: bool, image_dir: str, save_dir: str, model: str,
         allowable_classes = config('detect', 'allowable_classes')
         if len(allowable_classes) > 0:
             allowable_classes = allowable_classes.split(',')
-    clahe = config('detect', 'clahe') == 'True'
+#    clahe = config('detect', 'clahe') == 'True'
 
     create_logger_file(Path.cwd(), 'detect')
 
