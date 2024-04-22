@@ -29,4 +29,3 @@ numba==0.57
 ephem
 jupyter
 tqdm 
-os-sys>=0.1
