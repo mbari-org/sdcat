@@ -4,6 +4,7 @@ import shutil
 from pathlib import Path
 
 import click
+from tqdm import tqdm
 import cv2
 import pandas as pd
 import torch
@@ -150,7 +151,7 @@ def run_detect(show: bool, image_dir: str, save_dir: str, model: str,
     # Run on all images recursively
     # Find all valid images
     images = [file for file in images_path.rglob('*')
-              if file.as_posix().endswith(('jpeg', 'png', 'jpg', 'JPEG', 'PNG', 'JPG', 'tif'))]
+              if file.as_posix().endswith(('jpeg', 'png', 'jpg', 'JPEG', 'PNG', 'JPG', 'tif', 'tiff'))]
 
     num_images = len(images)
     info(f'Found {num_images} images in {images_path}')
@@ -190,7 +191,7 @@ def run_detect(show: bool, image_dir: str, save_dir: str, model: str,
                 pool.starmap(run_sahi_detect_bulk, args)
                 pool.close()
     else:
-        for f in images:
+        for f in tqdm(images):
             if not skip_saliency:
                 run_saliency_detect(spec_remove,
                                     scale_percent,
@@ -209,7 +210,7 @@ def run_detect(show: bool, image_dir: str, save_dir: str, model: str,
                                 class_agnostic)
 
     # Combine all the detections into a single dataframe per image
-    for f in images:
+    for f in tqdm(images):
         # Get the width and height of the image
         img_color = cv2.imread(f.as_posix())
         height, width = img_color.shape[:2]
