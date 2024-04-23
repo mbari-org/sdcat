@@ -298,7 +298,9 @@ def run_detect(show: bool, image_dir: str, save_dir: str, model: str,
         df_combined['w'] = (df_combined['xx'] - df_combined['x'])
         df_combined['h'] = (df_combined['xy'] - df_combined['y'])
 
+        # Save DataFrame to CSV file including image_width and image_height columns
         df_combined.to_csv(pred_out_csv.as_posix(), index=False, header=True)
+
         info(f'Found {len(pred_list)} total localizations in {f} with {len(df_combined)} after NMS')
         info(f'Slice width: {slice_size_width} height: {slice_size_height}')
 

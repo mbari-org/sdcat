@@ -25,7 +25,11 @@ from sdcat.cluster.cluster import cluster_vits
 @click.option('--det-dir', help='Input folder(s) with raw detection results', multiple=True)
 @click.option('--save-dir', help='Output directory to save clustered detection results')
 @click.option('--device', help='Device to use.', type=int)
-def run_cluster(det_dir, save_dir, device, config_ini):
+@click.option('--alpha', help='Alpha is a parameter that controls the linkage.', type=float, default=0.92)
+@click.option('--cluster_selection_epsilon', help='Epsilon is a parameter that controls the linkage', type=float, default=0.0)
+@click.option('--min_cluster_size', help='The minimum number of samples in a group for that group to be considered a cluster', type=int, default=2)
+
+def run_cluster(det_dir, save_dir, device, config_ini, alpha, cluster_selection_epsilon, min_cluster_size):
     config = cfg.Config(config_ini)
     max_area = int(config('cluster', 'max_area'))
     min_area = int(config('cluster', 'min_area'))
@@ -36,9 +40,6 @@ def run_cluster(det_dir, save_dir, device, config_ini):
     longitude = float(config('cluster', 'longitude'))
     min_score = float(config('cluster', 'min_score'))
     min_similarity = float(config('cluster', 'min_similarity'))
-    alpha = float(config('cluster', 'alpha'))
-    cluster_selection_epsilon = float(config('cluster', 'cluster_selection_epsilon'))
-    min_cluster_size = int(config('cluster', 'min_cluster_size'))
     model = config('cluster', 'model')
 
     if device:
