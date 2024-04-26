@@ -110,7 +110,7 @@ def crop_square_image(row, square_dim: int):
 
         if Path(row.crop_path).exists():  # If the crop already exists, skip it
             return
-        print("Image widht ", row.image_width)
+        
         x1 = int(row.image_width * row.x)
         y1 = int(row.image_height * row.y)
         x2 = int(row.image_width * row.xx)
