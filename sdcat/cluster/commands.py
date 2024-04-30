@@ -22,6 +22,8 @@ from sdcat.cluster.cluster import cluster_vits
 
 @click.command('cluster', help='Cluster detections. See cluster --config-ini to override cluster defaults.')
 @common_args.config_ini
+@common_args.start_image
+@common_args.end_image
 @click.option('--det-dir', help='Input folder(s) with raw detection results', multiple=True)
 @click.option('--save-dir', help='Output directory to save clustered detection results')
 @click.option('--device', help='Device to use.', type=int)
@@ -29,7 +31,7 @@ from sdcat.cluster.cluster import cluster_vits
 @click.option('--cluster_selection_epsilon', help='Epsilon is a parameter that controls the linkage', type=float, default=0.0)
 @click.option('--min_cluster_size', help='The minimum number of samples in a group for that group to be considered a cluster', type=int, default=2)
 
-def run_cluster(det_dir, save_dir, device, config_ini, alpha, cluster_selection_epsilon, min_cluster_size):
+def run_cluster(det_dir, save_dir, device, config_ini, alpha, cluster_selection_epsilon, min_cluster_size, start_image, end_image):
     config = cfg.Config(config_ini)
     max_area = int(config('cluster', 'max_area'))
     min_area = int(config('cluster', 'min_area'))
@@ -86,6 +88,22 @@ def run_cluster(det_dir, save_dir, device, config_ini, alpha, cluster_selection_
     if df['image_path'].isnull().values.any():
         err(f'Found {df["image_path"].isnull().sum()} detections with no image_path')
         return
+
+    # If start_image is set, find the index of the start_image in the list of images
+    if start_image:
+        start_image = Path(start_image)
+        start_image = start_image.resolve()
+        start_image = start_image.stem
+        start_image_index = df[df['image_path'].str.contains(start_image)].index[0]
+        df = df.iloc[start_image_index:]
+
+    # If end_image is set, find the index of the end_image in the list of images
+    if end_image:
+        end_image = Path(end_image)
+        end_image = end_image.resolve()
+        end_image = end_image.stem
+        end_image_index = df[df['image_path'].str.contains(end_image)].index[0]
+        df = df.iloc[:end_image_index]
 
     # Filter by saliency, area, score or day/night
     size_before = len(df)

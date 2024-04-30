@@ -27,6 +27,8 @@ default_model = 'MBARI/megamidwater'
                     f'Use --skip-sahi or --skip-saliency to exclude. '
                     f'See --config-ini to override detection defaults in {default_config_ini}.')
 @common_args.config_ini
+@common_args.start_image
+@common_args.end_image
 @click.option('--show', is_flag=True, help='Show algorithm steps.')
 @click.option('--image-dir', required=True, help='Directory with images to run sliced detection.')
 @click.option('--save-dir', required=True, help='Save detections to this directory.')
@@ -45,7 +47,7 @@ default_model = 'MBARI/megamidwater'
 def run_detect(show: bool, image_dir: str, save_dir: str, model: str,
                slice_size_width: int, slice_size_height: int, scale_percent: int,
                device: str, conf: float, skip_sahi: bool, skip_saliency: bool, spec_remove: bool,
-               config_ini: str, clahe: bool):
+               config_ini: str, clahe: bool, start_image: str, end_image: str):
     config = cfg.Config(config_ini)
     max_area = int(config('detect', 'max_area'))
     min_area = int(config('detect', 'min_area'))
@@ -152,6 +154,24 @@ def run_detect(show: bool, image_dir: str, save_dir: str, model: str,
     # Find all valid images
     images = [file for file in images_path.rglob('*')
               if file.as_posix().endswith(('jpeg', 'png', 'jpg', 'JPEG', 'PNG', 'JPG', 'tif', 'tiff'))]
+
+    # If start_image is set, find the index of the start_image in the list of images
+    if start_image:
+        start_image = Path(start_image)
+        start_image_index = next((i for i, image in enumerate(images) if start_image.name in image.name), None)
+        if start_image_index is None:
+            warn(f'Start image {start_image} not found in images')
+            return
+        images = images[start_image_index:]
+
+    # If end_image is set, find the index of the end_image in the list of images
+    if end_image:
+        end_image = Path(end_image)
+        end_image_index = next((i for i, image in enumerate(images) if end_image.name in image.name), None)
+        if end_image_index is None:
+            warn(f'End image {end_image} not found in images')
+            return
+        images = images[:end_image_index + 1]
 
     num_images = len(images)
     info(f'Found {num_images} images in {images_path}')

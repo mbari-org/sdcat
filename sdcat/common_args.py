@@ -11,3 +11,11 @@ config_ini = click.option('--config-ini',
                           type=str,
                           default=default_config_ini,
                           help=f'Path to config file to override. Defaults are in {default_config_ini}. Copy to your own custom.ini file to override')
+
+start_image = click.option('--start-image',
+                            type=str,
+                            help='Start image name')
+
+end_image = click.option('--end-image',
+                            type=str,
+                            help='End image name')
