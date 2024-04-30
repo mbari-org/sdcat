@@ -150,9 +150,9 @@ def run_detect(show: bool, image_dir: str, save_dir: str, model: str,
     save_path_det_filtered.mkdir(parents=True, exist_ok=True)
     save_path_viz.mkdir(parents=True, exist_ok=True)
 
-    # Run on all images recursively
+    # Run on all images recursively. Sort the dataframe by image_path to make sure the images are in order for start_image and end_image filtering
     # Find all valid images
-    images = [file for file in images_path.rglob('*')
+    images = [file for file in sorted(images_path.rglob('*'))
               if file.as_posix().endswith(('jpeg', 'png', 'jpg', 'JPEG', 'PNG', 'JPG', 'tif', 'tiff'))]
 
     # If start_image is set, find the index of the start_image in the list of images

@@ -89,6 +89,9 @@ def run_cluster(det_dir, save_dir, device, config_ini, alpha, cluster_selection_
         err(f'Found {df["image_path"].isnull().sum()} detections with no image_path')
         return
 
+    # Sort the dataframe by image_path to make sure the images are in order for start_image and end_image filtering
+    df = df.sort_values(by='image_path')
+
     # If start_image is set, find the index of the start_image in the list of images
     if start_image:
         start_image = Path(start_image)
