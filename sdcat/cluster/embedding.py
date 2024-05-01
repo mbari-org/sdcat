@@ -99,11 +99,10 @@ def compute_embedding(images: list, model_name: str):
     info(f'Using patch size {patch_size} for model {model_name}')
 
     # Load images and generate embeddings
-    device = None
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
     with torch.no_grad():
         # Set the cuda device
         if torch.cuda.is_available():
-            device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
             model = model.to(device)
 
         for filename in images:
@@ -123,7 +122,7 @@ def compute_embedding(images: list, model_name: str):
             # Convert the image to a tensor
             img_tensor = torch.from_numpy(image).permute(2, 0, 1).float() / 255.0
             img_tensor = img_tensor.unsqueeze(0)  # Add batch dimension
-            if device:
+            if 'cuda' in device:
                 img_tensor = img_tensor.to(device)
             features = model(img_tensor)
 
