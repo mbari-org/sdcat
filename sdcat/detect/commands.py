@@ -42,13 +42,14 @@ default_model = 'MBARI/megamidwater'
 @click.option('--model', default=default_model, help=f'Model to use. Defaults to {default_model}')
 @click.option('--slice-size-width', default=900, help='Slice width size, leave blank for auto slicing')
 @click.option('--slice-size-height', default=900, help='Slice height size, leave blank for auto slicing')
-@click.option('--clahe', default=False, help='Run the CLAHE algorithm to contrast enhance before detection useful images with non-uniform lighting')
+@click.option('--clahe', is_flag=True, help='Run the CLAHE algorithm to contrast enhance before detection useful images with non-uniform lighting')
 
 def run_detect(show: bool, image_dir: str, save_dir: str, model: str,
                slice_size_width: int, slice_size_height: int, scale_percent: int,
                device: str, conf: float, skip_sahi: bool, skip_saliency: bool, spec_remove: bool,
                config_ini: str, clahe: bool, start_image: str, end_image: str):
     config = cfg.Config(config_ini)
+    clahe = clahe if clahe else config('detect', 'clahe') == 'True'
     max_area = int(config('detect', 'max_area'))
     min_area = int(config('detect', 'min_area'))
     min_saliency = int(config('detect', 'min_saliency'))
@@ -58,7 +59,6 @@ def run_detect(show: bool, image_dir: str, save_dir: str, model: str,
         allowable_classes = config('detect', 'allowable_classes')
         if len(allowable_classes) > 0:
             allowable_classes = allowable_classes.split(',')
-#    clahe = config('detect', 'clahe') == 'True'
 
     create_logger_file(Path.cwd(), 'detect')
 
@@ -217,6 +217,7 @@ def run_detect(show: bool, image_dir: str, save_dir: str, model: str,
                                     scale_percent,
                                     f.as_posix(),
                                     (save_path_det_raw / f'{f.stem}.csv').as_posix(),
+                                    None,
                                     clahe,
                                     show)
             if not skip_sahi:
@@ -282,7 +283,7 @@ def run_detect(show: bool, image_dir: str, save_dir: str, model: str,
         df_final['area'] = df_combined['area'].iloc[nms_pred_idx].reset_index(drop=True)
 
         # Plot boxes on the input frame
-        pred_list = df_combined[['x', 'y', 'xx', 'xy', 'score', 'class']].values.tolist()
+        pred_list = df_final[['x', 'y', 'xx', 'xy', 'score', 'class']].values.tolist()
         for p in pred_list:
             if class_agnostic:
                 img_color = cv2.rectangle(img_color,
@@ -304,22 +305,21 @@ def run_detect(show: bool, image_dir: str, save_dir: str, model: str,
         info(f'Saving visualization to {save_path_viz / f"{f.stem}.jpg"}')
         cv2.imwrite(f"{save_path_viz / f'{f.stem}.jpg'}", img_color)
 
-        df_combined['class'] = 'Unknown'
-        df_combined['cluster'] = -1
-        df_combined['image_path'] = f.as_posix()
-        df_combined['image_width'] = width
-        df_combined['image_height'] = height
+        df_final['cluster'] = -1
+        df_final['image_path'] = f.as_posix()
+        df_final['image_width'] = width
+        df_final['image_height'] = height
 
         # Normalize the predictions to 0-1.
-        df_combined['x'] = df_combined['x'] / width
-        df_combined['y'] = df_combined['y'] / height
-        df_combined['xx'] = df_combined['xx'] / width
-        df_combined['xy'] = df_combined['xy'] / height
-        df_combined['w'] = (df_combined['xx'] - df_combined['x'])
-        df_combined['h'] = (df_combined['xy'] - df_combined['y'])
+        df_final['x'] = df_final['x'] / width
+        df_final['y'] = df_final['y'] / height
+        df_final['xx'] = df_final['xx'] / width
+        df_final['xy'] = df_final['xy'] / height
+        df_final['w'] = (df_final['xx'] - df_final['x'])
+        df_final['h'] = (df_final['xy'] - df_final['y'])
 
         # Save DataFrame to CSV file including image_width and image_height columns
-        df_combined.to_csv(pred_out_csv.as_posix(), index=False, header=True)
+        df_final.to_csv(pred_out_csv.as_posix(), index=False, header=True)
 
         info(f'Found {len(pred_list)} total localizations in {f} with {len(df_combined)} after NMS')
         info(f'Slice width: {slice_size_width} height: {slice_size_height}')
