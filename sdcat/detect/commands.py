@@ -42,7 +42,7 @@ default_model = 'MBARI/megamidwater'
 @click.option('--model', default=default_model, help=f'Model to use. Defaults to {default_model}')
 @click.option('--slice-size-width', default=900, help='Slice width size, leave blank for auto slicing')
 @click.option('--slice-size-height', default=900, help='Slice height size, leave blank for auto slicing')
-@click.option('--postprocess_match_metric', default='IOS', help='Postprocess match metric for NMS. postprocess_match_metric IOU for intersection over union, IOS for intersection over smaller area.')
+@click.option('--postprocess-match-metric', default='IOS', help='Postprocess match metric for NMS. postprocess_match_metric IOU for intersection over union, IOS for intersection over smaller area.')
 @click.option('--overlap-width-ratio', default=0.4, help='Overlap width ratio for NMS')
 @click.option('--overlap-height-ratio', default=0.4, help='Overlap height ratio for NMS')
 @click.option('--clahe', is_flag=True, help='Run the CLAHE algorithm to contrast enhance before detection useful images with non-uniform lighting')

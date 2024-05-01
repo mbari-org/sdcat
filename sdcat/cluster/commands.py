@@ -29,8 +29,8 @@ from sdcat.cluster.cluster import cluster_vits
 @click.option('--save-dir', help='Output directory to save clustered detection results')
 @click.option('--device', help='Device to use, e.g. cpu or cuda:0', type=str)
 @click.option('--alpha', help='Alpha is a parameter that controls the linkage. See https://hdbscan.readthedocs.io/en/latest/parameter_selection.html. Default is 0.92. Increase for less conservative clustering, e.g. 1.0', type=float)
-@click.option('--cluster_selection_epsilon', help='Epsilon is a parameter that controls the linkage. Default is 0. Increase for less conservative clustering', type=float)
-@click.option('--min_cluster_size', help='The minimum number of samples in a group for that group to be considered a cluster. Default is 2. Increase for less conservative clustering, e.g. 5, 15', type=int)
+@click.option('--cluster-selection-epsilon', help='Epsilon is a parameter that controls the linkage. Default is 0. Increase for less conservative clustering', type=float)
+@click.option('--min-cluster-size', help='The minimum number of samples in a group for that group to be considered a cluster. Default is 2. Increase for less conservative clustering, e.g. 5, 15', type=int)
 def run_cluster(det_dir, save_dir, device, config_ini, alpha, cluster_selection_epsilon, min_cluster_size, start_image, end_image):
     config = cfg.Config(config_ini)
     max_area = int(config('cluster', 'max_area'))
