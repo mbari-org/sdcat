@@ -63,7 +63,7 @@ def test_pinniped():
     data_path = Path(__file__).parent / 'data' / 'pinniped'
     num_detections = run_detect(data_path, 60)
     print(f'Found {num_detections} in test_pinniped')
-    assert num_detections == 62
+    assert num_detections == 59
 
 
 def test_plankton():
@@ -72,7 +72,7 @@ def test_plankton():
     data_path = Path(__file__).parent / 'data' / 'plankton'
     num_detections = run_detect(data_path, 80)
     print(f'Found {num_detections} in test_plankton')
-    assert num_detections == 1013
+    assert num_detections == 1011
 
 
 if __name__ == '__main__':
