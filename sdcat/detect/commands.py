@@ -42,10 +42,14 @@ default_model = 'MBARI/megamidwater'
 @click.option('--model', default=default_model, help=f'Model to use. Defaults to {default_model}')
 @click.option('--slice-size-width', default=900, help='Slice width size, leave blank for auto slicing')
 @click.option('--slice-size-height', default=900, help='Slice height size, leave blank for auto slicing')
+@click.option('--postprocess_match_metric', default='IOS', help='Postprocess match metric for NMS. postprocess_match_metric IOU for intersection over union, IOS for intersection over smaller area.')
+@click.option('--overlap-width-ratio', default=0.4, help='Overlap width ratio for NMS')
+@click.option('--overlap-height-ratio', default=0.4, help='Overlap height ratio for NMS')
 @click.option('--clahe', is_flag=True, help='Run the CLAHE algorithm to contrast enhance before detection useful images with non-uniform lighting')
 
 def run_detect(show: bool, image_dir: str, save_dir: str, model: str,
                slice_size_width: int, slice_size_height: int, scale_percent: int,
+                postprocess_match_metric: str, overlap_width_ratio: float, overlap_height_ratio: float,
                device: str, conf: float, skip_sahi: bool, skip_saliency: bool, spec_remove: bool,
                config_ini: str, clahe: bool, start_image: str, end_image: str):
     config = cfg.Config(config_ini)
@@ -205,6 +209,9 @@ def run_detect(show: bool, image_dir: str, save_dir: str, model: str,
                          images[i:i + 10],
                          save_path_det_raw,
                          detection_model,
+                         postprocess_match_metric,
+                         overlap_width_ratio,
+                         overlap_height_ratio,
                          allowable_classes,
                          class_agnostic)
                         for i in range(0, num_images, 1)]
@@ -227,6 +234,9 @@ def run_detect(show: bool, image_dir: str, save_dir: str, model: str,
                                 f,
                                 (save_path_det_raw / f'{f.stem}.sahi.csv'),
                                 detection_model,
+                                postprocess_match_metric,
+                                overlap_width_ratio,
+                                overlap_height_ratio,
                                 allowable_classes,
                                 class_agnostic)
 

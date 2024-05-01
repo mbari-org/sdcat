@@ -27,6 +27,9 @@ def run_sahi_detect_bulk(scale_percent: int,
                          images: list,
                          csv_out_path: Path,
                          detection_model,
+                         postprocess_match_metric: str,
+                         overlap_width_ratio: float,
+                         overlap_height_ratio: float,
                          allowable_classes: list = None,
                          class_agnostic: bool = False):
     info(f'Processing {len(images)} images')
@@ -39,8 +42,11 @@ def run_sahi_detect_bulk(scale_percent: int,
                         f,
                         (csv_out_path / f'{f.stem}.sahi.csv'),
                         detection_model,
-                        allowable_classes=allowable_classes,
-                        class_agnostic=class_agnostic)
+                        postprocess_match_metric,
+                        overlap_width_ratio,
+                        overlap_height_ratio,
+                        allowable_classes,
+                        class_agnostic)
 
 
 def run_sahi_detect(scale_percent: int,
@@ -49,6 +55,9 @@ def run_sahi_detect(scale_percent: int,
                     image_path: Path,
                     csv_out_path: Path,
                     detection_model,
+                    postprocess_match_metric: str = 'IOS',
+                    overlap_width_ratio: float = 0.4,
+                    overlap_height_ratio: float = 0.4,
                     allowable_classes: list = None,
                     class_agnostic: bool = False) -> pd.DataFrame:
     """
@@ -60,6 +69,9 @@ def run_sahi_detect(scale_percent: int,
     :param csv_out_path: output path for the detections
     :param image_color: color image
     :param detection_model: detection model
+    :param postprocess_match_metric 'IOU' for intersection over union, 'IOS' for intersection over smaller area.
+    :param overlap_width_ratio: overlap width ratio - amount of overlap between slices
+    :param overlap_height_ratio: overlap height ratio - amount of overlap between slices
     :param allowable_classes: list of allowable classes
     :param class_agnostic: True if class agnostic
     :return: dataframe of detections
@@ -94,11 +106,10 @@ def run_sahi_detect(scale_percent: int,
             detection_model,
             slice_height=slice_height,
             slice_width=slice_width,
-            overlap_height_ratio=0.40,
-            overlap_width_ratio=0.40,
+            overlap_height_ratio=overlap_height_ratio,
+            overlap_width_ratio=overlap_width_ratio,
             postprocess_type="NMM",
-            postprocess_match_metric='IOS',
-            # postprocess_match_metrica 'IOU' for intersection over union, 'IOS' for intersection over smaller area.
+            postprocess_match_metric=postprocess_match_metric,
             perform_standard_pred=True,
             # Perform a standard prediction on top of sliced predictions to increase large object detection
             postprocess_class_agnostic=class_agnostic,  # If True, postprocess will ignore category ids.
