@@ -10,6 +10,7 @@ from pathlib import Path
 
 import click
 import ephem
+import os
 import pandas as pd
 import pytz
 import torch
@@ -26,17 +27,19 @@ from sdcat.cluster.cluster import cluster_vits
 @common_args.end_image
 @click.option('--det-dir', help='Input folder(s) with raw detection results', multiple=True)
 @click.option('--save-dir', help='Output directory to save clustered detection results')
-@click.option('--device', help='Device to use.', type=int)
-@click.option('--alpha', help='Alpha is a parameter that controls the linkage.', type=float, default=0.92)
-@click.option('--cluster_selection_epsilon', help='Epsilon is a parameter that controls the linkage', type=float, default=0.0)
-@click.option('--min_cluster_size', help='The minimum number of samples in a group for that group to be considered a cluster', type=int, default=2)
-
+@click.option('--device', help='Device to use, e.g. cpu or cuda:0', type=str)
+@click.option('--alpha', help='Alpha is a parameter that controls the linkage. See https://hdbscan.readthedocs.io/en/latest/parameter_selection.html. Default is 0.92. Increase for less conservative clustering, e.g. 1.0', type=float)
+@click.option('--cluster_selection_epsilon', help='Epsilon is a parameter that controls the linkage. Default is 0. Increase for less conservative clustering', type=float)
+@click.option('--min_cluster_size', help='The minimum number of samples in a group for that group to be considered a cluster. Default is 2. Increase for less conservative clustering, e.g. 5, 15', type=int)
 def run_cluster(det_dir, save_dir, device, config_ini, alpha, cluster_selection_epsilon, min_cluster_size, start_image, end_image):
     config = cfg.Config(config_ini)
     max_area = int(config('cluster', 'max_area'))
     min_area = int(config('cluster', 'min_area'))
     min_saliency = int(config('cluster', 'min_saliency'))
     min_samples = int(config('cluster', 'min_samples'))
+    alpha = alpha if alpha else float(config('cluster', 'alpha'))
+    min_cluster_size = min_cluster_size if min_cluster_size else int(config('cluster', 'min_cluster_size'))
+    cluster_selection_epsilon = cluster_selection_epsilon if cluster_selection_epsilon else float(config('cluster','cluster_selection_epsilon'))
     remove_corners = config('cluster', 'remove_corners')
     latitude = float(config('cluster', 'latitude'))
     longitude = float(config('cluster', 'longitude'))
@@ -48,7 +51,11 @@ def run_cluster(det_dir, save_dir, device, config_ini, alpha, cluster_selection_
         num_devices = torch.cuda.device_count()
         info(f'{num_devices} cuda devices available')
         info(f'Using device {device}')
-        torch.cuda.set_device(device)
+        if 'cuda' in device:
+            device_num = device.split(':')[-1]
+            info(f'Setting CUDA_VISIBLE_DEVICES to {device_num}')
+            torch.cuda.set_device(device)
+            os.environ['CUDA_VISIBLE_DEVICES'] = device_num
 
     save_dir = Path(save_dir)
     save_dir.mkdir(parents=True, exist_ok=True)
