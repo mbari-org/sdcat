@@ -21,7 +21,7 @@ from sdcat.logger import info, err, warn
 from sdcat.cluster.cluster import cluster_vits
 
 
-@click.command('cluster-det', help='Cluster detections. See cluster --config-ini to override cluster defaults.')
+@click.command('detections', help='Cluster detections. See cluster --config-ini to override cluster defaults.')
 @common_args.config_ini
 @common_args.start_image
 @common_args.end_image
@@ -261,7 +261,7 @@ def run_cluster_det(det_dir, save_dir, device, config_ini, alpha, cluster_select
         warn(f'No detections found to cluster')
 
 
-@click.command('cluster-roi', help='Cluster roi. See cluster --config-ini to override cluster defaults.')
+@click.command('roi', help='Cluster roi. See cluster --config-ini to override cluster defaults.')
 @common_args.config_ini
 @click.option('--roi-dir', help='Input folder(s) with raw ROI images', multiple=True)
 @click.option('--save-dir', help='Output directory to save clustered detection results')
