@@ -7,7 +7,7 @@ from pathlib import Path
 import click
 from sdcat.logger import err, info, create_logger_file
 from sdcat import __version__
-from sdcat.cluster.commands import run_cluster
+from sdcat.cluster.commands import run_cluster_det, run_cluster_roi
 from sdcat.detect.commands import run_detect
 
 
@@ -28,7 +28,19 @@ def cli():
     pass
 
 cli.add_command(run_detect)
-cli.add_command(run_cluster)
+
+
+@cli.group(name="cluster")
+def cli_cluster():
+    """
+    Commands related to converting data
+    """
+    pass
+
+
+cli.add_command(cli_cluster)
+cli_cluster.add_command(run_cluster_det)
+cli_cluster.add_command(run_cluster_roi)
 
 
 if __name__ == '__main__':

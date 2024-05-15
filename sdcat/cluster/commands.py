@@ -21,7 +21,7 @@ from sdcat.logger import info, err, warn
 from sdcat.cluster.cluster import cluster_vits
 
 
-@click.command('cluster', help='Cluster detections. See cluster --config-ini to override cluster defaults.')
+@click.command('cluster-det', help='Cluster detections. See cluster --config-ini to override cluster defaults.')
 @common_args.config_ini
 @common_args.start_image
 @common_args.end_image
@@ -31,7 +31,7 @@ from sdcat.cluster.cluster import cluster_vits
 @click.option('--alpha', help='Alpha is a parameter that controls the linkage. See https://hdbscan.readthedocs.io/en/latest/parameter_selection.html. Default is 0.92. Increase for less conservative clustering, e.g. 1.0', type=float)
 @click.option('--cluster-selection-epsilon', help='Epsilon is a parameter that controls the linkage. Default is 0. Increase for less conservative clustering', type=float)
 @click.option('--min-cluster-size', help='The minimum number of samples in a group for that group to be considered a cluster. Default is 2. Increase for less conservative clustering, e.g. 5, 15', type=int)
-def run_cluster(det_dir, save_dir, device, config_ini, alpha, cluster_selection_epsilon, min_cluster_size, start_image, end_image):
+def run_cluster_det(det_dir, save_dir, device, config_ini, alpha, cluster_selection_epsilon, min_cluster_size, start_image, end_image):
     config = cfg.Config(config_ini)
     max_area = int(config('cluster', 'max_area'))
     min_area = int(config('cluster', 'min_area'))
@@ -236,6 +236,99 @@ def run_cluster(det_dir, save_dir, device, config_ini, alpha, cluster_selection_
     # df = df[df['day'] == 1]
     # size_after = len(df)
     # info(f'Removed {size_before - size_after} detections that were at night')
+
+    # Replace any NaNs with 0
+    df.fillna(0)
+
+    # Print the first 5 rows of the dataframe
+    info(df.head(5))
+
+    if len(df) > 0:
+        # A prefix for the output files to make sure the output is unique for each execution
+        prefix = f'{model}_{datetime.now().strftime("%Y%m%d_%H%M%S")}'
+
+        # Cluster the detections
+        df_cluster = cluster_vits(prefix, model, df, save_dir, alpha, cluster_selection_epsilon, min_similarity,
+                                  min_cluster_size, min_samples)
+
+        # Merge the results with the original DataFrame
+        df.update(df_cluster)
+
+        # Save the clustered detections to a csv file and a copy of the config.ini file
+        df.to_csv(save_dir / f'{prefix}_cluster_detections.csv', index=False, header=True)
+        shutil.copy(Path(config_ini), save_dir / f'{prefix}_config.ini')
+    else:
+        warn(f'No detections found to cluster')
+
+
+@click.command('cluster-roi', help='Cluster roi. See cluster --config-ini to override cluster defaults.')
+@common_args.config_ini
+@click.option('--roi-dir', help='Input folder(s) with raw ROI images', multiple=True)
+@click.option('--save-dir', help='Output directory to save clustered detection results')
+@click.option('--device', help='Device to use, e.g. cpu or cuda:0', type=str)
+@click.option('--alpha', help='Alpha is a parameter that controls the linkage. See https://hdbscan.readthedocs.io/en/latest/parameter_selection.html. Default is 0.92. Increase for less conservative clustering, e.g. 1.0', type=float)
+@click.option('--cluster-selection-epsilon', help='Epsilon is a parameter that controls the linkage. Default is 0. Increase for less conservative clustering', type=float)
+@click.option('--min-cluster-size', help='The minimum number of samples in a group for that group to be considered a cluster. Default is 2. Increase for less conservative clustering, e.g. 5, 15', type=int)
+def run_cluster_roi(roi_dir, save_dir, device, config_ini, alpha, cluster_selection_epsilon, min_cluster_size, start_image, end_image):
+    config = cfg.Config(config_ini)
+    max_area = int(config('cluster', 'max_area'))
+    min_area = int(config('cluster', 'min_area'))
+    min_samples = int(config('cluster', 'min_samples'))
+    alpha = alpha if alpha else float(config('cluster', 'alpha'))
+    min_cluster_size = min_cluster_size if min_cluster_size else int(config('cluster', 'min_cluster_size'))
+    cluster_selection_epsilon = cluster_selection_epsilon if cluster_selection_epsilon else float(config('cluster','cluster_selection_epsilon'))
+    min_similarity = float(config('cluster', 'min_similarity'))
+    model = config('cluster', 'model')
+
+    if device:
+        num_devices = torch.cuda.device_count()
+        info(f'{num_devices} cuda devices available')
+        info(f'Using device {device}')
+        if 'cuda' in device:
+            device_num = device.split(':')[-1]
+            info(f'Setting CUDA_VISIBLE_DEVICES to {device_num}')
+            torch.cuda.set_device(device)
+            os.environ['CUDA_VISIBLE_DEVICES'] = device_num
+
+    save_dir = Path(save_dir)
+    save_dir.mkdir(parents=True, exist_ok=True)
+
+
+    # Grab all images from the input directories
+    supported_extensions = ['.png', '.jpg', '.jpeg', '.JPG', '.JPEG', '.PNG']
+    images = []
+
+    detections = []
+    roi_path = Path(roi_dir)
+    for ext in supported_extensions:
+        images.extend(list(roi_path.rglob(f'*{ext}')))
+
+    # Create a dataframe to store the combined data in an image_path column in sorted order
+    df = pd.DataFrame()
+    df['image_path'] = images
+
+    info(f'Found {len(df)} detections in {roi_path}')
+
+    if len(df) == 0:
+        info(f'No detections found in {roi_path}')
+        return
+
+    # Sort the dataframe by image_path to make sure the images are in order for start_image and end_image filtering
+    df = df.sort_values(by='image_path')
+
+    # Add in a column for the unique crop name for each detection with a unique id
+    # create a unique uuid based on the md5 hash of the box in the row
+    df['crop_path'] = df['image_path']
+
+    # Add in a column for the unique crop name for each detection with a unique id
+    df['cluster_id'] = -1  # -1 is the default value and means that the image is not in a cluster
+
+    # Remove small or large detections before clustering
+    size_before = len(df)
+    info(f'Searching through {size_before} detections')
+    df = df[(df['area'] > min_area) & (df['area'] < max_area)]
+    size_after = len(df)
+    info(f'Removed {size_before - size_after} detections that were too large or too small')
 
     # Replace any NaNs with 0
     df.fillna(0)
