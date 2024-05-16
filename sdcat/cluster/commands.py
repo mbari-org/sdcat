@@ -306,6 +306,9 @@ def run_cluster_roi(roi_dir, save_dir, device, config_ini, alpha, cluster_select
     df = pd.DataFrame()
     df['image_path'] = images
 
+    # Convert the image_path column to a string
+    df['image_path'] = df['image_path'].astype(str)
+
     info(f'Found {len(df)} detections in {roi_dir}')
 
     if len(df) == 0:
@@ -318,7 +321,9 @@ def run_cluster_roi(roi_dir, save_dir, device, config_ini, alpha, cluster_select
     # Create a unique crop name for each detection with a unique id
     crop_path = save_dir / 'crops'
     crop_path.mkdir(parents=True, exist_ok=True)
-    df['crop_path'] = df.apply(lambda row: f"{crop_path}/{uuid.uuid5(uuid.NAMESPACE_DNS, row['image_path'])}.png", axis=1)
+    df['crop_path'] = df.apply(lambda row:
+                               f'{crop_path}/{uuid.uuid5(uuid.NAMESPACE_DNS, row["image_path"])}.png',
+                               axis=1)
 
     # Add in a column for the unique crop name for each detection with a unique id
     df['cluster_id'] = -1  # -1 is the default value and means that the image is not in a cluster
