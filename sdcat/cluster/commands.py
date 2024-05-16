@@ -297,18 +297,19 @@ def run_cluster_roi(roi_dir, save_dir, device, config_ini, alpha, cluster_select
     supported_extensions = ['.png', '.jpg', '.jpeg', '.JPG', '.JPEG', '.PNG']
     images = []
 
-    roi_path = Path(roi_dir)
-    for ext in supported_extensions:
-        images.extend(list(roi_path.rglob(f'*{ext}')))
+    for r in roi_dir:
+        roi_path = Path(r)
+        for ext in supported_extensions:
+            images.extend(list(roi_path.rglob(f'*{ext}')))
 
     # Create a dataframe to store the combined data in an image_path column in sorted order
     df = pd.DataFrame()
     df['image_path'] = images
 
-    info(f'Found {len(df)} detections in {roi_path}')
+    info(f'Found {len(df)} detections in {roi_dir}')
 
     if len(df) == 0:
-        info(f'No detections found in {roi_path}')
+        info(f'No detections found in {roi_dir}')
         return
 
     # Sort the dataframe by image_path to make sure the images are in order for start_image and end_image filtering
