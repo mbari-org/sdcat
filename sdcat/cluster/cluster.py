@@ -252,7 +252,7 @@ def cluster_vits(
             info('ROI crops already exist. Creating square crops in parallel using {multiprocessing.cpu_count()} processes...')
             with multiprocessing.Pool(num_processes) as pool:
                 args = [(row, 224) for index, row in df_dets.iterrows()]
-                pool.starmap(crop_square_image, args)
+                pool.starmap(square_image, args)
         else:
             # Crop and squaring the images in parallel using multiprocessing to speed up the processing
             info(f'Cropping {len(df_dets)} detections in parallel using {multiprocessing.cpu_count()} processes...')

@@ -14,6 +14,7 @@ import os
 import pandas as pd
 import pytz
 import torch
+from PIL.Image import Image
 
 from sdcat import common_args
 from sdcat.config import config as cfg
@@ -317,6 +318,12 @@ def run_cluster_roi(roi_dir, save_dir, device, config_ini, alpha, cluster_select
 
     # Sort the dataframe by image_path to make sure the images are in order for start_image and end_image filtering
     df = df.sort_values(by='image_path')
+
+    # Add the image_width and image_height columns to the dataframe
+    for index, row in df.iterrows():
+        im_size = Image.open(row['image_path']).size
+        df.at[index, 'image_width'] = im_size[0]
+        df.at[index, 'image_height'] = im_size[1]
 
     # Create a unique crop name for each detection with a unique id
     crop_path = save_dir / 'crops'
