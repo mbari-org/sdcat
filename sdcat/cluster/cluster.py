@@ -282,9 +282,15 @@ def cluster_vits(
         (output_path / prefix).mkdir(parents=True)
 
     # Remove everything except ancillary data to include in clustering
-    ancillary_df = df_dets.drop(
-        columns=['x', 'y', 'xx', 'xy', 'w', 'h', 'image_width', 'image_height', 'cluster_id', 'cluster', 'score',
-                 'class', 'image_path', 'crop_path'])
+    columns = ['x', 'y', 'xx', 'xy', 'w', 'h', 'image_width', 'image_height', 'cluster_id', 'cluster', 'score',
+               'class', 'image_path', 'crop_path']
+    # Check if the columns exist in the dataframe
+    if all(col in df_dets.columns for col in columns):
+        ancillary_df = df_dets.drop(
+            columns=['x', 'y', 'xx', 'xy', 'w', 'h', 'image_width', 'image_height', 'cluster_id', 'cluster', 'score',
+                     'class', 'image_path', 'crop_path'])
+    else:
+        ancillary_df = df_dets
 
     # Cluster the images
     cluster_sim, unique_clusters, cluster_means, coverage = _run_hdbscan_assign(prefix,
