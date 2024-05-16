@@ -14,7 +14,7 @@ import os
 import pandas as pd
 import pytz
 import torch
-from PIL.Image import Image
+from PIL import Image
 
 from sdcat import common_args
 from sdcat.config import config as cfg
