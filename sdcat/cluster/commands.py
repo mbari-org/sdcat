@@ -322,8 +322,8 @@ def run_cluster_roi(roi_dir, save_dir, device, config_ini, alpha, cluster_select
     # Add the image_width and image_height columns to the dataframe
     for index, row in df.iterrows():
         im_size = Image.open(row['image_path']).size
-        df.at[index, 'image_width'] = im_size[0]
-        df.at[index, 'image_height'] = im_size[1]
+        df.at[index, 'image_width'] = int(im_size[0])
+        df.at[index, 'image_height'] = int(im_size[1])
 
     # Create a unique crop name for each detection with a unique id
     crop_path = save_dir / 'crops'
