@@ -328,13 +328,6 @@ def run_cluster_roi(roi_dir, save_dir, device, config_ini, alpha, cluster_select
     # Add in a column for the unique crop name for each detection with a unique id
     df['cluster_id'] = -1  # -1 is the default value and means that the image is not in a cluster
 
-    # Remove small or large detections before clustering
-    size_before = len(df)
-    info(f'Searching through {size_before} detections')
-    df = df[(df['area'] > min_area) & (df['area'] < max_area)]
-    size_after = len(df)
-    info(f'Removed {size_before - size_after} detections that were too large or too small')
-
     # Replace any NaNs with 0
     df.fillna(0)
 
