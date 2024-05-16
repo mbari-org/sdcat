@@ -293,12 +293,10 @@ def run_cluster_roi(roi_dir, save_dir, device, config_ini, alpha, cluster_select
     save_dir = Path(save_dir)
     save_dir.mkdir(parents=True, exist_ok=True)
 
-
     # Grab all images from the input directories
     supported_extensions = ['.png', '.jpg', '.jpeg', '.JPG', '.JPEG', '.PNG']
     images = []
 
-    detections = []
     roi_path = Path(roi_dir)
     for ext in supported_extensions:
         images.extend(list(roi_path.rglob(f'*{ext}')))
@@ -316,9 +314,10 @@ def run_cluster_roi(roi_dir, save_dir, device, config_ini, alpha, cluster_select
     # Sort the dataframe by image_path to make sure the images are in order for start_image and end_image filtering
     df = df.sort_values(by='image_path')
 
-    # Add in a column for the unique crop name for each detection with a unique id
-    # create a unique uuid based on the md5 hash of the box in the row
-    df['crop_path'] = df['image_path']
+    # Create a unique crop name for each detection with a unique id
+    crop_path = save_dir / 'crops'
+    crop_path.mkdir(parents=True, exist_ok=True)
+    df['crop_path'] = df.apply(lambda row: f"{crop_path}/{uuid.uuid5(uuid.NAMESPACE_DNS, row['image_path'])}.png", axis=1)
 
     # Add in a column for the unique crop name for each detection with a unique id
     df['cluster_id'] = -1  # -1 is the default value and means that the image is not in a cluster
@@ -342,7 +341,7 @@ def run_cluster_roi(roi_dir, save_dir, device, config_ini, alpha, cluster_select
 
         # Cluster the detections
         df_cluster = cluster_vits(prefix, model, df, save_dir, alpha, cluster_selection_epsilon, min_similarity,
-                                  min_cluster_size, min_samples)
+                                  min_cluster_size, min_samples, roi=True)
 
         # Merge the results with the original DataFrame
         df.update(df_cluster)

@@ -92,9 +92,45 @@ def cluster_grid(prefix: str, cluster_sim: float, cluster_id: int, cluster_size:
     # gen_grid(with_attention=True)
 
 
+def square_image(row, square_dim: int):
+    """
+    Squares an image to the model dimension, filling it with black bars if necessary
+    :param row:
+    :param square_dim: dimension of the square image
+    :return:
+    """
+    try:
+        if not Path(row.image_path).exists():
+            warn(f'Skipping {row.crop_path} because the image {row.image_path} does not exist')
+            return
+
+        if Path(row.crop_path).exists():  # If the crop already exists, skip it
+            return
+
+        # Determine the size of the new square
+        max_side = max(row.image_width, row.image_height)
+
+        # Create a new square image with a black background
+        new_image = Image.new('RGB', (max_side, max_side), (0, 0, 0))
+
+        img = Image.open(row.image_path)
+
+        # Paste the original image onto the center of the new image
+        new_image.paste(img, ((max_side - row.image_width) // 2, (max_side - row.image_height) // 2))
+
+        # Resize the image to square_dim x square_dim
+        img = img.resize((square_dim, square_dim), Image.LANCZOS)
+
+        # Save the image
+        img.save(row.crop_path)
+        img.close()
+    except Exception as e:
+        exception(f'Error cropping {row.image_path} {e}')
+        raise e
+
 def crop_square_image(row, square_dim: int):
     """
-    Crop the image to a square padding the shorted dimension, then resize it to square_dim x square_dim
+    Crop the image to a square padding the shortest dimension, then resize it to square_dim x square_dim
     This also adjusts the crop to make sure the crop is fully in the frame, otherwise the crop that
     exceeds the frame is filled with black bars - these produce clusters of "edge" objects instead
     of the detection
