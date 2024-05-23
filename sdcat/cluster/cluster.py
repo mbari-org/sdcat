@@ -74,8 +74,10 @@ def _run_hdbscan_assign(
     # Get the number of samples which is the number of rows in the dataframe - this is used mostly for calculating coverage
     num_samples = df.shape[0]
 
-    from sklearn.manifold import TSNE
+    # from sklearn.manifold import TSNE
     from sklearn.preprocessing import MinMaxScaler
+    from MulticoreTSNE import MulticoreTSNE as TSNE
+
     tsne = TSNE(n_components=2, perplexity=40, metric="cosine", n_jobs=8, random_state=42, verbose=True)
     embedding = tsne.fit_transform(df.values)
     x = MinMaxScaler().fit_transform(embedding) # scale the embedding to 0-1
