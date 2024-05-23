@@ -10,7 +10,6 @@ import os
 import json
 import seaborn as sns
 import numpy as np
-from matplotlib import pyplot as plt
 from umap import UMAP
 from hdbscan import HDBSCAN
 from sklearn.metrics.pairwise import cosine_similarity
@@ -75,10 +74,11 @@ def _run_hdbscan_assign(
     # Get the number of samples which is the number of rows in the dataframe - this is used mostly for calculating coverage
     num_samples = df.shape[0]
 
-    # Compute the cosine similarity matrix
-    cosine_sim_matrix = cosine_similarity(df.values)
-    distance_matrix = 1 - cosine_sim_matrix
-    x = distance_matrix.astype(np.float64)
+    from sklearn.manifold import TSNE
+    from sklearn.preprocessing import MinMaxScaler
+    tsne = TSNE(n_components=2, perplexity=40, metric="cosine", n_jobs=8, random_state=42, verbose=True)
+    embedding = tsne.fit_transform(df.values)
+    x = MinMaxScaler().fit_transform(embedding) # scale the embedding to 0-1
 
     # Cluster the embeddings using HDBSCAN
     if have_gpu:
@@ -93,7 +93,7 @@ def _run_hdbscan_assign(
         labels = scan.fit_predict(x)
     else:
         scan = HDBSCAN(
-            metric='precomputed',
+            metric='l2',
             allow_single_cluster=True,
             min_cluster_size=min_cluster_size,
             min_samples=min_samples,
@@ -206,6 +206,7 @@ def _run_hdbscan_assign(
     df = pd.DataFrame({'x': xx[clustered, 0], 'y': xx[clustered, 1], 'labels': labels[clustered]})
     p = sns.jointplot(data=df, x='x', y='y', hue='labels')
     p.savefig(f"{out_path}/{prefix}_summary.png")
+    info(f"Saved {out_path}/{prefix}_summary.png")
 
     with open(f'{out_path}/{prefix}_summary.json', 'w') as f:
         json.dump(params, f)

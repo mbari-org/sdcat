@@ -11,6 +11,7 @@ from PIL import Image, ImageFilter
 from numpy import save, load
 import numpy as np
 from sahi.utils.torch import torch
+from torchvision import transforms as pth_transforms
 import torch.nn as nn
 import cv2
 from sdcat.logger import info, err
@@ -119,8 +120,10 @@ def compute_embedding(images: list, model_name: str):
 
             image = np.array(square_img)
 
-            # Convert the image to a tensor
+            norm_transform = pth_transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
             img_tensor = torch.from_numpy(image).permute(2, 0, 1).float() / 255.0
+            # Noramlize the tensor with the mean and std of the ImageNet dataset
+            img_tensor = norm_transform(img_tensor)
             img_tensor = img_tensor.unsqueeze(0)  # Add batch dimension
             if 'cuda' in device:
                 img_tensor = img_tensor.to(device)
