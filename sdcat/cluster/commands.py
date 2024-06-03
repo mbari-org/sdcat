@@ -14,6 +14,7 @@ import os
 import pandas as pd
 import pytz
 import torch
+from PIL import Image
 
 from sdcat import common_args
 from sdcat.config import config as cfg
@@ -21,7 +22,7 @@ from sdcat.logger import info, err, warn
 from sdcat.cluster.cluster import cluster_vits
 
 
-@click.command('cluster', help='Cluster detections. See cluster --config-ini to override cluster defaults.')
+@click.command('detections', help='Cluster detections. See cluster --config-ini to override cluster defaults.')
 @common_args.config_ini
 @common_args.start_image
 @common_args.end_image
@@ -31,7 +32,7 @@ from sdcat.cluster.cluster import cluster_vits
 @click.option('--alpha', help='Alpha is a parameter that controls the linkage. See https://hdbscan.readthedocs.io/en/latest/parameter_selection.html. Default is 0.92. Increase for less conservative clustering, e.g. 1.0', type=float)
 @click.option('--cluster-selection-epsilon', help='Epsilon is a parameter that controls the linkage. Default is 0. Increase for less conservative clustering', type=float)
 @click.option('--min-cluster-size', help='The minimum number of samples in a group for that group to be considered a cluster. Default is 2. Increase for less conservative clustering, e.g. 5, 15', type=int)
-def run_cluster(det_dir, save_dir, device, config_ini, alpha, cluster_selection_epsilon, min_cluster_size, start_image, end_image):
+def run_cluster_det(det_dir, save_dir, device, config_ini, alpha, cluster_selection_epsilon, min_cluster_size, start_image, end_image):
     config = cfg.Config(config_ini)
     max_area = int(config('cluster', 'max_area'))
     min_area = int(config('cluster', 'min_area'))
@@ -259,7 +260,7 @@ def run_cluster(det_dir, save_dir, device, config_ini, alpha, cluster_selection_
         shutil.copy(Path(config_ini), save_dir / f'{prefix}_config.ini')
     else:
         warn(f'No detections found to cluster')
-
+ 
 @click.command('roi', help='Cluster roi. See cluster --config-ini to override cluster defaults.')
 @common_args.config_ini
 @click.option('--roi-dir', help='Input folder(s) with raw ROI images', multiple=True)

@@ -15,7 +15,7 @@ from hdbscan import HDBSCAN
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.preprocessing import MinMaxScaler
 from sdcat.logger import info, warn, debug, err
-from sdcat.cluster.utils import cluster_grid, crop_square_image
+from sdcat.cluster.utils import cluster_grid, crop_square_image, square_image
 from sdcat.cluster.embedding import fetch_embedding, has_cached_embedding, compute_norm_embedding
 
 if find_spec("multicore_tsne"):
@@ -227,12 +227,14 @@ def cluster_vits(
         cluster_selection_epsilon: float,
         min_similarity: float,
         min_cluster_size: int,
-        min_samples: int):
+        min_samples: int,
+        roi: bool = False) -> pd.DataFrame:
     """  Cluster the crops using the VITS embeddings.
     :param prefix:  A unique prefix to save artifacts from clustering
     :param model: The model to use for clustering
     :param df_dets: The dataframe with the detections
     :param output_path: The output path to save the clustering artifacts to
+    :param roi:  Whether the detections are already cropped to the ROI
     :param cluster_selection_epsilon: The epsilon parameter for HDBSCAN
     :param alpha: The alpha parameter for HDBSCAN
     :param min_similarity: The minimum similarity score to use for -1 cluster reassignment
@@ -250,12 +252,18 @@ def cluster_vits(
 
     # Skip cropping if all the crops are already done
     if num_crop != len(df_dets):
-        # Crop and squaring the images in parallel using multiprocessing to speed up the processing
-        info(f'Cropping {len(df_dets)} detections in parallel using {multiprocessing.cpu_count()} processes...')
         num_processes = min(multiprocessing.cpu_count(), len(df_dets))
-        with multiprocessing.Pool(num_processes) as pool:
-            args = [(row, 224) for index, row in df_dets.iterrows()]
-            pool.starmap(crop_square_image, args)
+        if roi == True:
+            info('ROI crops already exist. Creating square crops in parallel using {multiprocessing.cpu_count()} processes...')
+            with multiprocessing.Pool(num_processes) as pool:
+                args = [(row, 224) for index, row in df_dets.iterrows()]
+                pool.starmap(square_image, args)
+        else:
+            # Crop and squaring the images in parallel using multiprocessing to speed up the processing
+            info(f'Cropping {len(df_dets)} detections in parallel using {multiprocessing.cpu_count()} processes...')
+            with multiprocessing.Pool(num_processes) as pool:
+                args = [(row, 224) for index, row in df_dets.iterrows()]
+                pool.starmap(crop_square_image, args)
 
     # Drop any rows with crop_path that have files that don't exist - sometimes the crops fail
     df_dets = df_dets[df_dets['crop_path'].apply(lambda x: os.path.exists(x))]
@@ -279,9 +287,15 @@ def cluster_vits(
         (output_path / prefix).mkdir(parents=True)
 
     # Remove everything except ancillary data to include in clustering
-    ancillary_df = df_dets.drop(
-        columns=['x', 'y', 'xx', 'xy', 'w', 'h', 'image_width', 'image_height', 'cluster_id', 'cluster', 'score',
-                 'class', 'image_path', 'crop_path'])
+    columns = ['x', 'y', 'xx', 'xy', 'w', 'h', 'image_width', 'image_height', 'cluster_id', 'cluster', 'score',
+               'class', 'image_path', 'crop_path']
+    # Check if the columns exist in the dataframe
+    if all(col in df_dets.columns for col in columns):
+        ancillary_df = df_dets.drop(
+            columns=['x', 'y', 'xx', 'xy', 'w', 'h', 'image_width', 'image_height', 'cluster_id', 'cluster', 'score',
+                     'class', 'image_path', 'crop_path'])
+    else:
+        ancillary_df = df_dets
 
     # Cluster the images
     cluster_sim, unique_clusters, cluster_means, coverage = _run_hdbscan_assign(prefix,
