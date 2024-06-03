@@ -260,8 +260,7 @@ def run_cluster_det(det_dir, save_dir, device, config_ini, alpha, cluster_select
         shutil.copy(Path(config_ini), save_dir / f'{prefix}_config.ini')
     else:
         warn(f'No detections found to cluster')
-
-
+ 
 @click.command('roi', help='Cluster roi. See cluster --config-ini to override cluster defaults.')
 @common_args.config_ini
 @click.option('--roi-dir', help='Input folder(s) with raw ROI images', multiple=True)
@@ -272,8 +271,6 @@ def run_cluster_det(det_dir, save_dir, device, config_ini, alpha, cluster_select
 @click.option('--min-cluster-size', help='The minimum number of samples in a group for that group to be considered a cluster. Default is 2. Increase for less conservative clustering, e.g. 5, 15', type=int)
 def run_cluster_roi(roi_dir, save_dir, device, config_ini, alpha, cluster_selection_epsilon, min_cluster_size):
     config = cfg.Config(config_ini)
-    max_area = int(config('cluster', 'max_area'))
-    min_area = int(config('cluster', 'min_area'))
     min_samples = int(config('cluster', 'min_samples'))
     alpha = alpha if alpha else float(config('cluster', 'alpha'))
     min_cluster_size = min_cluster_size if min_cluster_size else int(config('cluster', 'min_cluster_size'))
