@@ -13,9 +13,15 @@ import numpy as np
 from umap import UMAP
 from hdbscan import HDBSCAN
 from sklearn.metrics.pairwise import cosine_similarity
+from sklearn.preprocessing import MinMaxScaler
 from sdcat.logger import info, warn, debug, err
 from sdcat.cluster.utils import cluster_grid, crop_square_image
 from sdcat.cluster.embedding import fetch_embedding, has_cached_embedding, compute_norm_embedding
+
+if find_spec("multicore_tsne"):
+    from multicore_tsne import MulticoreTSNE as TSNE
+else:
+    from sklearn.manifold import TSNE
 
 if find_spec("cuml"):
     info('=======> USING GPU for HDBSCAN AND UMAP <=========')
@@ -73,10 +79,6 @@ def _run_hdbscan_assign(
 
     # Get the number of samples which is the number of rows in the dataframe - this is used mostly for calculating coverage
     num_samples = df.shape[0]
-
-    # from sklearn.manifold import TSNE
-    from sklearn.preprocessing import MinMaxScaler
-    from MulticoreTSNE import MulticoreTSNE as TSNE
 
     tsne = TSNE(n_components=2, perplexity=40, metric="cosine", n_jobs=8, random_state=42, verbose=True)
     embedding = tsne.fit_transform(df.values)
