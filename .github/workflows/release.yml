@@ -24,4 +24,7 @@ jobs:
         run: |
           docker login -u ${{ secrets.DOCKERHUB_USERNAME }} -p ${{ secrets.DOCKERHUB_TOKEN }} 
           docker buildx create --name mybuilder --platform linux/amd64,linux/arm64 --use
-          cd docker && docker buildx build --push --platform linux/amd64,linux/arm64 --label IMAGE_URI=mbari/sdcat:$RELEASE_VERSION-cuda:12.4.1 -t mbari/sdcat-cuda:12.4.1-$RELEASE_VERSION -f Dockerfile.cuda12 .
+          cd docker && \
+          docker buildx build --push --platform linux/amd64,linux/arm64 --label IMAGE_URI=mbari/sdcat:$RELEASE_VERSION-cuda:12.4.1 -t mbari/sdcat-cuda:12.4.1-$RELEASE_VERSION -f Dockerfile.cuda12 . && \
+          docker buildx build --push --platform linux/amd64,linux/arm64 --label IMAGE_URI=mbari/sdcat:$RELEASE_VERSION -t mbari/sdcat:$RELEASE_VERSION -f Dockerfile .
+          
