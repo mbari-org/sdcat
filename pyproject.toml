@@ -1,0 +1,27 @@
+[tool.ruff]
+line-length = 170
+
+[tool.semantic_release]
+version_variable = [
+"sdcat/__init__.py:__version__"
+]
+major_on_zero = false
+branch = "main"
+
+[tool.semantic_release.remote.token]
+env = "GITHUB_TOKEN"
+
+[tool.semantic_release.changelog]
+changelog_file = "CHANGELOG.md"
+exclude_commit_patterns = [
+  '''chore(?:\([^)]*?\))?: .+''',
+  '''ci(?:\([^)]*?\))?: .+''',
+  '''refactor(?:\([^)]*?\))?: .+''',
+  '''style(?:\([^)]*?\))?: .+''',
+  '''test(?:\([^)]*?\))?: .+''',
+  '''build\((?!deps\): .+)''',
+  '''Merged? .*''',
+  '''Initial Commit.*''',
+  # Old semantic-release version commits
+  '''^\d+\.\d+\.\d+''',
+]

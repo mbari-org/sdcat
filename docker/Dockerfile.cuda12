@@ -1,0 +1,50 @@
+FROM nvidia/cuda:12.4.1-cudnn-devel-ubuntu22.04
+
+LABEL vendor="MBARI"
+LABEL maintainer="dcline@mbari.org"
+LABEL license="Apache License 2.0"
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    cmake \
+    git \
+    wget \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN apt-get update && apt-get install -y \
+    python3 \
+    python3-pip \
+    && rm -rf /var/lib/apt/lists/*
+
+ARG GIT_VERSION=latest
+ARG IMAGE_URI=mbari/sdcat:${GIT_VERSION}
+ARG DOCKER_GID=1001
+ARG DOCKER_UID=12065
+
+# Create a user with a specific UID and GID.
+RUN addgroup -g ${DOCKER_GID} docker && \
+    adduser -D -u ${DOCKER_UID} -G docker docker_user
+
+# Create a virtual environment for the application dependencies.
+ENV VIRTUAL_ENV=/home/docker_user/venv
+RUN python3 -m venv $VIRTUAL_ENV
+ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+
+RUN chown -R docker_user:docker /home/docker_user
+
+# Install in the virtual environment as the docker user.
+USER docker_user
+WORKDIR /home/docker_user
+
+RUN if [ "$GIT_VERSION" != "latest" ]; then \
+    git clone -b v${GIT_VERSION} --depth 1 https://github.com/mbari-org/sdcat.git; \
+    else \
+    git clone --depth 1 https://github.com/mbari-org/sdcat.git;\
+    fi
+
+WORKDIR sdcat
+RUN pip install -r requirements.txt && pip install multicore-tsne
+ENTRYPOINT ["python", "sdcat"]

@@ -1,25 +1,27 @@
 name: New Release
 on:
+  workflow_dispatch:
   push:
     branches:
       - main
 jobs:
   semantic_release:
     runs-on: ubuntu-latest
-    name: Runs semantic release
     steps:
-      - uses: actions/checkout@v3
-
-      - uses: codfish/semantic-release-action@v3.1.0
-        id: semantic
+      - name: Checkout code
+        uses: actions/checkout@v3
         with:
-          dry-run: false
-          branches: |
-            ['main']
-          additional-packages: |
-            ['@semantic-release/git']
-          plugins: |
-            ['@semantic-release/git', '@semantic-release/commit-analyzer', '@semantic-release/release-notes-generator', '@semantic-release/github', '@semantic-release/git']
-        env:
-            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-            NPM_TOKEN: 000000000000000
+          fetch-depth: 0
+
+      - name: Python Semantic Release
+        id: semantic
+        uses: python-semantic-release/python-semantic-release@master
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: docker push version
+        if: steps.semantic.outputs.new-release-published == 'true'
+        run: |
+          docker login -u ${{ secrets.DOCKERHUB_USERNAME }} -p ${{ secrets.DOCKERHUB_TOKEN }} 
+          docker buildx create --name mybuilder --platform linux/amd64,linux/arm64 --use
+          cd docker && docker buildx build --push --platform linux/amd64,linux/arm64 --label IMAGE_URI=mbari/sdcat:$RELEASE_VERSION-cuda:12.4.1 -t mbari/sdcat-cuda:12.4.1-$RELEASE_VERSION -f Dockerfile.cuda12 .
