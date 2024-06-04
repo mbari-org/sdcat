@@ -39,7 +39,7 @@ jobs:
           DOCKER_USER: ${{ secrets.DOCKERHUB_USERNAME }}
           DOCKER_PASS: ${{ secrets.DOCKERHUB_TOKEN }}
         with:
-          destination_container_repo: mbari/sdcat:$RELEASE_VERSION-cuda12.4.1
+          destination_container_repo: mbari/sdcat:latest
           provider: dockerhub
           short_description: 'Sliced Detection and Clustering Analysis Toolkit (SDCAT)'
           readme_file: 'README.md'
