@@ -31,7 +31,7 @@ RUN if [ "$GIT_VERSION" != "latest" ]; then \
     git clone --depth 1 https://github.com/mbari-org/sdcat.git;\
     fi
 
-WORKDIR sdcat
+WORKDIR /home/docker_user/sdcat
 RUN pip install -r requirements.txt
 
 WORKDIR /tmp

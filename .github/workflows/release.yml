@@ -41,5 +41,5 @@ jobs:
         with:
           destination_container_repo: mbari/sdcat:$RELEASE_VERSION-cuda12.4.1
           provider: dockerhub
-          short_description: 'Sliced Detection and Clustering Analysis Toolkit (SDCAT) is a software package for detecting and clustering objects in images'
+          short_description: 'Sliced Detection and Clustering Analysis Toolkit (SDCAT)'
           readme_file: 'README.md'
