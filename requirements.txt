@@ -6,11 +6,11 @@ mmdet==2.21.0
 mmengine==0.7.2
 click
 hdbscan==0.8.33
-torch
+torch==2.2.1
 tator
 piexif
 yolov5==7.0.13
-torchvision
+torchvision==0.17.1
 transformers
 timm
 pandas>=1.2.4

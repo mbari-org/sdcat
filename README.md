@@ -27,6 +27,8 @@ DeepSea Imaging System
 DINO + HDBSCAN Clustering
 ---
 The clustering is done with a DINO Vision Transformer (ViT) model, and a cosine similarity metric with the HDBSCAN algorithm.
+The DINO model is used to generate embeddings for the detections, and the HDBSCAN algorithm is used to cluster the detections.
+To reduce the dimensionality of the embeddings, the t-SNE algorithm is used to reduce the embeddings to 2D.
 The defaults are set to produce fine-grained clusters, but the parameters can be adjusted to produce coarser clusters.
 The algorithm workflow looks like this:
 
