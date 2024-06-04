@@ -25,7 +25,7 @@ jobs:
           docker login -u ${{ secrets.DOCKERHUB_USERNAME }} -p ${{ secrets.DOCKERHUB_TOKEN }} 
           docker buildx create --name mybuilder --platform linux/amd64,linux/arm64 --use
           cd docker && \
-          docker buildx build --push --platform linux/amd64,linux/arm64 --label IMAGE_URI=mbari/sdcat:$RELEASE_VERSION-cuda:12.4.1 -t mbari/sdcat-cuda:12.4.1-$RELEASE_VERSION -f Dockerfile.cuda12 . && \
+          docker buildx build --push --platform linux/amd64,linux/arm64 --label IMAGE_URI=mbari/sdcat:$RELEASE_VERSION-cuda12.4.1 -t mbari/sdcat:$RELEASE_VERSION-cuda12.4.1 -f Dockerfile.cuda12 .
           docker buildx build --push --platform linux/amd64,linux/arm64 --label IMAGE_URI=mbari/sdcat:$RELEASE_VERSION -t mbari/sdcat:$RELEASE_VERSION -f Dockerfile .
   push_readme_to_dockerhub:
     runs-on: ubuntu-latest
@@ -39,7 +39,7 @@ jobs:
           DOCKER_USER: ${{ secrets.DOCKERHUB_USERNAME }}
           DOCKER_PASS: ${{ secrets.DOCKERHUB_TOKEN }}
         with:
-          destination_container_repo: mbari/sdcat-cuda:12.4.1-$RELEASE_VERSION
+          destination_container_repo: mbari/sdcat:$RELEASE_VERSION-cuda12.4.1
           provider: dockerhub
-          short_description: 'Sliced Detection and Clustering Analysis Toolkit 😊'
+          short_description: 'Sliced Detection and Clustering Analysis Toolkit (SDCAT) is a software package for detecting and clustering objects in images'
           readme_file: 'README.md'
