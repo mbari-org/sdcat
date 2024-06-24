@@ -5,6 +5,8 @@ from datetime import datetime
 from pathlib import Path
 
 import click
+import sys
+sys.path.insert(0, str(Path(__file__).parent.parent))
 from sdcat.logger import err, info, create_logger_file
 from sdcat import __version__
 from sdcat.cluster.commands import run_cluster_det, run_cluster_roi
