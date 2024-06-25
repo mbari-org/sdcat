@@ -254,7 +254,7 @@ def cluster_vits(
     if num_crop != len(df_dets):
         num_processes = min(multiprocessing.cpu_count(), len(df_dets))
         if roi == True:
-            info('ROI crops already exist. Creating square crops in parallel using {multiprocessing.cpu_count()} processes...')
+            info(f'ROI crops already exist. Creating square crops in parallel using {multiprocessing.cpu_count()} processes...')
             with multiprocessing.Pool(num_processes) as pool:
                 args = [(row, 224) for index, row in df_dets.iterrows()]
                 pool.starmap(square_image, args)
