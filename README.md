@@ -14,15 +14,16 @@ and optionally cluster the detections, then this repository is for you.
 ---
 Drone/UAV
 ---
-![](docs/imgs/DSC00770_with_logo.png)
+![](https://raw.githubusercontent.com/mbari-org/sdcat/main/docs/imgs/DSC00770_with_logo.png)
 ---
 ISIIS Plankton Imager
 ---
-![](docs/imgs/CFE_ISIIS-081-2023-07-12_14-38-38.862_000058_with_logo.png)
+![](https://raw.githubusercontent.com/mbari-org/sdcat/main/docs/imgs/CFE_ISIIS-081-2023-07-12_14-38-38.862_000058_with_logo.png) 
+
 ---
 DeepSea Imaging System
 ---
-![](docs/imgs/1696956731236857_with_logo.png)
+![](https://raw.githubusercontent.com/mbari-org/sdcat/main/docs/imgs/1696956731236857_with_logo.png)
 ---
 DINO + HDBSCAN Clustering
 ---
@@ -32,7 +33,7 @@ To reduce the dimensionality of the embeddings, the t-SNE algorithm is used to r
 The defaults are set to produce fine-grained clusters, but the parameters can be adjusted to produce coarser clusters.
 The algorithm workflow looks like this:
 
-![](docs/imgs/cluster_workflow.png)
+![](https://raw.githubusercontent.com/mbari-org/sdcat/main/docs/imgs/cluster_workflow.png)
   
 # Installation
 
@@ -52,6 +53,12 @@ pip install ipykernel
 python -m ipykernel install --user --name=sdcat
 jupyter notebook
 ``` 
+
+Or, from a docker container. 
+
+```shell
+docker run -it -v $(pwd):/data mbari/sdcat
+```
 
 A GPU is recommended for clustering and detection.  If you don't have a GPU, you can still run the code, but it will be slower.
 If running on a CPU, multiple cores are recommended and will speed up processing.
