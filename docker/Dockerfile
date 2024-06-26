@@ -39,6 +39,6 @@ RUN git clone https://github.com/DmitryUlyanov/Multicore-TSNE.git && \
     cd Multicore-TSNE && \
     pip install .  && \
     cd .. && \
-    rm -rf Multicore-TSNE \
+    rm -rf Multicore-TSNE
 
 ENTRYPOINT ["python", "sdcat"]
