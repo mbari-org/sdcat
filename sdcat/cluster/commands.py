@@ -134,7 +134,7 @@ def run_cluster_det(det_dir, save_dir, device, config_ini, alpha, cluster_select
                                axis=1)
 
     # Add in a column for the unique crop name for each detection with a unique id
-    df['cluster_id'] = -1  # -1 is the default value and means that the image is not in a cluster
+    df['cluster'] = -1  # -1 is the default value and means that the image is not in a cluster
 
     # Remove small or large detections before clustering
     size_before = len(df)
@@ -328,11 +328,11 @@ def run_cluster_roi(roi_dir, save_dir, device, config_ini, alpha, cluster_select
     crop_path = save_dir / 'crops'
     crop_path.mkdir(parents=True, exist_ok=True)
     df['crop_path'] = df.apply(lambda row:
-                               f'{crop_path}/{uuid.uuid5(uuid.NAMESPACE_DNS, row["image_path"])}.png',
+                               f'{crop_path}/{Path(row["image_path"]).stem}.png',
                                axis=1)
 
     # Add in a column for the unique crop name for each detection with a unique id
-    df['cluster_id'] = -1  # -1 is the default value and means that the image is not in a cluster
+    df['cluster'] = -1  # -1 is the default value and means that the image is not in a cluster
 
     # Replace any NaNs with 0
     df.fillna(0)

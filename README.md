@@ -110,7 +110,7 @@ Options:
 
 ## File organization
 
-The sdcat toolkit generates data in the following folders:
+The sdcat toolkit generates data in the following folders. Here, we assume both detection and clustering is output to the same root folder.:
  
 ```
 /data/20230504-MBARI/
@@ -126,7 +126,9 @@ The sdcat toolkit generates data in the following folders:
             ├── det_filtered                    # The filtered detections from the model
             ├── det_filtered_clustered          # Clustered detections from the model
                 ├── crops                       # Crops of the detections 
-                ├── dino_vits8...               # The model output, i.e. cached embeddings, clustered detections, etc.
+                ├── dino_vits8...date           # The clustering results - one folder per each run of the clustering algorithm
+                ├── dino_vits8..exemplars.csv   # Exemplar embeddings - examples with the highest cosine similarity within a cluster
+                ├── dino_vits8..detections.csv  # The detections with the cluster id
             ├── stats.txt                       # Statistics of the detections
             └── vizresults                      # Visualizations of the detections (boxes overlaid on images)
                 ├── DSC01833.jpg

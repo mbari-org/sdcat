@@ -57,7 +57,7 @@ def _run_hdbscan_assign(
     :param min_samples:   The number of samples in a neighborhood for a point
     :param ancillary_df:  (optional) Ancillary data to include in the clustering
     :param out_path:  The output path to save the clustering artifacts to
-    :return: The average similarity score for each cluster, cluster ids, cluster means, and coverage
+    :return: The average similarity score for each cluster, exemplar_df, cluster ids, cluster means, and coverage
     """
     info(f'Clustering using HDBSCAN using alpha {alpha}...')
 
@@ -80,8 +80,15 @@ def _run_hdbscan_assign(
     # Get the number of samples which is the number of rows in the dataframe - this is used mostly for calculating coverage
     num_samples = df.shape[0]
 
-    tsne = TSNE(n_components=2, perplexity=40, metric="cosine", n_jobs=8, random_state=42, verbose=True)
-    embedding = tsne.fit_transform(df.values)
+    # Perplexity must be less than the number of samples
+    perplexity = min(30, num_samples - 1)
+
+    # TSN-E does not work well when we have a few samples
+    if num_samples > 100:
+        tsne = TSNE(n_components=2, perplexity=perplexity, metric="cosine", n_jobs=8, random_state=42, verbose=True)
+        embedding = tsne.fit_transform(df.values)
+    else:
+        embedding = df.values
     x = MinMaxScaler().fit_transform(embedding) # scale the embedding to 0-1
 
     # Cluster the embeddings using HDBSCAN
@@ -131,12 +138,19 @@ def _run_hdbscan_assign(
     # Get the index of the highest scores for each unique cluster sorted in increasing order
     # and use this as a representative image for the cluster
     max_scores = cluster_df.sort_values('cluster', ascending=True).groupby('cluster')['score'].idxmax()
-    # Remove the first and last index which are the unassigned cluster and the noise cluster
-    max_scores = max_scores[1:-1]
+    # Remove the last index which is the -1 cluster
+    max_scores = max_scores[:-1]
 
-    # Get the representative embeddings for the max scoring each cluster
+    # Get the representative embeddings for the max scoring examplars for each cluster and store them in a numpy array
     exemplar_emb = [image_emb[i] for i in max_scores]
     exemplar_emb = np.array(exemplar_emb)
+
+    # Save the exemplar embeddings to a dataframe with some metadata
+    exemplar_df = pd.DataFrame()
+    exemplar_df['cluster'] = [f'Unknown C{i}' for i in range(0, len(max_scores))]
+    if ancillary_df is not None and 'image_path' in ancillary_df.columns:
+        exemplar_df['image_path'] = ancillary_df.iloc[max_scores]['image_path'].tolist()
+    exemplar_df['embedding'] = exemplar_emb.tolist()
 
     # Reassign the unknowns to the closest cluster - this is only needed if the coverage is less than 1
     clustered = labels >= 0
@@ -215,7 +229,7 @@ def _run_hdbscan_assign(
     with open(f'{out_path}/{prefix}_summary.json', 'w') as f:
         json.dump(params, f)
 
-    return avg_sim_scores, clusters, cluster_means, coverage
+    return avg_sim_scores, exemplar_df, clusters, cluster_means, coverage
 
 
 def cluster_vits(
@@ -298,7 +312,7 @@ def cluster_vits(
         ancillary_df = df_dets
 
     # Cluster the images
-    cluster_sim, unique_clusters, cluster_means, coverage = _run_hdbscan_assign(prefix,
+    cluster_sim, exemplar_df, unique_clusters, cluster_means, coverage = _run_hdbscan_assign(prefix,
                                                                                 image_emb,
                                                                                 alpha,
                                                                                 cluster_selection_epsilon,
@@ -344,6 +358,10 @@ def cluster_vits(
                  output_path / prefix) for cluster_id in
                 range(0, len(unique_clusters))]
         pool.starmap(cluster_grid, args)
+
+    # Save the exemplar embeddings with the model type
+    exemplar_df['model'] = model
+    exemplar_df.to_csv(output_path / f'{prefix}_exemplars.csv', index=False)
 
     info(f"Number of images {len(images)}")
     info(f"Number of clusters {len(unique_clusters)}")
