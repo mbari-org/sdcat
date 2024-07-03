@@ -126,7 +126,8 @@ def extract_blobs(saliency_map: np.ndarray, img_color: np.ndarray, show=False) -
     if show:
         # Display the thresholded saliency map
         cv2.imshow('Gaussian Blur Saliency Map', saliency_map.astype(np.uint8))
-        if save: cv2.imwrite('my_gaussian_blur_saliency_map.jpg', saliency_map.astype(np.uint8))
+        if save: 
+            cv2.imwrite('my_gaussian_blur_saliency_map.jpg', saliency_map.astype(np.uint8))
         cv2.waitKey(0)
 
     # Threshold the saliency map using gradient thresholding
@@ -312,68 +313,80 @@ def run_saliency_detect(spec_removal: bool,
     """
     info(f'Processing {in_image_file}')
     image_path = Path(in_image_file)
-    img_color = cv2.imread(image_path.as_posix())
-    img_color_rescaled = rescale(img_color, scale_percent=scale_percent)
 
-    if show:
-        cv2.imshow('Original Rescaled', img_color_rescaled)
-        if save: cv2.imwrite('my_original_rescaled.jpg', img_color_rescaled)
-        cv2.waitKey(0)
+    try:
+        img_color = cv2.imread(image_path.as_posix())
+        if img_color is None:
+            raise ValueError(f"Image at {image_path} is corrupted or unreadable.")
+        
+        # Procesa la imagen si se ha leído correctamente
+        # Aquí puedes agregar el código para procesar la imagen
+        
 
-    # Calculate the scale factor to rescale the detections back to the original image size
-    scale_width, scale_height = img_color.shape[0] / img_color_rescaled.shape[0], img_color.shape[1] / \
-                                img_color_rescaled.shape[1]
-
-    if spec_removal:
-        # Remove reflections
-        img_spc = specularity_removal(img_color_rescaled)
-        if show:
-            cv2.imshow('Clean Rescaled', img_spc)
-            if save: cv2.imwrite('my_clean_rescaled.jpg', img_spc)
-            cv2.waitKey(0)
-    else:
-        img_spc = img_color_rescaled
-
-    # Run the fine-grained saliency algorithm
-    saliency_map = fine_grained_saliency(img_spc, clahe=clahe, show=show)
-
-    # Extract blobs from the saliency map
-    df, contour_img = extract_blobs(saliency_map, img_spc, show=show)
-
-    info(f'Found {len(df)} blobs in {image_path}')
-
-    if len(df) == 0:
-        return
-
-    if show or out_image_file:
-        # Plot boxes on the input frame
-        pred_list = df[['x', 'y', 'xx', 'xy', 'score', 'saliency']].values.tolist()
-        for p in pred_list:
-            # Draw a rectangle with yellow line borders of thickness of 3 px
-            cv2.rectangle(img_spc,
-                          (int(p[0]), int(p[1])),
-                          (int(p[2]), int(p[3])), (247, 108, 0), 3)
-            # Add saliency score
-            cv2.putText(img_spc, f'{int(p[5])}', (int(p[0]), int(p[1])), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 255), 2)
+        img_color = cv2.imread(image_path.as_posix())
+        img_color_rescaled = rescale(img_color, scale_percent=scale_percent)
 
         if show:
-            cv2.imshow(f'Found {len(pred_list)} detections', img_spc)
-            if save: cv2.imwrite('my_detections.jpg', img_spc)
+            cv2.imshow('Original Rescaled', img_color_rescaled)
+            if save: cv2.imwrite('my_original_rescaled.jpg', img_color_rescaled)
             cv2.waitKey(0)
-            cv2.destroyAllWindows()
 
-        if out_image_file:
-            # Save the image with the contours drawn
-            cv2.imwrite(out_image_file, img_spc)
+        # Calculate the scale factor to rescale the detections back to the original image size
+        scale_width, scale_height = img_color.shape[0] / img_color_rescaled.shape[0], img_color.shape[1] / \
+                                    img_color_rescaled.shape[1]
 
-    # Scale the detections back to the original image size
-    df[['x', 'xx', 'w']] *= scale_width
-    df[['y', 'xy', 'h']] *= scale_height
-    df['image_path'] = image_path.as_posix()
+        if spec_removal:
+            # Remove reflections
+            img_spc = specularity_removal(img_color_rescaled)
+            if show:
+                cv2.imshow('Clean Rescaled', img_spc)
+                if save: cv2.imwrite('my_clean_rescaled.jpg', img_spc)
+                cv2.waitKey(0)
+        else:
+            img_spc = img_color_rescaled
 
-    # Save the results to a csv file for later processing
-    df.to_csv(out_csv_file, mode='w', header=True, index=False)
+        # Run the fine-grained saliency algorithm
+        saliency_map = fine_grained_saliency(img_spc, clahe=clahe, show=show)
 
+        # Extract blobs from the saliency map
+        df, contour_img = extract_blobs(saliency_map, img_spc, show=show)
+
+        info(f'Found {len(df)} blobs in {image_path}')
+
+        if len(df) == 0:
+            return
+
+        if show or out_image_file:
+            # Plot boxes on the input frame
+            pred_list = df[['x', 'y', 'xx', 'xy', 'score', 'saliency']].values.tolist()
+            for p in pred_list:
+                # Draw a rectangle with yellow line borders of thickness of 3 px
+                cv2.rectangle(img_spc,
+                            (int(p[0]), int(p[1])),
+                            (int(p[2]), int(p[3])), (247, 108, 0), 3)
+                # Add saliency score
+                cv2.putText(img_spc, f'{int(p[5])}', (int(p[0]), int(p[1])), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 255), 2)
+
+            if show:
+                cv2.imshow(f'Found {len(pred_list)} detections', img_spc)
+                if save: cv2.imwrite('my_detections.jpg', img_spc)
+                cv2.waitKey(0)
+                cv2.destroyAllWindows()
+
+            if out_image_file:
+                # Save the image with the contours drawn
+                cv2.imwrite(out_image_file, img_spc)
+
+        # Scale the detections back to the original image size
+        df[['x', 'xx', 'w']] *= scale_width
+        df[['y', 'xy', 'h']] *= scale_height
+        df['image_path'] = image_path.as_posix()
+
+        # Save the results to a csv file for later processing
+        df.to_csv(out_csv_file, mode='w', header=True, index=False)
+        
+    except Exception as e:
+        debug(f"Error reading image {image_path}: {e}")
 
 if __name__ == '__main__':
     # Read all images from the tests/data/kelpflow directory
