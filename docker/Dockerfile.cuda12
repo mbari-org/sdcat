@@ -1,4 +1,4 @@
-FROM nvidia/cuda:12.4.1-cudnn-devel-ubuntu22.04
+FROM pytorch/pytorch:2.3.1-cuda12.1-cudnn8-runtime
 
 LABEL vendor="MBARI"
 LABEL maintainer="dcline@mbari.org"
@@ -12,22 +12,17 @@ RUN apt-get update && apt-get install -y \
     git \
     wget \
     curl \
-    && rm -rf /var/lib/apt/lists/*
-
-RUN apt-get update && apt-get install -y \
-    python3 \
-    python3-pip \
-    python3.10-venv \
+    libgl1 \
+    libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
 ARG GIT_VERSION=latest
 ARG IMAGE_URI=mbari/sdcat:${GIT_VERSION}
-ARG DOCKER_GID=1001
-ARG DOCKER_UID=12065
+ARG DOCKER_GID=20
+ARG DOCKER_UID=12078
 
 # Create a user with a specific UID and GID.
-RUN addgroup --gid ${DOCKER_GID} docker && \
-    adduser  --uid ${DOCKER_UID} --gid ${DOCKER_GID} --disabled-password --shell /bin/bash --gecos "Docker" docker_user
+RUN adduser  --uid ${DOCKER_UID} --gid ${DOCKER_GID} --disabled-password --shell /bin/bash --gecos "Docker" docker_user
 
 # Install in the virtual environment as the docker user.
 USER docker_user
@@ -44,14 +39,29 @@ RUN if [ "$GIT_VERSION" != "latest" ]; then \
     git clone --depth 1 https://github.com/mbari-org/sdcat.git;\
     fi
 
-WORKDIR /home/docker_user/sdcat
-RUN pip install -r requirements.txt
+RUN sed -i '/torch==2.3.1/d' /home/docker_user/sdcat/requirements.txt && \
+    sed -i '/torchvision==0.18.1/d' /home/docker_user/sdcat/requirements.txt \
+    && pip install -r /home/docker_user/sdcat/requirements.txt
 
 WORKDIR /tmp
 RUN git clone https://github.com/DmitryUlyanov/Multicore-TSNE.git && \
     cd Multicore-TSNE && \
     pip install .  && \
     cd .. && \
-    rm -rf Multicore-TSNE \
+    rm -rf Multicore-TSNE
 
-ENTRYPOINT ["python", "sdcat"]
+# Remove the temporary directory and other build tools to reduce the image size
+USER root
+RUN apt-get remove -y \
+    build-essential \
+    cmake \
+    git \
+    wget \
+    curl \
+    && rm -rf /var/cache/apk/* \
+    && rm -rf /home/docker_user/sdcat/.git \
+    && rm -rf /home/docker_user/sdcat/sdcat/tests
+
+USER docker_user
+WORKDIR /home/docker_user/sdcat
+ENTRYPOINT ["python", "-m", "sdcat"

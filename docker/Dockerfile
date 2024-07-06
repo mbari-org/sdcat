@@ -31,8 +31,10 @@ RUN if [ "$GIT_VERSION" != "latest" ]; then \
     git clone --depth 1 https://github.com/mbari-org/sdcat.git;\
     fi
 
-WORKDIR /home/docker_user/sdcat
-RUN pip install -r requirements.txt
+RUN sed -i '/torch==2.3.1/d' /home/docker_user/sdcat/requirements.txt && \
+    sed -i '/torchvision==0.18.1/d' /home/docker_user/sdcat/requirements.txt \
+    && pip install -r /home/docker_user/sdcat/requirements.txt \
+    && pip install torchvision==0.18.1+cpu -f https://download.pytorch.org/whl/torch_stable.html
 
 WORKDIR /tmp
 RUN git clone https://github.com/DmitryUlyanov/Multicore-TSNE.git && \
