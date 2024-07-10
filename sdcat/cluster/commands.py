@@ -26,13 +26,14 @@ from sdcat.cluster.cluster import cluster_vits
 @common_args.config_ini
 @common_args.start_image
 @common_args.end_image
-@click.option('--det-dir', help='Input folder(s) with raw detection results', multiple=True)
-@click.option('--save-dir', help='Output directory to save clustered detection results')
+@common_args.use_tsne
+@common_args.alpha
+@common_args.cluster_selection_epsilon
+@common_args.min_cluster_size
+@click.option('--det-dir', help='Input folder(s) with raw detection results', multiple=True, required=True)
+@click.option('--save-dir', help='Output directory to save clustered detection results', required=True)
 @click.option('--device', help='Device to use, e.g. cpu or cuda:0', type=str)
-@click.option('--alpha', help='Alpha is a parameter that controls the linkage. See https://hdbscan.readthedocs.io/en/latest/parameter_selection.html. Default is 0.92. Increase for less conservative clustering, e.g. 1.0', type=float)
-@click.option('--cluster-selection-epsilon', help='Epsilon is a parameter that controls the linkage. Default is 0. Increase for less conservative clustering', type=float)
-@click.option('--min-cluster-size', help='The minimum number of samples in a group for that group to be considered a cluster. Default is 2. Increase for less conservative clustering, e.g. 5, 15', type=int)
-def run_cluster_det(det_dir, save_dir, device, config_ini, alpha, cluster_selection_epsilon, min_cluster_size, start_image, end_image):
+def run_cluster_det(det_dir, save_dir, device, config_ini, alpha, cluster_selection_epsilon, min_cluster_size, start_image, end_image, use_tsne):
     config = cfg.Config(config_ini)
     max_area = int(config('cluster', 'max_area'))
     min_area = int(config('cluster', 'min_area'))
@@ -250,7 +251,7 @@ def run_cluster_det(det_dir, save_dir, device, config_ini, alpha, cluster_select
 
         # Cluster the detections
         df_cluster = cluster_vits(prefix, model, df, save_dir, alpha, cluster_selection_epsilon, min_similarity,
-                                  min_cluster_size, min_samples)
+                                  min_cluster_size, min_samples, use_tsne)
 
         # Merge the results with the original DataFrame
         df.update(df_cluster)
@@ -263,13 +264,14 @@ def run_cluster_det(det_dir, save_dir, device, config_ini, alpha, cluster_select
  
 @click.command('roi', help='Cluster roi. See cluster --config-ini to override cluster defaults.')
 @common_args.config_ini
-@click.option('--roi-dir', help='Input folder(s) with raw ROI images', multiple=True)
-@click.option('--save-dir', help='Output directory to save clustered detection results')
+@common_args.use_tsne
+@common_args.alpha
+@common_args.cluster_selection_epsilon
+@common_args.min_cluster_size
+@click.option('--roi-dir', help='Input folder(s) with raw ROI images', multiple=True, required=True)
+@click.option('--save-dir', help='Output directory to save clustered detection results', required=True)
 @click.option('--device', help='Device to use, e.g. cpu or cuda:0', type=str)
-@click.option('--alpha', help='Alpha is a parameter that controls the linkage. See https://hdbscan.readthedocs.io/en/latest/parameter_selection.html. Default is 0.92. Increase for less conservative clustering, e.g. 1.0', type=float)
-@click.option('--cluster-selection-epsilon', help='Epsilon is a parameter that controls the linkage. Default is 0. Increase for less conservative clustering', type=float)
-@click.option('--min-cluster-size', help='The minimum number of samples in a group for that group to be considered a cluster. Default is 2. Increase for less conservative clustering, e.g. 5, 15', type=int)
-def run_cluster_roi(roi_dir, save_dir, device, config_ini, alpha, cluster_selection_epsilon, min_cluster_size):
+def run_cluster_roi(roi_dir, save_dir, device, config_ini, alpha, cluster_selection_epsilon, min_cluster_size, use_tsne):
     config = cfg.Config(config_ini)
     min_samples = int(config('cluster', 'min_samples'))
     alpha = alpha if alpha else float(config('cluster', 'alpha'))
@@ -346,7 +348,7 @@ def run_cluster_roi(roi_dir, save_dir, device, config_ini, alpha, cluster_select
 
         # Cluster the detections
         df_cluster = cluster_vits(prefix, model, df, save_dir, alpha, cluster_selection_epsilon, min_similarity,
-                                  min_cluster_size, min_samples, roi=True)
+                                  min_cluster_size, min_samples, use_tsne, roi=True)
 
         # Merge the results with the original DataFrame
         df.update(df_cluster)

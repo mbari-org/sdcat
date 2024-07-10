@@ -44,6 +44,7 @@ def _run_hdbscan_assign(
         min_similarity: float,
         min_cluster_size: int,
         min_samples: int,
+        use_tsne: bool,
         ancillary_df: pd.DataFrame,
         out_path: Path) -> tuple:
     """
@@ -55,6 +56,7 @@ def _run_hdbscan_assign(
     :param min_similarity:  The minimum similarity score to use for clustering reassignment
     :param min_cluster_size:  The minimum number of samples in a cluster
     :param min_samples:   The number of samples in a neighborhood for a point
+    :param use_tsne:  Whether to use t-SNE for dimensionality reduction
     :param ancillary_df:  (optional) Ancillary data to include in the clustering
     :param out_path:  The output path to save the clustering artifacts to
     :return: The average similarity score for each cluster, exemplar_df, cluster ids, cluster means, and coverage
@@ -84,7 +86,7 @@ def _run_hdbscan_assign(
     perplexity = min(30, num_samples - 1)
 
     # TSN-E does not work well when we have a few samples
-    if num_samples > 100:
+    if num_samples > 100 and use_tsne:
         tsne = TSNE(n_components=2, perplexity=perplexity, metric="cosine", n_jobs=8, random_state=42, verbose=True)
         embedding = tsne.fit_transform(df.values)
     else:
@@ -242,6 +244,7 @@ def cluster_vits(
         min_similarity: float,
         min_cluster_size: int,
         min_samples: int,
+        use_tsne: bool = False,
         roi: bool = False) -> pd.DataFrame:
     """  Cluster the crops using the VITS embeddings.
     :param prefix:  A unique prefix to save artifacts from clustering
@@ -319,6 +322,7 @@ def cluster_vits(
                                                                                 min_similarity,
                                                                                 min_cluster_size,
                                                                                 min_samples,
+                                                                                use_tsne,
                                                                                 ancillary_df,
                                                                                 output_path / prefix)
 
