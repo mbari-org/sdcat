@@ -1,5 +1,17 @@
 # CHANGELOG
 
+## v1.7.0 (2024-07-10)
+
+### Build
+
+* build: removed unused imports and bump torch to python3.11 compatible and ([`57c6c2b`](https://github.com/mbari-org/sdcat/commit/57c6c2b4232730ffec878b5c3c75491f1ff42c87))
+
+* build: fix docker build ([`0d7ab83`](https://github.com/mbari-org/sdcat/commit/0d7ab83fc57d331fc58dabb8eb8291790b22bc3e))
+
+### Feature
+
+* feat: added tsne as an option, defaulted to false as it is generating too many clusters ([`8f974f3`](https://github.com/mbari-org/sdcat/commit/8f974f346b1ab1d1d1c0d16cad21494f8f5f17c7))
+
 ## v1.6.0 (2024-06-26)
 
 ### Build
