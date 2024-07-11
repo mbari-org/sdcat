@@ -1,7 +1,4 @@
-FROM python:3.11-alpine
-
-# Install gcc and other build tools and libraries which are needed for numpy dependencies
-RUN apk --no-cache add gcc g++ make blas-dev lapack-dev gfortran musl-dev git libffi-dev cmake
+FROM python:3.11-slim
 
 LABEL vendor="MBARI"
 LABEL maintainer="dcline@mbari.org"
@@ -10,20 +7,16 @@ LABEL license="Apache License 2.0"
 ARG GIT_VERSION=latest
 ARG IMAGE_URI=mbari/sdcat:${GIT_VERSION}
 ARG DOCKER_GID=1001
-ARG DOCKER_UID=12065
+ARG DOCKER_UID=1001
 
-# Create a user with a specific UID and GID.
-RUN addgroup -g ${DOCKER_GID} docker && \
-    adduser  -u ${DOCKER_UID} -G docker -D docker_user
+WORKDIR /app
 
-# Install in the virtual environment as the docker user.
-USER docker_user
-WORKDIR /home/docker_user
-
-# Create a virtual environment for the application dependencies.
-ENV VIRTUAL_ENV=/home/docker_user/venv
-RUN python3 -m venv $VIRTUAL_ENV
-ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+RUN set -ex \
+    && addgroup --system --gid ${DOCKER_GID} docker \
+    && adduser --system --uid ${DOCKER_UID} --gid ${DOCKER_GID} docker_user \
+    && apt-get update \
+    && apt-get upgrade -y \
+    && apt-get install -y git gcc
 
 RUN if [ "$GIT_VERSION" != "latest" ]; then \
     git clone -b v${GIT_VERSION} --depth 1 https://github.com/mbari-org/sdcat.git; \
@@ -31,16 +24,36 @@ RUN if [ "$GIT_VERSION" != "latest" ]; then \
     git clone --depth 1 https://github.com/mbari-org/sdcat.git;\
     fi
 
-RUN sed -i '/torch==2.3.1/d' /home/docker_user/sdcat/requirements.txt && \
-    sed -i '/torchvision==0.18.1/d' /home/docker_user/sdcat/requirements.txt \
-    && pip install -r /home/docker_user/sdcat/requirements.txt \
-    && pip install torchvision==0.18.1+cpu -f https://download.pytorch.org/whl/torch_stable.html
+# Install Miniconda since that does a better job of managing torch dependencies than pip
+RUN apt-get update && \
+    apt-get install -y wget -y libgl1 libglib2.0-0 libsm6 libxrender1 libxext6 && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/* && \
+    arch=$(uname -m) && \
+    if [ "$arch" = "x86_64" ]; then \
+    MINICONDA_URL="https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh"; \
+    elif [ "$arch" = "aarch64" ]; then \
+    MINICONDA_URL="https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-aarch64.sh"; \
+    else \
+    echo "Unsupported architecture: $arch"; \
+    exit 1; \
+    fi && \
+    wget $MINICONDA_URL -O miniconda.sh && \
+    mkdir -p /home/docker_user/.conda && \
+    bash miniconda.sh -b -p /home/docker_user/miniconda3 && \
+    rm -f miniconda.sh
 
-WORKDIR /tmp
-RUN git clone https://github.com/DmitryUlyanov/Multicore-TSNE.git && \
-    cd Multicore-TSNE && \
-    pip install .  && \
-    cd .. && \
-    rm -rf Multicore-TSNE
+# Install the application dependencies using Miniconda
+WORKDIR /app/sdcat
+ENV PATH=/home/docker_user/miniconda3/bin:$PATH
+ENV HOME=/home/docker_user
+RUN conda env create -f environment.yml \
+    && apt-get clean \
+    && apt-get remove -y gcc git \
+    && rm -rf /var/lib/apt/lists/*
 
-ENTRYPOINT ["python", "sdcat"]
+RUN chown -R docker_user:docker /app/sdcat && \
+    chown -R docker_user:docker /home/docker_user
+USER docker_user
+WORKDIR /app/sdcat
+CMD ["conda", "run", "-n", "sdcat", "python", "sdcat"]

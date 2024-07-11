@@ -1,6 +1,6 @@
 pillow
 bs4
-opencv-contrib-python
+opencv-contrib-python-headless
 sahi
 mmdet==2.21.0
 mmengine==0.7.2
@@ -15,7 +15,6 @@ transformers
 timm
 pandas>=1.2.4
 ultralytics
-pascal-voc-writer
 scikit-learn==1.4.0rc1
 scikit-image
 huggingface-hub==0.19.4
