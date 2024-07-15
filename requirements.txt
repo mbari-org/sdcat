@@ -7,7 +7,6 @@ mmengine==0.7.2
 click
 hdbscan==0.8.33
 torch==2.3.1
-tator
 piexif
 yolov5==7.0.13
 torchvision==0.18.1

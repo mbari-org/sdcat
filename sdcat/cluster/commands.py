@@ -1,4 +1,4 @@
-# sightwire, Apache-2.0 license
+# sdcat, Apache-2.0 license
 # Filename: cluster/commands.py
 # Description:  Clustering commands
 

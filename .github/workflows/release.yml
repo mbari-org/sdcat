@@ -18,7 +18,14 @@ jobs:
         uses: python-semantic-release/python-semantic-release@master
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          
+
+      - name: Publish PyPi
+        if: steps.semantic.outputs.released == 'true'
+        run: |
+          pip install poetry
+          poetry config pypi-token.pypi ${{ secrets.PYPI_API_TOKEN }}
+          poetry publish --build
+
       - name: docker push version
         if: steps.semantic.outputs.released == 'true'
         run: |
