@@ -20,14 +20,16 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install dependencies
-        run: pip install -r requirements.txt
+      - name: Install Poetry
+        run: |
+          curl -sSL https://install.python-poetry.org | python3 -
+          echo "${HOME}/.local/bin" >> $GITHUB_PATH
 
-      - name: Install pytest
-        run: pip install pytest
+      - name: Install dependencies
+        run: poetry install
 
       - name: Set PYTHONPATH to subdirectory sdcat
         run: echo "PYTHONPATH=." >> $GITHUB_ENV
 
       - name: Run pytest
-        run: pytest
+        run: poetry run pytest

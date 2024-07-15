@@ -25,7 +25,7 @@ default_model = 'MBARI/megabenthic'
 )
 def cli():
     """
-    Process images from a command line.
+    Process images either to detect or cluster similar objects from a command line.
     """
     pass
 

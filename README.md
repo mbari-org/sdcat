@@ -36,42 +36,37 @@ The algorithm workflow looks like this:
 ![](https://raw.githubusercontent.com/mbari-org/sdcat/main/docs/imgs/cluster_workflow.png)
   
 # Installation
+ 
+Pip install the sdcat package including all [requirements](https://github.com/mbari-org/sdcat/blob/main/pyproject.toml) with:
 
-This code can be run from a command-line or from a jupyter notebook.  The following instructions are for running from the command-line.
-
-```shell
-git clone https://github.com/mbari/sdcat.git
-cd sdcat
-conda env create -f environment.yml
+```bash
+pip install sdcat
 ```
 
-Or, from a jupyter notebook. 
-
-```
-conda activate sdcat
-pip install ipykernel
-python -m ipykernel install --user --name=sdcat
-jupyter notebook
-``` 
-
-Or, from a docker container. 
-
+Alternatively, [Docker](https://www.docker.com) can be used to run the code. A pre-built docker image is available at [Docker Hub](https://hub.docker.com/r/mbari/sdcat) with the latest version of the code.  
+ 
+Detection
 ```shell
-docker run -it -v $(pwd):/data mbari/sdcat
+docker run -it -v $(pwd):/data mbari/sdcat detect --image-dir /data/images --save-dir /data/detections --model MBARI-org/uav-yolov5
+```
+Followed by clustering
+```shell
+docker run -it -v $(pwd):/data mbari/sdcat cluster detections --det-dir /data/detections/ --save-dir /data/detections --model MBARI-org/uav-yolov5
 ```
 
 A GPU is recommended for clustering and detection.  If you don't have a GPU, you can still run the code, but it will be slower.
 If running on a CPU, multiple cores are recommended and will speed up processing.
-For large datasets, the RapidsAI cuDF library is recommended for faster processing, although it does not currently support
-custom metrics such as cosine similarity, so the clustering performance will not be as good as with the CPU.
-See: https://rapids.ai/start.html#get-rapids for installation instructions.
+
+```shell
+docker run -it --gpus all -v $(pwd):/data mbari/sdcat:latest-cuda12 detect --image-dir /data/images --save-dir /data/detections --model MBARI-org/uav-yolov5
+```
 
 # Commands
 
 To get all options available, use the --help option.  For example:
 
 ```shell
-python sdcat --help
+sdcat --help
 ```
 which will print out the following:
 ```shell
@@ -92,8 +87,9 @@ Commands:
 To get details on a particular command, use the --help option with the command.  For example, with the **cluster** command:
 
 ```shell
- python sdcat  cluster --help 
+ sdcat  cluster --help 
 ```
+
 which will print out the following:
 ```shell
 Usage: sdcat cluster [OPTIONS]
@@ -145,7 +141,7 @@ and good for experiments and quick results.
 a smaller slice size will take longer to process.
 
 ```shell
-python sdcat detect --image-dir <image-dir> --save-dir <save-dir> --model yolov5s --slice-size-width 900 --slice-size-height 900
+sdcat detect --image-dir <image-dir> --save-dir <save-dir> --model yolov5s --slice-size-width 900 --slice-size-height 900
 ```
 
 ## Cluster detections from the YOLOv5 model
@@ -154,34 +150,9 @@ Cluster the detections from the YOLOv5 model.  The detections are clustered usin
 features from a FaceBook Vision Transformer (ViT) model.   
 
 ```shell
-python sdcat cluster --det-dir <det-dir> --save-dir <save-dir> --model yolov5s
+sdcat cluster --det-dir <det-dir> --save-dir <save-dir> --model yolov5s
 ```
   
-### Testing
-
-Please run tests before checking code back in.  To run tests, first install pytest:
-
-```shell
-pip install pytest
-```
-
-The tests should run and pass.
- 
-```shell
-pytest
-```
-
-```shell
-=========================================================================================================================================================================================================================== test session starts ============================================================================================================================================================================================================================
-platform darwin -- Python 3.10.13, pytest-7.4.4, pluggy-1.3.0
-rootdir: /Users/dcline/Dropbox/code/sdcat
-plugins: napari-plugin-engine-0.2.0, anyio-3.7.1, napari-0.4.18, npe2-0.7.3
-collected 3 items                                                                                                                                                                                                                                                                                                                                                                                                                                                           
-
-tests/test_detect.py ...                                                                                                                                                                                                                                                                                                                                                                                                                                              [100%]
-
-======================================================================================================================================================================================================================= 3 passed in 61.48s (0:01:01) ========================================================================================================================================================================================================================
-```
 
 # Related work
 * https://github.com/obss/sahi
