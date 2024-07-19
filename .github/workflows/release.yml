@@ -25,6 +25,7 @@ jobs:
           pip install poetry
           poetry config pypi-token.pypi ${{ secrets.PYPI_API_TOKEN }}
           poetry publish --build
+          poetry publish
 
       - name: docker push version
         if: steps.semantic.outputs.released == 'true'
@@ -33,8 +34,8 @@ jobs:
           docker login -u ${{ secrets.DOCKERHUB_USERNAME }} -p ${{ secrets.DOCKERHUB_TOKEN }} 
           docker buildx create --name mybuilder --platform linux/amd64,linux/arm64 --use
           cd docker && \
-          docker buildx build --push --platform linux/amd64 -t mbari/sdcat:$RELEASE_VERSION-cuda124  --label IMAGE_URI=mbari/sdcat:$RELEASE_VERSION-cuda124 -f Dockerfile.cuda12 .
-          docker buildx build --push --platform linux/amd64,linux/arm64 -t mbari/sdcat:$RELEASE_VERSION  --label IMAGE_URI=mbari/sdcat:$RELEASE_VERSION -f Dockerfile .
+          docker buildx build --push --platform linux/amd64 -t mbari/sdcat:$RELEASE_VERSION-cuda124 --label GIT_VERSION=$RELEASE_VERSION --label IMAGE_URI=mbari/sdcat:$RELEASE_VERSION-cuda124 -f Dockerfile.cuda .
+          docker buildx build --push --platform linux/amd64,linux/arm64 -t mbari/sdcat:$RELEASE_VERSION --label GIT_VERSION=$RELEASE_VERSION --label IMAGE_URI=mbari/sdcat:$RELEASE_VERSION -f Dockerfile .
   push_readme_to_dockerhub:
     runs-on: ubuntu-latest
     name: Push README to Docker Hub
