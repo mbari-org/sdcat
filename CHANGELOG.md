@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## v1.8.0 (2024-07-19)
+
+### Build
+
+* build: slim docker images a tad, switch to generic docker user, and replace with miniconda install for better torch/cuda support ([`782848d`](https://github.com/mbari-org/sdcat/commit/782848d9ac2187b0c298e358ef642943e4e3f88f))
+
+### Feature
+
+* feat: auto default logs for different use cases: testing, local dev, and to /tmp on permission failure ([`0c57d45`](https://github.com/mbari-org/sdcat/commit/0c57d4552b90875796a11c1e2899a07c14f1bf53))
+
 ## v1.7.0 (2024-07-10)
 
 ### Build
