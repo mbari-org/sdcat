@@ -64,7 +64,7 @@ def run_detect(show: bool, image_dir: str, save_dir: str, model: str,
         if len(allowable_classes) > 0:
             allowable_classes = allowable_classes.split(',')
 
-    create_logger_file(Path.cwd(), 'detect')
+    create_logger_file('detect')
 
     if not skip_sahi:
         if model == 'yolov8s':

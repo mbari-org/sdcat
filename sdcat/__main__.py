@@ -13,7 +13,7 @@ from sdcat.cluster.commands import run_cluster_det, run_cluster_roi
 from sdcat.detect.commands import run_detect
 
 
-create_logger_file(log_path=Path.home() / 'sdcat' / 'logs')
+create_logger_file("sdcat")
 default_data_path = Path(__file__).parent / 'testdata'
 default_model = 'MBARI/megabenthic'
 
@@ -35,7 +35,7 @@ cli.add_command(run_detect)
 @cli.group(name="cluster")
 def cli_cluster():
     """
-    Commands related to converting data
+    Commands related to clustering images
     """
     pass
 
