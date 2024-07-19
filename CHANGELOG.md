@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## v1.8.1 (2024-07-19)
+
+### Fix
+
+* fix: bump version to 1.8.0 still failing in ci ([`ed405e8`](https://github.com/mbari-org/sdcat/commit/ed405e8b5c892746680e1b2985c0842cb0581668))
+
 ## v1.8.0 (2024-07-19)
 
 ### Build
