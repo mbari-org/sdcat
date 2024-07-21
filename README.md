@@ -36,8 +36,8 @@ Both detections algorithms are run by default and combined to produce the final 
 | hustvl/yolos-small            | YOLOS model a Vision Transformer (ViT)                          |
 | hustvl/yolos-tiny             | YOLOS model a Vision Transformer (ViT)                          |
 | MBARI/megamidwater  (default) | MBARI midwater YOLOv5x for general detection in midwater images |
-| MBARI/uav-yolov5              | MBARI UAV YOLOv5x for general detection in UAV images          |
-| FathomNet/MBARI-315k-yolov5   | MBARI UAV YOLOv5x for general detection in UAV images          |
+| MBARI/uav-yolov5              | MBARI UAV YOLOv5x for general detection in UAV images           |
+| FathomNet/MBARI-315k-yolov5   | MBARI YOLOv5x for general detection in benthic images           |
 
 
 To skip saliency detection, use the --skip-saliency option. 
@@ -126,16 +126,16 @@ To get details on a particular command, use the --help option with the command. 
 
 which will print out the following:
 ```shell
-Usage: sdcat cluster [OPTIONS]
+Usage: sdcat cluster [OPTIONS] COMMAND [ARGS]...
 
-  Cluster detections from a single collection.
+  Commands related to clustering images
 
 Options:
-  --det-dir TEXT      Input folder with raw detection results
-  --save-dir TEXT     Output directory to save clustered detection results
-  --device TEXT       Device to use.
-  -h, --help          Show this message and exit.
+  -h, --help  Show this message and exit.
 
+Commands:
+  detections  Cluster detections.
+  roi         Cluster roi.
 ```
 
 ## File organization
