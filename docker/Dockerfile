@@ -1,31 +1,32 @@
-FROM ubuntu:22.04
+FROM python:3.11-slim
 
 LABEL vendor="MBARI"
 LABEL maintainer="dcline@mbari.org"
 LABEL license="Apache License 2.0"
 
-RUN apt-get update && apt-get install -y \
-    software-properties-common \
-    && apt-get update && apt-get install -y \
-    python3.11 \
-    python3.11-dev \
-    python3.11-distutils \
-    python3-pip \
-    curl \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install --no-install-recommends -y build-essential && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
+RUN python3 -m venv /venv
 
 ARG GIT_VERSION=latest
 ARG IMAGE_URI=mbari/sdcat:${GIT_VERSION}
 
-ENV APP_HOME=/app
-ENV PYTHONPATH=${APP_HOME}/sdcat
-ENV HF_HOME=/tmp/transformers_cache
-WORKDIR ${APP_HOME}
-RUN if [ "$GIT_VERSION" != "latest" ]; then \
-    python3.11 -m pip install sdcat:${GIT_VERSION}; \
-    else \
-    python3.11 -m pip install sdcat; \
-    fi
+ENV PATH="/venv/bin:$PATH"
 
-ENTRYPOINT ["sdcat"]
+ENV APP_HOME=/app
+ENV HF_HOME=/tmp/transformers_cache
+
+RUN python3 -m pip install --upgrade pip
+
+ADD . .
+RUN pip install poetry && poetry build && pip install dist/*.whl && rm -rf dist
+
+RUN apt-get remove -y build-essential && \
+    apt-get autoremove -y && \
+    rm -rf /var/lib/apt/lists/*
+
+WORKDIR ${APP_HOME}
+ENV HOME=${APP_HOME}
+RUN chmod a+rwx -R ${APP_HOME}
+CMD ["sdcat"]

@@ -1,0 +1,10 @@
+dist/*
+*.jpg
+tests/*
+docs/*
+.gitignore
+.idea/*
+.vscode/*
+.ipynb_checkpoints/*
+examples/*
+__pycache__/*

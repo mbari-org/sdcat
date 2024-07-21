@@ -18,29 +18,64 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Python Semantic Release
-        id: semantic
-        uses: python-semantic-release/python-semantic-release@master
+      - name: Set up Python
+        uses: actions/setup-python@v2
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          python-version: '3.11'
 
-      - name: Publish PyPi
-        if: steps.semantic.outputs.released == 'true'
+      - name: Install Poetry
         run: |
-          pip install poetry
-          poetry config pypi-token.pypi ${{ secrets.PYPI_API_TOKEN }}
-          poetry publish --build
-          poetry publish
+          curl -sSL https://install.python-poetry.org | python3 -
+          echo "${HOME}/.local/bin" >> $GITHUB_PATH
 
-      - name: docker push version
-        if: steps.semantic.outputs.released == 'true'
+      - name: Install dependencies
+        run: poetry install
+
+      - name: Set PYTHONPATH to subdirectory sdcat
+        run: echo "PYTHONPATH=." >> $GITHUB_ENV
+      - name: Check release status
+        id: release-status
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          export RELEASE_VERSION=$(echo ${{ steps.semantic.outputs.tag }} | cut -c 2-)
+          pip install python-semantic-release
+          if semantic-release --noop --strict version
+          then
+            echo "Releasing new version."
+          else
+            echo "Skipping release steps."
+          fi
+
+      - if: steps.release-status.outputs.released == 'true'
+        name: Release to GitHub
+        id: github-release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          semantic-release version
+          git fetch --tags
+          for file in ./dist/**
+            do gh release upload "${{steps.release-status.outputs.tag}}" $file
+          done
+
+      - if: steps.release-status.outputs.released == 'true'
+        name: Release to Test PyPI
+        id: test-pypi-release
+        env:
+          TEST_PYPI_TOKEN: ${{ secrets.TEST_PYPI_TOKEN }}
+        run: |
+          poetry config repositories.test-pypi https://test.pypi.org/legacy/
+          poetry config pypi-token.test-pypi $TEST_PYPI_TOKEN
+          poetry publish -r test-pypi -u __token__
+
+      - if: steps.release-status.outputs.released == 'true'
+        name: docker push version
+        run: |
+          export RELEASE_VERSION=$(echo ${{ steps.release-status.outputs.tag }} | cut -c 2-)
           docker login -u ${{ secrets.DOCKERHUB_USERNAME }} -p ${{ secrets.DOCKERHUB_TOKEN }} 
           docker buildx create --name mybuilder --platform linux/amd64,linux/arm64 --use
-          cd docker && \
-          docker buildx build --push --platform linux/amd64 -t mbari/sdcat:$RELEASE_VERSION-cuda124 --label GIT_VERSION=$RELEASE_VERSION --label IMAGE_URI=mbari/sdcat:$RELEASE_VERSION-cuda124 -f Dockerfile.cuda .
-          docker buildx build --push --platform linux/amd64,linux/arm64 -t mbari/sdcat:$RELEASE_VERSION --label GIT_VERSION=$RELEASE_VERSION --label IMAGE_URI=mbari/sdcat:$RELEASE_VERSION -f Dockerfile .
+          docker buildx build --push --platform linux/amd64 -t mbari/sdcat:$RELEASE_VERSION-cuda124 --label GIT_VERSION=$RELEASE_VERSION --label IMAGE_URI=mbari/sdcat:$RELEASE_VERSION-cuda124 -f docker/Dockerfile.cuda .
+          docker buildx build --push --platform linux/amd64,linux/arm64 -t mbari/sdcat:$RELEASE_VERSION --label GIT_VERSION=$RELEASE_VERSION --label IMAGE_URI=mbari/sdcat:$RELEASE_VERSION -f docker/Dockerfile .
   push_readme_to_dockerhub:
     runs-on: ubuntu-latest
     name: Push README to Docker Hub
