@@ -25,11 +25,45 @@ DeepSea Imaging System
 ---
 ![](https://raw.githubusercontent.com/mbari-org/sdcat/main/docs/imgs/1696956731236857_with_logo.png)
 ---
-DINO + HDBSCAN Clustering
+Detection
 ---
-The clustering is done with a DINO Vision Transformer (ViT) model, and a cosine similarity metric with the HDBSCAN algorithm.
-The DINO model is used to generate embeddings for the detections, and the HDBSCAN algorithm is used to cluster the detections.
-To reduce the dimensionality of the embeddings, the t-SNE algorithm is used to reduce the embeddings to 2D.
+Detection can be done with a fine-grained saliency-based detection model,  and/or one the following models run with the SAHI algorithm.
+Both detections algorithms are run by default and combined to produce the final detections.
+
+| Model                         | Description                                                     |
+|-------------------------------|-----------------------------------------------------------------|
+| yolov8s                       | YOLOv8s model from Ultralytics                                  |
+| hustvl/yolos-small            | YOLOS model a Vision Transformer (ViT)                          |
+| hustvl/yolos-tiny             | YOLOS model a Vision Transformer (ViT)                          |
+| MBARI/megamidwater  (default) | MBARI midwater YOLOv5x for general detection in midwater images |
+| MBARI/uav-yolov5              | MBARI UAV YOLOv5x for general detection in UAV images          |
+| FathomNet/MBARI-315k-yolov5   | MBARI UAV YOLOv5x for general detection in UAV images          |
+
+
+To skip saliency detection, use the --skip-saliency option. 
+
+```shell
+sdcat detect --skip-saliency --image-dir <image-dir> --save-dir <save-dir> --model <model> --slice-size-width 900 --slice-size-height 900
+```
+
+To skip using the SAHI algorithm, use --skip-sahi.   
+
+```shell
+sdcat detect --skip-sahi --image-dir <image-dir> --save-dir <save-dir> --model <model> --slice-size-width 900 --slice-size-height 900
+````
+
+---
+ViTS + HDBSCAN Clustering
+---
+Once the detections are generated, the detections can be clustered.  Alternatively, 
+detections can be clustered from a collection of images by providing the detections in a folder with the roi option.
+    
+```shell
+sdcat cluster roi --roi <roi> --save-dir <save-dir> --model <model> 
+```
+
+The clustering is done with a Vision Transformer (ViT) model, and a cosine similarity metric with the HDBSCAN algorithm.
+The ViT model is used to generate embeddings for the detections, and the HDBSCAN algorithm is used to cluster the detections.
 The defaults are set to produce fine-grained clusters, but the parameters can be adjusted to produce coarser clusters.
 The algorithm workflow looks like this:
 
@@ -37,7 +71,7 @@ The algorithm workflow looks like this:
   
 # Installation
  
-Pip install the sdcat package including all [requirements](https://github.com/mbari-org/sdcat/blob/main/pyproject.toml) with:
+Pip install the sdcat package with:
 
 ```bash
 pip install sdcat
@@ -58,7 +92,7 @@ A GPU is recommended for clustering and detection.  If you don't have a GPU, you
 If running on a CPU, multiple cores are recommended and will speed up processing.
 
 ```shell
-docker run -it --gpus all -v $(pwd):/data mbari/sdcat:latest-cuda12 detect --image-dir /data/images --save-dir /data/detections --model MBARI-org/uav-yolov5
+docker run -it --gpus all -v $(pwd):/data mbari/sdcat:cuda124 detect --image-dir /data/images --save-dir /data/detections --model MBARI-org/uav-yolov5
 ```
 
 # Commands
