@@ -12,7 +12,7 @@ If your images look something like the image below, and you want to detect objec
 and optionally cluster the detections, then this repository is for you.
 
 --- 
-![](https://raw.githubusercontent.com/mbari-org/sdcat/main/docs/imgs/examples_images.jpg)
+![](https://raw.githubusercontent.com/mbari-org/sdcat/main/docs/imgs/example_images.jpg)
 ---
 Detection
 ---
