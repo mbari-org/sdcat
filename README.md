@@ -11,19 +11,8 @@ This repository processes images using a sliced detection and clustering workflo
 If your images look something like the image below, and you want to detect objects in the images, 
 and optionally cluster the detections, then this repository is for you.
 
----
-Drone/UAV
----
-![](https://raw.githubusercontent.com/mbari-org/sdcat/main/docs/imgs/DSC00770_with_logo.png)
----
-ISIIS Plankton Imager
----
-![](https://raw.githubusercontent.com/mbari-org/sdcat/main/docs/imgs/CFE_ISIIS-081-2023-07-12_14-38-38.862_000058_with_logo.png) 
-
----
-DeepSea Imaging System
----
-![](https://raw.githubusercontent.com/mbari-org/sdcat/main/docs/imgs/1696956731236857_with_logo.png)
+--- 
+![](https://raw.githubusercontent.com/mbari-org/sdcat/main/docs/imgs/examples_images.jpg)
 ---
 Detection
 ---
