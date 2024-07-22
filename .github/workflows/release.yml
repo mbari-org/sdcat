@@ -58,15 +58,24 @@ jobs:
             do gh release upload "${{steps.release-status.outputs.tag}}" $file
           done
 
+#      - if: steps.release-status.outputs.released == 'true'
+#        name: Release to Test PyPI
+#        id: test-pypi-release
+#        env:
+#          TEST_PYPI_TOKEN: ${{ secrets.TEST_PYPI_TOKEN }}
+#        run: |
+#          poetry config repositories.test-pypi https://test.pypi.org/legacy/
+#          poetry config pypi-token.test-pypi $TEST_PYPI_TOKEN
+#          poetry publish -r test-pypi -u __token__
+
       - if: steps.release-status.outputs.released == 'true'
-        name: Release to Test PyPI
-        id: test-pypi-release
+        name: Release to PyPI
+        id: pypi-release
         env:
-          TEST_PYPI_TOKEN: ${{ secrets.TEST_PYPI_TOKEN }}
+          PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}
         run: |
-          poetry config repositories.test-pypi https://test.pypi.org/legacy/
-          poetry config pypi-token.test-pypi $TEST_PYPI_TOKEN
-          poetry publish -r test-pypi -u __token__
+          poetry config pypi-token.pypi $PYPI_TOKEN
+          poetry publish
 
       - if: steps.release-status.outputs.released == 'true'
         name: docker push version
@@ -74,7 +83,8 @@ jobs:
           export RELEASE_VERSION=$(echo ${{ steps.release-status.outputs.tag }} | cut -c 2-)
           docker login -u ${{ secrets.DOCKERHUB_USERNAME }} -p ${{ secrets.DOCKERHUB_TOKEN }} 
           docker buildx create --name mybuilder --platform linux/amd64,linux/arm64 --use
-          docker buildx build --push --platform linux/amd64 -t mbari/sdcat:$RELEASE_VERSION-cuda124 --label GIT_VERSION=$RELEASE_VERSION --label IMAGE_URI=mbari/sdcat:$RELEASE_VERSION-cuda124 -f docker/Dockerfile.cuda .
+          # Running out of space for this build so commenting out for now
+          #docker buildx build --push --platform linux/amd64 -t mbari/sdcat:$RELEASE_VERSION-cuda124 --label GIT_VERSION=$RELEASE_VERSION --label IMAGE_URI=mbari/sdcat:$RELEASE_VERSION-cuda124 -f docker/Dockerfile.cuda .
           docker buildx build --push --platform linux/amd64,linux/arm64 -t mbari/sdcat:$RELEASE_VERSION --label GIT_VERSION=$RELEASE_VERSION --label IMAGE_URI=mbari/sdcat:$RELEASE_VERSION -f docker/Dockerfile .
   push_readme_to_dockerhub:
     runs-on: ubuntu-latest
