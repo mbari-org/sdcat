@@ -13,6 +13,9 @@ RUN pip install poetry && poetry build && python3 -m pip install dist/*.whl
 
 FROM nvidia/cuda:12.4.1-cudnn-runtime-ubuntu22.04
 
+ARG GIT_VERSION=latest
+ARG IMAGE_URI=mbari/sdcat:${GIT_VERSION}
+
 LABEL vendor="MBARI"
 LABEL maintainer="dcline@mbari.org"
 LABEL license="Apache License 2.0"

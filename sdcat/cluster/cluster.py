@@ -143,6 +143,19 @@ def _run_hdbscan_assign(
     # Remove the last index which is the -1 cluster
     max_scores = max_scores[:-1]
 
+    # If all the clusters are unassigned, then use all the samples as exemplars,
+    # and assign them to the unknown cluster
+    if len(unique_clusters) == 1 and unique_clusters[0] == -1:
+        avg_sim_scores = []
+        exemplar_df = pd.DataFrame()
+        exemplar_df['cluster'] = len(x)*['Unknown']
+        exemplar_df['embedding'] = x.tolist()
+        exemplar_df['image_path'] = ancillary_df['image_path'].tolist()
+        clusters = []
+        cluster_means = []
+        coverage = 0.0
+        return avg_sim_scores, exemplar_df, clusters, cluster_means, coverage
+
     # Get the representative embeddings for the max scoring examplars for each cluster and store them in a numpy array
     exemplar_emb = [image_emb[i] for i in max_scores]
     exemplar_emb = np.array(exemplar_emb)
@@ -333,6 +346,9 @@ def cluster_vits(
 
     if len(unique_clusters) == 0:
         warn('No clusters found')
+        # Save the exemplar embeddings with the model type
+        exemplar_df['model'] = model
+        exemplar_df.to_csv(output_path / f'{prefix}_exemplars.csv', index=False)
         return None
 
     info(f'Found {len(unique_clusters)} clusters with an average similarity of {avg_similarity:.2f} ')
