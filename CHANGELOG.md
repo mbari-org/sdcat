@@ -1,5 +1,21 @@
 # CHANGELOG
 
+## v1.8.3 (2024-07-23)
+
+### Ci
+
+* ci: switch to PyPi release and skip over large build ([`25d3da3`](https://github.com/mbari-org/sdcat/commit/25d3da3b25c2cf8e534e7fa93a5eeb76f77672f1))
+
+### Documentation
+
+* docs: fix typo ([`5506bad`](https://github.com/mbari-org/sdcat/commit/5506badfa072ecedfa5ee6c1dbcd977dcb2ff90c))
+
+* docs: shorten readme and update workflow to reflect latest ([`152624e`](https://github.com/mbari-org/sdcat/commit/152624e159c5f535ddc49132d719ab2b1452d06b))
+
+### Fix
+
+* fix: handle bad image crops (zero length). Fixes #13. ([`c02394c`](https://github.com/mbari-org/sdcat/commit/c02394c88e7f446d4fb1ddaea1581e5922ebf030))
+
 ## v1.8.2 (2024-07-22)
 
 ### Ci
