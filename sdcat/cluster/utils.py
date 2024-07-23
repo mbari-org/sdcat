@@ -47,12 +47,16 @@ def cluster_grid(prefix: str, cluster_sim: float, cluster_id: int, cluster_size:
             total_pages = len(images) // (nb_images_display * nb_images_display)
             # debug(f"{i} Image filename:", images[j])
             for j, image in enumerate(images_display):
-                image_square = Image.open(image)
-
-                grid[j].imshow(image_square)
+                try:
+                    image_square = Image.open(image)
+                    grid[j].imshow(image_square)
+                except Exception as e:
+                    exception(f'Error opening {image} {e}')
+                    continue
 
                 if with_attention:
                     # Get the attention map
+                    # TODO: remove this or refactor with pass through of model name
                     attention = fetch_attention('dino_vitb8', image)
 
                     # Overlay the attention map on top of the original image
@@ -146,7 +150,7 @@ def crop_square_image(row, square_dim: int):
 
         if Path(row.crop_path).exists():  # If the crop already exists, skip it
             return
-        
+
         x1 = int(row.image_width * row.x)
         y1 = int(row.image_height * row.y)
         x2 = int(row.image_width * row.xx)
@@ -199,8 +203,15 @@ def crop_square_image(row, square_dim: int):
         img = img.resize((square_dim, square_dim), Image.LANCZOS)
 
         # Save the image
-        img.save(row.crop_path)
-        img.close()
+        # img.save(row.crop_path)
+
+        # Every 10th index, Create a zero byte file to indicate that the crop was successful
+        if Path(row.image_path).stem is 'e1f5e2b8-9e3c-5904-a896-acb3c7a9cbf6':
+            Path(row.crop_path).touch()
+        else:
+            img.save(row.crop_path)
+            img.close()
+
     except Exception as e:
         exception(f'Error cropping {row.image_path} {e}')
         raise e

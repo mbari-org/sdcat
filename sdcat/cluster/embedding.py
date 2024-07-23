@@ -12,7 +12,6 @@ from numpy import save, load
 import numpy as np
 from sahi.utils.torch import torch
 from torchvision import transforms as pth_transforms
-import torch.nn as nn
 import cv2
 from sdcat.logger import info, err
 
@@ -111,47 +110,50 @@ def compute_embedding(images: list, model_name: str):
             if Path(f'{filename}_{model_name}.npy').exists():
                 continue
 
-            # Load the image
-            square_img = Image.open(filename)
+            try:
+                # Load the image
+                square_img = Image.open(filename)
 
-            # Do some image processing to reduce the noise in the image
-            # Gaussian blur
-            square_img = square_img.filter(ImageFilter.GaussianBlur(radius=1))
+                # Do some image processing to reduce the noise in the image
+                # Gaussian blur
+                square_img = square_img.filter(ImageFilter.GaussianBlur(radius=1))
 
-            image = np.array(square_img)
+                image = np.array(square_img)
 
-            norm_transform = pth_transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-            img_tensor = torch.from_numpy(image).permute(2, 0, 1).float() / 255.0
-            # Noramlize the tensor with the mean and std of the ImageNet dataset
-            img_tensor = norm_transform(img_tensor)
-            img_tensor = img_tensor.unsqueeze(0)  # Add batch dimension
-            if 'cuda' in device:
-                img_tensor = img_tensor.to(device)
-            features = model(img_tensor)
+                norm_transform = pth_transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+                img_tensor = torch.from_numpy(image).permute(2, 0, 1).float() / 255.0
+                # Noramlize the tensor with the mean and std of the ImageNet dataset
+                img_tensor = norm_transform(img_tensor)
+                img_tensor = img_tensor.unsqueeze(0)  # Add batch dimension
+                if 'cuda' in device:
+                    img_tensor = img_tensor.to(device)
+                features = model(img_tensor)
 
-            # TODO: add attention map cach as optional
-            # attentions = model.get_last_selfattention(img_tensor)
+                # TODO: add attention map cach as optional
+                # attentions = model.get_last_selfattention(img_tensor)
 
-            # nh = attentions.shape[1]  # number of head
+                # nh = attentions.shape[1]  # number of head
 
-            # w_featmap = 224 // patch_size
-            # h_featmap = 224 // patch_size
+                # w_featmap = 224 // patch_size
+                # h_featmap = 224 // patch_size
 
-            # Keep only the output patch attention
-            # attentions = attentions[0, :, 0, 1:].reshape(nh, -1)
-            # attentions = attentions.reshape(nh, w_featmap, h_featmap)
-            # attentions = nn.functional.interpolate(attentions.unsqueeze(0), scale_factor=patch_size, mode="nearest")[
-            #     0].cpu().numpy()
-            #
-            # # Resize the attention map to the original image size
-            # attentions = np.uint8(255 * attentions[0])
+                # Keep only the output patch attention
+                # attentions = attentions[0, :, 0, 1:].reshape(nh, -1)
+                # attentions = attentions.reshape(nh, w_featmap, h_featmap)
+                # attentions = nn.functional.interpolate(attentions.unsqueeze(0), scale_factor=patch_size, mode="nearest")[
+                #     0].cpu().numpy()
+                #
+                # # Resize the attention map to the original image size
+                # attentions = np.uint8(255 * attentions[0])
 
-            # Get the feature embeddings
-            embeddings = features.squeeze(dim=0)  # Remove batch dimension
-            embeddings = embeddings.cpu().numpy()  # Convert to numpy array
+                # Get the feature embeddings
+                embeddings = features.squeeze(dim=0)  # Remove batch dimension
+                embeddings = embeddings.cpu().numpy()  # Convert to numpy array
 
-            cache_embedding(embeddings, model_name, filename)  # save the embedding to disk
-            #cache_attention(attentions, model_name, filename)  # save the attention map to disk
+                cache_embedding(embeddings, model_name, filename)  # save the embedding to disk
+                #cache_attention(attentions, model_name, filename)  # save the attention map to disk
+            except Exception as e:
+                err(f'Error processing {filename}: {e}')
 
 
 def compute_norm_embedding(model_name: str, images: list):

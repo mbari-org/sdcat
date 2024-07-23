@@ -61,7 +61,8 @@ def _run_hdbscan_assign(
     :param out_path:  The output path to save the clustering artifacts to
     :return: The average similarity score for each cluster, exemplar_df, cluster ids, cluster means, and coverage
     """
-    info(f'Clustering using HDBSCAN using alpha {alpha}...')
+    info(f'Clustering using HDBSCAN using alpha {alpha} cluster_selection_epsilon {cluster_selection_epsilon} '
+         f'min_samples {min_samples} use_tsne {use_tsne} ...')
 
     # Remove any existing cluster images in the output_path
     for c in out_path.parent.rglob(f'{prefix}_*cluster*.png'):
@@ -144,7 +145,7 @@ def _run_hdbscan_assign(
     max_scores = max_scores[:-1]
 
     # If all the clusters are unassigned, then use all the samples as exemplars,
-    # and assign them to the unknown cluster
+    # and assign them to the unknown cluster. If embedding is empty, this is also the case (failed to extract embeddings)
     if len(unique_clusters) == 1 and unique_clusters[0] == -1:
         avg_sim_scores = []
         exemplar_df = pd.DataFrame()
@@ -188,7 +189,8 @@ def _run_hdbscan_assign(
 
     # Compute the average similarity score for each cluster
     avg_sim_scores = []
-    for c in clusters:
+    for i, c in enumerate(clusters):
+        debug(f'Computing similarity for cluster {i} with {len(c)} samples')
         cosine_sim_matrix = cosine_similarity(image_emb[c])
         avg_sim_scores.append(np.mean(cosine_sim_matrix))
 
@@ -311,7 +313,14 @@ def cluster_vits(
 
     # Fetch the cached embeddings
     debug(f'Fetching embeddings ...')
-    image_emb = np.array([fetch_embedding(model, filename) for filename in images])
+    image_emb = []
+    for filename in images:
+        emb = fetch_embedding(model, filename)
+        if len(emb) == 0:
+            image_emb.append(np.zeros(384, dtype=np.float32))
+        else:
+            image_emb.append(emb)
+    image_emb = np.array(image_emb)
 
     if not (output_path / prefix).exists():
         (output_path / prefix).mkdir(parents=True)
