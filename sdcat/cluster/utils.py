@@ -9,14 +9,13 @@ from matplotlib import pyplot as plt
 from mpl_toolkits.axes_grid1 import ImageGrid
 from pathlib import Path
 
-from sdcat.cluster.embedding import fetch_attention
 from sdcat.logger import debug, warn, exception
 
 
 def cluster_grid(prefix: str, cluster_sim: float, cluster_id: int, cluster_size: int, nb_images_display: int,
                  images: list, output_path: Path):
     """
-    Cluster visualization; create a grid of images both with and without attention map
+    Cluster visualization; create a grid of images
     :param cluster_sim: Cluster similarity
     :param cluster_size: Size of the cluster
     :param cluster_id: Cluster ID
@@ -26,74 +25,60 @@ def cluster_grid(prefix: str, cluster_sim: float, cluster_id: int, cluster_size:
     """
     debug(f'Cluster number {cluster_id} size {len(cluster_size)} similarity {cluster_sim}\n')
 
-    def gen_grid(with_attention: bool):
-        # Plot a grid for each group of images nb_images_display at a time (e.g. 8x8)
-        for i in range(0, len(images), nb_images_display * nb_images_display):
-            fig = plt.figure(figsize=(10., 10.))
-            grid = ImageGrid(fig, 111,  # similar to subplot(111)
-                             nrows_ncols=(nb_images_display, nb_images_display),
-                             # creates nb_images_display x nb_images_display grid of axes
-                             axes_pad=0.025,
-                             share_all=True,
-                             cbar_pad=0.025)
-            images_display = images[i:i + nb_images_display * nb_images_display]
-            page = i // (nb_images_display * nb_images_display)
+    # Plot a grid for each group of images nb_images_display at a time (e.g. 8x8)
+    for i in range(0, len(images), nb_images_display * nb_images_display):
+        fig = plt.figure(figsize=(10., 10.))
+        grid = ImageGrid(fig, 111,  # similar to subplot(111)
+                         nrows_ncols=(nb_images_display, nb_images_display),
+                         # creates nb_images_display x nb_images_display grid of axes
+                         axes_pad=0.025,
+                         share_all=True,
+                         cbar_pad=0.025)
+        images_display = images[i:i + nb_images_display * nb_images_display]
+        page = i // (nb_images_display * nb_images_display)
 
-            # If we have more than 3 pages, then only display the first 3 pages
-            # There can be a large number of pages for detections in common classes
-            if page > 3:
-                break
+        # If we have more than 3 pages, then only display the first 3 pages
+        # There can be a large number of pages for detections in common classes
+        if page > 3:
+            break
 
-            total_pages = len(images) // (nb_images_display * nb_images_display)
-            # debug(f"{i} Image filename:", images[j])
-            for j, image in enumerate(images_display):
-                try:
-                    image_square = Image.open(image)
-                    grid[j].imshow(image_square)
-                except Exception as e:
-                    exception(f'Error opening {image} {e}')
-                    continue
+        total_pages = len(images) // (nb_images_display * nb_images_display)
+        # debug(f"{i} Image filename:", images[j])
+        for j, image in enumerate(images_display):
+            try:
+                image_square = Image.open(image)
+                grid[j].imshow(image_square)
+            except Exception as e:
+                exception(f'Error opening {image} {e}')
+                continue
 
-                if with_attention:
-                    # Get the attention map
-                    # TODO: remove this or refactor with pass through of model name
-                    attention = fetch_attention('dino_vitb8', image)
+            grid[j].axis('off')
+            # If the verified is in the image name, then add a label to the image in the top center corner
+            if 'verified' in image:
+                n = Path(image)
+                title = f"{n.stem.split('_')[0]}"
+                grid[j].text(30, 10, title, fontsize=8, color='white', ha='center', va='center')
+            # clear the x and y-axis
+            grid[j].set_xticklabels([])
 
-                    # Overlay the attention map on top of the original image
-                    grid[j].imshow(attention, cmap='jet', alpha=0.125)
+        # Add a title to the figure
+        if total_pages > 1:
+            fig.suptitle(
+                f"{prefix} Cluster {cluster_id}, Size: {len(cluster_size)}, Similarity: {cluster_sim:.2f}, Page: {page} of {total_pages}",
+                fontsize=16)
+        else:
+            fig.suptitle(f"{prefix} Cluster {cluster_id}, Size: {len(cluster_size)}, Similarity: {cluster_sim:.2f}",
+                         fontsize=16)
 
-                grid[j].axis('off')
-                # If the verified is in the image name, then add a label to the image in the top center corner
-                if 'verified' in image:
-                    n = Path(image)
-                    title = f"{n.stem.split('_')[0]}"
-                    grid[j].text(30, 10, title, fontsize=8, color='white', ha='center', va='center')
-                # clear the x and y-axis
-                grid[j].set_xticklabels([])
+        # Set the background color of the grid to white
+        fig.set_facecolor('white')
 
-            # Add a title to the figure
-            if total_pages > 1:
-                fig.suptitle(
-                    f"{prefix} Cluster {cluster_id}, Size: {len(cluster_size)}, Similarity: {cluster_sim:.2f}, Page: {page} of {total_pages}",
-                    fontsize=16)
-            else:
-                fig.suptitle(f"{prefix} Cluster {cluster_id}, Size: {len(cluster_size)}, Similarity: {cluster_sim:.2f}",
-                             fontsize=16)
+        # Write the figure to a file
+        out = output_path / f'{prefix}_cluster_{cluster_id}_p{page}.png'
+        debug(f'Writing {out}')
+        fig.savefig(out.as_posix())
+        plt.close(fig)
 
-            # Set the background color of the grid to white
-            fig.set_facecolor('white')
-
-            # Write the figure to a file
-            if with_attention:
-                out = output_path / f'{prefix}_cluster_{cluster_id}_p{page}_attention.png'
-            else:
-                out = output_path / f'{prefix}_cluster_{cluster_id}_p{page}.png'
-            debug(f'Writing {out}')
-            fig.savefig(out.as_posix())
-            plt.close(fig)
-
-    gen_grid(with_attention=False)
-    # gen_grid(with_attention=True)
 
 
 def square_image(row, square_dim: int):
@@ -131,6 +116,7 @@ def square_image(row, square_dim: int):
     except Exception as e:
         exception(f'Error cropping {row.image_path} {e}')
         raise e
+
 
 def crop_square_image(row, square_dim: int):
     """
@@ -203,14 +189,8 @@ def crop_square_image(row, square_dim: int):
         img = img.resize((square_dim, square_dim), Image.LANCZOS)
 
         # Save the image
-        # img.save(row.crop_path)
-
-        # Every 10th index, Create a zero byte file to indicate that the crop was successful
-        if Path(row.image_path).stem is 'e1f5e2b8-9e3c-5904-a896-acb3c7a9cbf6':
-            Path(row.crop_path).touch()
-        else:
-            img.save(row.crop_path)
-            img.close()
+        img.save(row.crop_path)
+        img.close()
 
     except Exception as e:
         exception(f'Error cropping {row.image_path} {e}')

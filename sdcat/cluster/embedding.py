@@ -13,42 +13,46 @@ import numpy as np
 from sahi.utils.torch import torch
 from torchvision import transforms as pth_transforms
 import cv2
+from transformers import ViTModel, ViTImageProcessor
+
 from sdcat.logger import info, err
 
 
+class ViTWrapper:
+    MODEL_NAME = "google/vit-base-patch16-224"
+    VECTOR_DIMENSIONS = 768
+
+    def __init__(self, device: str = "cpu", reset: bool = False, batch_size: int = 32):
+        self.batch_size = batch_size
+
+        self.model = ViTModel.from_pretrained(self.MODEL_NAME)
+        self.processor = ViTImageProcessor.from_pretrained(self.MODEL_NAME)
+
+        # Load the model and processor
+        if 'cuda' in device and torch.cuda.is_available():
+            device_num = int(device.split(":")[-1])
+            info(f"Using GPU device {device_num}")
+            torch.cuda.set_device(device_num)
+            self.device = "cuda"
+            self.model.to("cuda")
+        else:
+            self.device = "cpu"
+
+
 def cache_embedding(embedding, model_name: str, filename: str):
+    model_machine_friendly_name = model_name.replace("/", "_")
     # save numpy array as npy file
-    save(f'{filename}_{model_name}.npy', embedding)
-
-
-def cache_attention(attention, model_name: str, filename: str):
-    # save numpy array as npy file
-    save(f'{filename}_{model_name}_a.npy', attention)
+    save(f'{filename}_{model_machine_friendly_name}.npy', embedding)
 
 
 def fetch_embedding(model_name: str, filename: str) -> np.array:
+    model_machine_friendly_name = model_name.replace("/", "_")
     # if the npy file exists, return it
-    if os.path.exists(f'{filename}_{model_name}.npy'):
-        data = load(f'{filename}_{model_name}.npy')
+    if os.path.exists(f'{filename}_{model_machine_friendly_name}.npy'):
+        data = load(f'{filename}_{model_machine_friendly_name}.npy')
         return data
     else:
         info(f'No embedding found for {filename}')
-    return []
-
-
-def fetch_attention(model_name: str, filename: str) -> np.array:
-    """
-    Fetch the attention map for the given filename and model name
-    :param model_name: Name of the model
-    :param filename: Name of the file
-    :return: Numpy array of the attention map
-    """
-    # if the npy file exists, return it
-    if os.path.exists(f'{filename}_{model_name}_a.npy'):
-        data = load(f'{filename}_{model_name}_a.npy')
-        return data
-    else:
-        info(f'No attention map found for {filename}')
     return []
 
 
@@ -59,7 +63,8 @@ def has_cached_embedding(model_name: str, filename: str) -> int:
     :param filename: Name of the file
     :return: 1 if the image has a cached embedding, otherwise 0
     """
-    if os.path.exists(f'{filename}_{model_name}.npy'):
+    model_machine_friendly_name = model_name.replace("/", "_")
+    if os.path.exists(f'{filename}_{model_machine_friendly_name}.npy'):
         return 1
     return 0
 
@@ -71,89 +76,48 @@ def encode_image(filename):
     return keep
 
 
-def compute_embedding(images: list, model_name: str):
+def compute_embedding_vits(images: list, model_name: str, device: str = "cpu"):
     """
     Compute the embedding for the given images using the given model
     :param images: List of image filenames
-    :param model_name: Name of the model
+    :param model_name: Name of the model (i.e. google/vit-base-patch16-224, dinov2_vits16, etc.)
+    :param device: Device to use for the computation (cpu or cuda:0, cuda:1, etc.)
     """
+    batch_size = 8
+    vit_model = ViTModel.from_pretrained(model_name)
+    processor = ViTImageProcessor.from_pretrained(model_name)
 
-    # Load the model
-    if 'dinov2' in model_name:
-        info(f'Loading model {model_name} from facebookresearch/dinov2...')
-        model = torch.hub.load('facebookresearch/dinov2', model_name)
-    elif 'dino' in model_name:
-        info(f'Loading model {model_name} from facebookresearch/dino:main...')
-        model = torch.hub.load('facebookresearch/dino:main', model_name)
+    if 'cuda' in device and torch.cuda.is_available():
+        device_num = int(device.split(":")[-1])
+        info(f"Using GPU device {device_num}")
+        torch.cuda.set_device(device_num)
+        vit_model.to("cuda")
+        device = "cuda"
     else:
-        # TODO: Add more models
-        err(f'Unknown model {model_name}!')
-        return
+        device = "cpu"
 
-    # The patch size is in the model name, e.g. dino_vits16 is a 16x16 patch size, dino_vits8 is a 8x8 patch size
-    res = re.findall(r'\d+$', model_name)
-    if len(res) > 0:
-        patch_size = int(res[0])
-    else:
-        raise ValueError(f'Could not find patch size in model name {model_name}')
-    info(f'Using patch size {patch_size} for model {model_name}')
-
-    # Load images and generate embeddings
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    with torch.no_grad():
-        # Set the cuda device
-        if torch.cuda.is_available():
-            model = model.to(device)
-
-        for filename in images:
-            # Skip if the embedding already exists
-            if Path(f'{filename}_{model_name}.npy').exists():
+    # Batch process the images
+    batches = [images[i:i + batch_size] for i in range(0, len(images), batch_size)]
+    for batch in batches:
+        try:
+            # Skip running the model if the embeddings already exist
+            if all([has_cached_embedding(model_name, filename) for filename in batch]):
                 continue
 
-            try:
-                # Load the image
-                square_img = Image.open(filename)
+            images = [Image.open(filename).convert("RGB") for filename in batch]
+            inputs = processor(images=images, return_tensors="pt").to(device)
 
-                # Do some image processing to reduce the noise in the image
-                # Gaussian blur
-                square_img = square_img.filter(ImageFilter.GaussianBlur(radius=1))
+            with torch.no_grad():
+                embeddings = vit_model(**inputs)
 
-                image = np.array(square_img)
+            batch_embeddings = embeddings.last_hidden_state[:, 0, :].cpu().numpy()
 
-                norm_transform = pth_transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-                img_tensor = torch.from_numpy(image).permute(2, 0, 1).float() / 255.0
-                # Noramlize the tensor with the mean and std of the ImageNet dataset
-                img_tensor = norm_transform(img_tensor)
-                img_tensor = img_tensor.unsqueeze(0)  # Add batch dimension
-                if 'cuda' in device:
-                    img_tensor = img_tensor.to(device)
-                features = model(img_tensor)
-
-                # TODO: add attention map cach as optional
-                # attentions = model.get_last_selfattention(img_tensor)
-
-                # nh = attentions.shape[1]  # number of head
-
-                # w_featmap = 224 // patch_size
-                # h_featmap = 224 // patch_size
-
-                # Keep only the output patch attention
-                # attentions = attentions[0, :, 0, 1:].reshape(nh, -1)
-                # attentions = attentions.reshape(nh, w_featmap, h_featmap)
-                # attentions = nn.functional.interpolate(attentions.unsqueeze(0), scale_factor=patch_size, mode="nearest")[
-                #     0].cpu().numpy()
-                #
-                # # Resize the attention map to the original image size
-                # attentions = np.uint8(255 * attentions[0])
-
-                # Get the feature embeddings
-                embeddings = features.squeeze(dim=0)  # Remove batch dimension
-                embeddings = embeddings.cpu().numpy()  # Convert to numpy array
-
-                cache_embedding(embeddings, model_name, filename)  # save the embedding to disk
-                #cache_attention(attentions, model_name, filename)  # save the attention map to disk
-            except Exception as e:
-                err(f'Error processing {filename}: {e}')
+            # Save the embeddings
+            for emb, filename in zip(batch_embeddings, batch):
+                emb = emb.astype(np.float32)
+                cache_embedding(emb, model_name, filename)
+        except Exception as e:
+            err(f'Error processing {batch}: {e}')
 
 
 def compute_norm_embedding(model_name: str, images: list):
@@ -172,7 +136,7 @@ def compute_norm_embedding(model_name: str, images: list):
 
     # If using a GPU, set then skip the parallel CPU processing
     if torch.cuda.is_available():
-        compute_embedding(images, model_name)
+        compute_embedding_vits(images, model_name)
     else:
         # Use a pool of processes to speed up the embedding generation 20 images at a time on each process
         num_processes = min(multiprocessing.cpu_count(), len(images) // 20)
@@ -180,7 +144,7 @@ def compute_norm_embedding(model_name: str, images: list):
         info(f'Using {num_processes} processes to compute {len(images)} embeddings 20 at a time ...')
         with multiprocessing.Pool(num_processes) as pool:
             args = [(images[i:i + 20], model_name) for i in range(0, len(images), 20)]
-            pool.starmap(compute_embedding, args)
+            pool.starmap(compute_embedding_vits, args)
 
 
 def calc_mean_std(image_files: list) -> tuple:

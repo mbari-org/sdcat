@@ -8,8 +8,6 @@ from tqdm import tqdm
 import cv2
 import pandas as pd
 import torch
-from huggingface_hub import hf_hub_download
-from sahi import AutoDetectionModel
 from sahi.postprocess.combine import nms
 
 from sdcat import common_args
@@ -67,6 +65,7 @@ def run_detect(show: bool, image_dir: str, save_dir: str, model: str,
     create_logger_file('detect')
 
     if not skip_sahi:
+        from sahi import AutoDetectionModel
         if model == 'yolov8s':
             detection_model = AutoDetectionModel.from_pretrained(
                 model_type='yolov8',
@@ -101,6 +100,7 @@ def run_detect(show: bool, image_dir: str, save_dir: str, model: str,
             )
         elif model == 'MBARI/megamidwater':
             # Download model path
+            from huggingface_hub import hf_hub_download
             model_path = hf_hub_download(repo_id="MBARI-org/megamidwater", filename="best.pt")
             detection_model = AutoDetectionModel.from_pretrained(
                 model_type='yolov5',
@@ -111,6 +111,7 @@ def run_detect(show: bool, image_dir: str, save_dir: str, model: str,
             )
         elif model == 'MBARI/uav-yolov5':
             # Download model path
+            from huggingface_hub import hf_hub_download
             model_path = hf_hub_download(repo_id="MBARI-org/uav-yolov5", filename="best.pt")
             detection_model = AutoDetectionModel.from_pretrained(
                 model_type='yolov5',
@@ -121,6 +122,7 @@ def run_detect(show: bool, image_dir: str, save_dir: str, model: str,
             )
         elif model == 'FathomNet/MBARI-315k-yolov5':
             # Download model path
+            from huggingface_hub import hf_hub_download
             model_path = hf_hub_download(repo_id="FathomNet/MBARI-315k-yolov5", filename="mbari_315k_yolov5.pt")
             detection_model = AutoDetectionModel.from_pretrained(
                 model_type='yolov5',

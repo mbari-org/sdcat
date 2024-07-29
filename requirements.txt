@@ -10,7 +10,7 @@ torch==2.3.1
 piexif
 yolov5==7.0.13
 torchvision==0.18.1
-transformers
+transformers[torch]
 timm
 pandas>=1.2.4
 ultralytics

@@ -74,7 +74,7 @@ def _run_hdbscan_assign(
     if not numerical.empty:
         numerical = numerical.fillna(0)
 
-        # Normalize the numerical data from 0 to 1
+        # Normalize the numerical data from 0 to 1 and add it to the dataframe
         numerical = (numerical - numerical.min()) / (numerical.max() - numerical.min())
 
         df = pd.merge(df, numerical, left_index=True, right_index=True, how='left')
@@ -107,29 +107,14 @@ def _run_hdbscan_assign(
         labels = scan.fit_predict(x)
     else:
         scan = HDBSCAN(
-            metric='l2',
-            allow_single_cluster=True,
-            min_cluster_size=min_cluster_size,
-            min_samples=min_samples,
-            alpha=alpha,
-            cluster_selection_epsilon=cluster_selection_epsilon,
-            cluster_selection_method='leaf')
+                metric='l2',
+                allow_single_cluster=True,
+                min_cluster_size=min_cluster_size,
+                min_samples=min_samples,
+                alpha=alpha,
+                cluster_selection_epsilon=cluster_selection_epsilon,
+                cluster_selection_method='leaf')
         labels = scan.fit_predict(x)
-
-# title_tree = f'HDBSCAN Tree Distances {cluster_selection_epsilon} min_cluster_size {min_cluster_size} min_samples {min_samples} alpha {alpha}'
-# title_linkage = title_tree.replace('Tree Distances', 'Linkage')
-
-# scan.condensed_tree_.plot(select_clusters=True,
-#                             selection_palette=sns.color_palette('deep', 8))
-# plt.title(title_tree)
-# plt.xlabel('Index')
-# plt.savefig(f"{out_path}/{prefix}_condensed_tree.png")
-
-# plt.figure(figsize=(10, 6))
-# scan.single_linkage_tree_.plot(cmap='viridis', colorbar=True)
-# plt.title(title_linkage)
-# plt.xlabel('Index')
-# plt.savefig(f"{out_path}/{prefix}_tree.png")
 
     # Get the unique clusters and sort them; -1 are unassigned clusters
     cluster_df = pd.DataFrame(labels, columns=['cluster'])
@@ -149,7 +134,7 @@ def _run_hdbscan_assign(
     if len(unique_clusters) == 1 and unique_clusters[0] == -1:
         avg_sim_scores = []
         exemplar_df = pd.DataFrame()
-        exemplar_df['cluster'] = len(x)*['Unknown']
+        exemplar_df['cluster'] = len(x) * ['Unknown']
         exemplar_df['embedding'] = x.tolist()
         exemplar_df['image_path'] = ancillary_df['image_path'].tolist()
         clusters = []
@@ -191,6 +176,9 @@ def _run_hdbscan_assign(
     avg_sim_scores = []
     for i, c in enumerate(clusters):
         debug(f'Computing similarity for cluster {i} with {len(c)} samples')
+        if len(c) == 0:
+            avg_sim_scores.append(0)
+            continue
         cosine_sim_matrix = cosine_similarity(image_emb[c])
         avg_sim_scores.append(np.mean(cosine_sim_matrix))
 
@@ -223,7 +211,7 @@ def _run_hdbscan_assign(
     else:
         init = 'spectral'
 
-    # Reduce the dimensionality of the embeddings using UMAP to 2 dimensions for visualization
+    # Reduce the dimensionality of the embeddings using UMAP to 2 dimensions to visualize the clusters
     if have_gpu:
         xx = cuUMAP(init=init,
                     n_components=2,
@@ -233,8 +221,6 @@ def _run_hdbscan_assign(
     else:
         xx = UMAP(init=init,
                   n_components=2,
-                  n_neighbors=3,
-                  min_dist=0.1,
                   metric='cosine',
                   low_memory=True).fit_transform(df.values)
 
@@ -285,14 +271,14 @@ def cluster_vits(
     # Skip cropping if all the crops are already done
     if num_crop != len(df_dets):
         num_processes = min(multiprocessing.cpu_count(), len(df_dets))
-        if roi == True:
-            info(f'ROI crops already exist. Creating square crops in parallel using {multiprocessing.cpu_count()} processes...')
+        if roi is True:
+            info(f'ROI crops already exist. Creating square crops in parallel using {num_processes} processes...')
             with multiprocessing.Pool(num_processes) as pool:
                 args = [(row, 224) for index, row in df_dets.iterrows()]
                 pool.starmap(square_image, args)
         else:
             # Crop and squaring the images in parallel using multiprocessing to speed up the processing
-            info(f'Cropping {len(df_dets)} detections in parallel using {multiprocessing.cpu_count()} processes...')
+            info(f'Cropping {len(df_dets)} detections in parallel using {num_processes} processes...')
             with multiprocessing.Pool(num_processes) as pool:
                 args = [(row, 224) for index, row in df_dets.iterrows()]
                 pool.starmap(crop_square_image, args)
@@ -317,9 +303,17 @@ def cluster_vits(
     for filename in images:
         emb = fetch_embedding(model, filename)
         if len(emb) == 0:
+            # If the embeddings are zero, then the extraction failed; add a zero array
             image_emb.append(np.zeros(384, dtype=np.float32))
         else:
             image_emb.append(emb)
+
+    # If the embeddings are zero, then the extraction failed
+    num_failed = [i for i, e in enumerate(image_emb) if np.all(e == 0)]
+    if len(num_failed) == len(images):
+        warn('Failed to extract embeddings from all images')
+        return pd.DataFrame()
+
     image_emb = np.array(image_emb)
 
     if not (output_path / prefix).exists():
@@ -338,15 +332,15 @@ def cluster_vits(
 
     # Cluster the images
     cluster_sim, exemplar_df, unique_clusters, cluster_means, coverage = _run_hdbscan_assign(prefix,
-                                                                                image_emb,
-                                                                                alpha,
-                                                                                cluster_selection_epsilon,
-                                                                                min_similarity,
-                                                                                min_cluster_size,
-                                                                                min_samples,
-                                                                                use_tsne,
-                                                                                ancillary_df,
-                                                                                output_path / prefix)
+                                                                                             image_emb,
+                                                                                             alpha,
+                                                                                             cluster_selection_epsilon,
+                                                                                             min_similarity,
+                                                                                             min_cluster_size,
+                                                                                             min_samples,
+                                                                                             use_tsne,
+                                                                                             ancillary_df,
+                                                                                             output_path / prefix)
 
     # Get the average similarity across all clusters
     avg_similarity = np.mean(cluster_sim)
