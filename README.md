@@ -9,7 +9,9 @@
 
 This repository processes images using a sliced detection and clustering workflow.
 If your images look something like the image below, and you want to detect objects in the images, 
-and optionally cluster the detections, then this repository is for you.
+and optionally cluster the detections, then this repository may be useful to you.
+The repository is designed to be run from the command line, and can be run in a Docker container,
+with or without a GPU (recommended).
 
 --- 
 ![](https://raw.githubusercontent.com/mbari-org/sdcat/main/docs/imgs/example_images.jpg)
