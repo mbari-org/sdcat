@@ -1,5 +1,17 @@
 # CHANGELOG
 
+## v1.8.4 (2024-07-29)
+
+### Performance
+
+* perf: migrated to transformers library with batch size of 8, moved some imports to only where needed for some speed-up, and removed unused activation maps. ([`c5fe725`](https://github.com/mbari-org/sdcat/commit/c5fe72523fdfb1eb7b674565e5724686a4ec65d1))
+
+### Unknown
+
+* Merge pull request #14 from mbari-org/vitbatch
+
+perf: transformer batching ([`427931e`](https://github.com/mbari-org/sdcat/commit/427931e3f21e744e887489051ca02d1f8f39f894))
+
 ## v1.8.3 (2024-07-23)
 
 ### Ci
