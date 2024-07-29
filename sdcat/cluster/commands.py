@@ -246,8 +246,11 @@ def run_cluster_det(det_dir, save_dir, device, config_ini, alpha, cluster_select
     info(df.head(5))
 
     if len(df) > 0:
+        # Replace / with _ in the model name
+        model_machine_friendly = model.replace('/', '_')
+
         # A prefix for the output files to make sure the output is unique for each execution
-        prefix = f'{model}_{datetime.now().strftime("%Y%m%d_%H%M%S")}'
+        prefix = f'{model_machine_friendly}_{datetime.now().strftime("%Y%m%d_%H%M%S")}'
 
         # Cluster the detections
         df_cluster = cluster_vits(prefix, model, df, save_dir, alpha, cluster_selection_epsilon, min_similarity,
