@@ -29,4 +29,4 @@ RUN apt-get remove -y build-essential && \
 WORKDIR ${APP_HOME}
 ENV HOME=${APP_HOME}
 RUN chmod a+rwx -R ${APP_HOME}
-CMD ["sdcat"]
+ENTRYPOINT ["sdcat"]
