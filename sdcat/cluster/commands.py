@@ -29,11 +29,12 @@ from sdcat.cluster.cluster import cluster_vits
 @common_args.use_tsne
 @common_args.alpha
 @common_args.cluster_selection_epsilon
+@common_args.cluster_selection_method
 @common_args.min_cluster_size
 @click.option('--det-dir', help='Input folder(s) with raw detection results', multiple=True, required=True)
 @click.option('--save-dir', help='Output directory to save clustered detection results', required=True)
 @click.option('--device', help='Device to use, e.g. cpu or cuda:0', type=str)
-def run_cluster_det(det_dir, save_dir, device, config_ini, alpha, cluster_selection_epsilon, min_cluster_size, start_image, end_image, use_tsne):
+def run_cluster_det(det_dir, save_dir, device, config_ini, alpha, cluster_selection_epsilon, cluster_selection_method, min_cluster_size, start_image, end_image, use_tsne):
     config = cfg.Config(config_ini)
     max_area = int(config('cluster', 'max_area'))
     min_area = int(config('cluster', 'min_area'))
@@ -42,6 +43,7 @@ def run_cluster_det(det_dir, save_dir, device, config_ini, alpha, cluster_select
     alpha = alpha if alpha else float(config('cluster', 'alpha'))
     min_cluster_size = min_cluster_size if min_cluster_size else int(config('cluster', 'min_cluster_size'))
     cluster_selection_epsilon = cluster_selection_epsilon if cluster_selection_epsilon else float(config('cluster','cluster_selection_epsilon'))
+    cluster_selection_method = cluster_selection_method if cluster_selection_method else config('cluster', 'cluster_selection_method')
     remove_corners = config('cluster', 'remove_corners')
     latitude = float(config('cluster', 'latitude'))
     longitude = float(config('cluster', 'longitude'))
@@ -253,8 +255,8 @@ def run_cluster_det(det_dir, save_dir, device, config_ini, alpha, cluster_select
         prefix = f'{model_machine_friendly}_{datetime.now().strftime("%Y%m%d_%H%M%S")}'
 
         # Cluster the detections
-        df_cluster = cluster_vits(prefix, model, df, save_dir, alpha, cluster_selection_epsilon, min_similarity,
-                                  min_cluster_size, min_samples, use_tsne)
+        df_cluster = cluster_vits(prefix, model, df, save_dir, alpha, cluster_selection_epsilon, cluster_selection_method,
+                                  min_similarity, min_cluster_size, min_samples, use_tsne)
 
         # Merge the results with the original DataFrame
         df.update(df_cluster)
@@ -270,16 +272,18 @@ def run_cluster_det(det_dir, save_dir, device, config_ini, alpha, cluster_select
 @common_args.use_tsne
 @common_args.alpha
 @common_args.cluster_selection_epsilon
+@common_args.cluster_selection_method
 @common_args.min_cluster_size
 @click.option('--roi-dir', help='Input folder(s) with raw ROI images', multiple=True, required=True)
 @click.option('--save-dir', help='Output directory to save clustered detection results', required=True)
 @click.option('--device', help='Device to use, e.g. cpu or cuda:0', type=str)
-def run_cluster_roi(roi_dir, save_dir, device, config_ini, alpha, cluster_selection_epsilon, min_cluster_size, use_tsne):
+def run_cluster_roi(roi_dir, save_dir, device, config_ini, alpha, cluster_selection_epsilon, cluster_selection_method, min_cluster_size, use_tsne):
     config = cfg.Config(config_ini)
     min_samples = int(config('cluster', 'min_samples'))
     alpha = alpha if alpha else float(config('cluster', 'alpha'))
     min_cluster_size = min_cluster_size if min_cluster_size else int(config('cluster', 'min_cluster_size'))
     cluster_selection_epsilon = cluster_selection_epsilon if cluster_selection_epsilon else float(config('cluster','cluster_selection_epsilon'))
+    cluster_selection_method = cluster_selection_method if cluster_selection_method else config('cluster', 'cluster_selection_method')
     min_similarity = float(config('cluster', 'min_similarity'))
     model = config('cluster', 'model')
 
@@ -346,12 +350,14 @@ def run_cluster_roi(roi_dir, save_dir, device, config_ini, alpha, cluster_select
     info(df.head(5))
 
     if len(df) > 0:
+        model_machine_friendly = model.replace('/', '_')
+
         # A prefix for the output files to make sure the output is unique for each execution
-        prefix = f'{model}_{datetime.now().strftime("%Y%m%d_%H%M%S")}'
+        prefix = f'{model_machine_friendly}_{datetime.now().strftime("%Y%m%d_%H%M%S")}'
 
         # Cluster the detections
-        df_cluster = cluster_vits(prefix, model, df, save_dir, alpha, cluster_selection_epsilon, min_similarity,
-                                  min_cluster_size, min_samples, use_tsne, roi=True)
+        df_cluster = cluster_vits(prefix, model, df, save_dir, alpha, cluster_selection_epsilon, cluster_selection_method,
+                                  min_similarity, min_cluster_size, min_samples, use_tsne, roi=True)
 
         # Merge the results with the original DataFrame
         df.update(df_cluster)

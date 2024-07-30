@@ -41,6 +41,7 @@ def _run_hdbscan_assign(
         image_emb: np.ndarray,
         alpha: float,
         cluster_selection_epsilon: float,
+        cluster_selection_method: str,
         min_similarity: float,
         min_cluster_size: int,
         min_samples: int,
@@ -53,6 +54,7 @@ def _run_hdbscan_assign(
     :param image_emb:  The embeddings to cluster from the model
     :param alpha:  The alpha parameter for HDBSCAN
     :param cluster_selection_epsilon:  The epsilon parameter for HDBSCAN
+    :param cluster_selection_method:  The method to use for cluster selection, 'leaf' or 'eom'
     :param min_similarity:  The minimum similarity score to use for clustering reassignment
     :param min_cluster_size:  The minimum number of samples in a cluster
     :param min_samples:   The number of samples in a neighborhood for a point
@@ -103,7 +105,7 @@ def _run_hdbscan_assign(
             min_samples=min_samples,
             alpha=alpha,
             cluster_selection_epsilon=cluster_selection_epsilon,
-            cluster_selection_method='leaf').fit_predict(x)
+            cluster_selection_method=cluster_selection_method).fit_predict(x)
         labels = scan.fit_predict(x)
     else:
         scan = HDBSCAN(
@@ -113,7 +115,7 @@ def _run_hdbscan_assign(
                 min_samples=min_samples,
                 alpha=alpha,
                 cluster_selection_epsilon=cluster_selection_epsilon,
-                cluster_selection_method='leaf')
+                cluster_selection_method=cluster_selection_method)
         labels = scan.fit_predict(x)
 
     # Get the unique clusters and sort them; -1 are unassigned clusters
@@ -242,6 +244,7 @@ def cluster_vits(
         output_path: Path,
         alpha: float,
         cluster_selection_epsilon: float,
+        cluster_selection_method: str,
         min_similarity: float,
         min_cluster_size: int,
         min_samples: int,
@@ -254,6 +257,7 @@ def cluster_vits(
     :param output_path: The output path to save the clustering artifacts to
     :param roi:  Whether the detections are already cropped to the ROI
     :param cluster_selection_epsilon: The epsilon parameter for HDBSCAN
+    :param cluster_selection_method: The method to use for cluster selection, 'leaf' or 'eom'
     :param alpha: The alpha parameter for HDBSCAN
     :param min_similarity: The minimum similarity score to use for -1 cluster reassignment
     :param min_cluster_size: The minimum number of samples in a cluster
@@ -335,6 +339,7 @@ def cluster_vits(
                                                                                              image_emb,
                                                                                              alpha,
                                                                                              cluster_selection_epsilon,
+                                                                                             cluster_selection_method,
                                                                                              min_similarity,
                                                                                              min_cluster_size,
                                                                                              min_samples,
