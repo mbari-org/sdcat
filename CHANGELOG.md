@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## v1.9.1 (2024-07-31)
+
+### Fix
+
+* fix: correct handling of single cluster ([`f6ede19`](https://github.com/mbari-org/sdcat/commit/f6ede19b84b5f8808f34efa9fbf8e36479f5c8d8))
+
 ## v1.9.0 (2024-07-31)
 
 ### Ci
