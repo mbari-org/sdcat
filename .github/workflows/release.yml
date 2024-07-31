@@ -85,7 +85,7 @@ jobs:
           docker buildx create --name mybuilder --platform linux/amd64,linux/arm64 --use
           # Running out of space for this build so commenting out for now
           #docker buildx build --push --platform linux/amd64 -t mbari/sdcat:$RELEASE_VERSION-cuda124 --label GIT_VERSION=$RELEASE_VERSION --label IMAGE_URI=mbari/sdcat:$RELEASE_VERSION-cuda124 -f docker/Dockerfile.cuda .
-          docker buildx build --push --platform linux/amd64,linux/arm64 -t mbari/sdcat:$RELEASE_VERSION --label GIT_VERSION=$RELEASE_VERSION --label IMAGE_URI=mbari/sdcat:$RELEASE_VERSION -f docker/Dockerfile .
+          docker buildx build --push --platform linux/amd64 -t mbari/sdcat:$RELEASE_VERSION --label GIT_VERSION=$RELEASE_VERSION --label IMAGE_URI=mbari/sdcat:$RELEASE_VERSION -f docker/Dockerfile .
   push_readme_to_dockerhub:
     runs-on: ubuntu-latest
     name: Push README to Docker Hub

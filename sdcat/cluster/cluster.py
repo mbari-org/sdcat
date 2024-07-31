@@ -214,17 +214,26 @@ def _run_hdbscan_assign(
         init = 'spectral'
 
     # Reduce the dimensionality of the embeddings using UMAP to 2 dimensions to visualize the clusters
-    if have_gpu:
-        xx = cuUMAP(init=init,
-                    n_components=2,
-                    n_neighbors=3,
-                    min_dist=0.1,
-                    metric='euclidean').fit_transform(df.values)
+    n_neighbors = min(15, df.values.shape[0] - 1)
+    info(f'Using {n_neighbors} neighbors for dimensional reduction')
+    if n_neighbors < 2:
+        warn('Using PCA instead of UMAP')
+        from sklearn.decomposition import PCA
+        pca = PCA(n_components=2)
+        xx = pca.fit_transform(df.values)
     else:
-        xx = UMAP(init=init,
-                  n_components=2,
-                  metric='cosine',
-                  low_memory=True).fit_transform(df.values)
+        if have_gpu:
+            xx = cuUMAP(init=init,
+                        n_components=2,
+                        n_neighbors=n_neighbors,
+                        min_dist=0.1,
+                        metric='euclidean').fit_transform(df.values)
+        else:
+            xx = UMAP(init=init,
+                      n_components=2,
+                      n_neighbors=n_neighbors,
+                      metric='cosine',
+                      low_memory=True).fit_transform(df.values)
 
     df = pd.DataFrame({'x': xx[clustered, 0], 'y': xx[clustered, 1], 'labels': labels[clustered]})
     p = sns.jointplot(data=df, x='x', y='y', hue='labels')
