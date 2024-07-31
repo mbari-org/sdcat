@@ -126,8 +126,7 @@ def extract_blobs(saliency_map: np.ndarray, img_color: np.ndarray, show=False) -
     if show:
         # Display the thresholded saliency map
         cv2.imshow('Gaussian Blur Saliency Map', saliency_map.astype(np.uint8))
-        if save: 
-            cv2.imwrite('my_gaussian_blur_saliency_map.jpg', saliency_map.astype(np.uint8))
+        if save: cv2.imwrite('my_gaussian_blur_saliency_map.jpg', saliency_map.astype(np.uint8))
         cv2.waitKey(0)
 
     # Threshold the saliency map using gradient thresholding
@@ -136,7 +135,7 @@ def extract_blobs(saliency_map: np.ndarray, img_color: np.ndarray, show=False) -
         255,  # Max pixel value
         cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
         cv2.THRESH_BINARY,
-        27,  # Block size (size of the local neighborhood)
+        23,  # Block size (size of the local neighborhood)
         3  # Constant subtracted from the mean
     )
 
@@ -153,9 +152,10 @@ def extract_blobs(saliency_map: np.ndarray, img_color: np.ndarray, show=False) -
         saliency_map_thres_c = cv2.dilate(saliency_map_thres_c, kernel1, iterations=4)
         saliency_map_thres_c = cv2.erode(saliency_map_thres_c, kernel2, iterations=4)
     else:
-        kernel = np.ones((3, 3), np.uint8)
-        saliency_map_thres_c = cv2.dilate(saliency_map_thres_c, kernel, iterations=2)
-        saliency_map_thres_c = cv2.erode(saliency_map_thres_c, kernel, iterations=1)
+        kernel1 = np.ones((4, 4), np.uint8)
+        kernel2 = np.ones((3, 3), np.uint8)
+        saliency_map_thres_c = cv2.dilate(saliency_map_thres_c, kernel1, iterations=1)
+        saliency_map_thres_c = cv2.erode(saliency_map_thres_c, kernel2, iterations=1)
 
     if show:
         # Display the thresholded saliency map
@@ -384,7 +384,7 @@ def run_saliency_detect(spec_removal: bool,
 
         # Save the results to a csv file for later processing
         df.to_csv(out_csv_file, mode='w', header=True, index=False)
-        
+
     except Exception as e:
         debug(f"Error reading image {image_path}: {e}")
 
@@ -392,7 +392,7 @@ if __name__ == '__main__':
     # Read all images from the tests/data/kelpflow directory
     # Get the path of this file
     # test_path = Path(__file__).parent.parent.parent / 'tests' / 'data' / 'flirleft'
-    # test_path = Path(__file__).parent.parent.parent / 'tests' / 'data' / 'isiis_single'
+    # test_path = Path(__file__).parent.parent.parent / 'tests' / 'data' / 'git _single'
     # test_path = Path(__file__).parent.parent.parent / 'tests' / 'data' / 'bird'
     # test_path = Path(__file__).parent.parent.parent / 'tests' / 'data' / 'other'
     # test_path = Path(__file__).parent.parent.parent / 'tests' / 'data' / 'whale'
