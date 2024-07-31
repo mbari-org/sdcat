@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## v1.9.3 (2024-07-31)
+
+### Ci
+
+* ci: disable docker build until resolve issue with out of space ([`59e160f`](https://github.com/mbari-org/sdcat/commit/59e160f2a84f7de8e1d7f2f18e155a6a4b3b8402))
+
+### Fix
+
+* fix: skip over HDBSCAN for small cluster ([`cbf1ea3`](https://github.com/mbari-org/sdcat/commit/cbf1ea3381aef94a17eb2ae27924df2238c117a9))
+
 ## v1.9.2 (2024-07-31)
 
 ### Fix
