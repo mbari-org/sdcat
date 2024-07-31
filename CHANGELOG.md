@@ -1,5 +1,19 @@
 # CHANGELOG
 
+## v1.9.0 (2024-07-31)
+
+### Ci
+
+* ci: switch to entrypoint ([`02d4eb2`](https://github.com/mbari-org/sdcat/commit/02d4eb2aca56acbe22b452b8f690292210a8243e))
+
+### Documentation
+
+* docs: minor update to intro ([`ec75265`](https://github.com/mbari-org/sdcat/commit/ec7526584df6d8d63c10c75f672151fb5dc91aa3))
+
+### Feature
+
+* feat: added support for arg --cluster-selection-method eof/leaf to support small clusters which work better with eof ([`6480ac2`](https://github.com/mbari-org/sdcat/commit/6480ac279d1383f2c08691998fb12ca2705bffeb))
+
 ## v1.8.4 (2024-07-29)
 
 ### Performance
