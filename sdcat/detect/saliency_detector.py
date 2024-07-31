@@ -135,7 +135,7 @@ def extract_blobs(saliency_map: np.ndarray, img_color: np.ndarray, show=False) -
         255,  # Max pixel value
         cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
         cv2.THRESH_BINARY,
-        27,  # Block size (size of the local neighborhood)
+        23,  # Block size (size of the local neighborhood)
         3  # Constant subtracted from the mean
     )
 
@@ -152,9 +152,10 @@ def extract_blobs(saliency_map: np.ndarray, img_color: np.ndarray, show=False) -
         saliency_map_thres_c = cv2.dilate(saliency_map_thres_c, kernel1, iterations=4)
         saliency_map_thres_c = cv2.erode(saliency_map_thres_c, kernel2, iterations=4)
     else:
-        kernel = np.ones((3, 3), np.uint8)
-        saliency_map_thres_c = cv2.dilate(saliency_map_thres_c, kernel, iterations=2)
-        saliency_map_thres_c = cv2.erode(saliency_map_thres_c, kernel, iterations=1)
+        kernel1 = np.ones((4, 4), np.uint8)
+        kernel2 = np.ones((3, 3), np.uint8)
+        saliency_map_thres_c = cv2.dilate(saliency_map_thres_c, kernel1, iterations=1)
+        saliency_map_thres_c = cv2.erode(saliency_map_thres_c, kernel2, iterations=1)
 
     if show:
         # Display the thresholded saliency map
