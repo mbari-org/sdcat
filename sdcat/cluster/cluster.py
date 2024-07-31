@@ -97,26 +97,29 @@ def _run_hdbscan_assign(
     x = MinMaxScaler().fit_transform(embedding) # scale the embedding to 0-1
 
     # Cluster the embeddings using HDBSCAN
-    if have_gpu:
-        scan = cuHDBSCAN(
-            metric='euclidean',  # 'precomputed' does not work with cuHDBSCAN
-            allow_single_cluster=True,
-            min_cluster_size=min_cluster_size,
-            min_samples=min_samples,
-            alpha=alpha,
-            cluster_selection_epsilon=cluster_selection_epsilon,
-            cluster_selection_method=cluster_selection_method).fit_predict(x)
-        labels = scan.fit_predict(x)
+    if len(df) == 1:
+        labels = np.array([0])
     else:
-        scan = HDBSCAN(
-                metric='l2',
+        if have_gpu:
+            scan = cuHDBSCAN(
+                metric='euclidean',  # 'precomputed' does not work with cuHDBSCAN
                 allow_single_cluster=True,
                 min_cluster_size=min_cluster_size,
                 min_samples=min_samples,
                 alpha=alpha,
                 cluster_selection_epsilon=cluster_selection_epsilon,
-                cluster_selection_method=cluster_selection_method)
-        labels = scan.fit_predict(x)
+                cluster_selection_method=cluster_selection_method).fit_predict(x)
+            labels = scan.fit_predict(x)
+        else:
+            scan = HDBSCAN(
+                    metric='l2',
+                    allow_single_cluster=True,
+                    min_cluster_size=min_cluster_size,
+                    min_samples=min_samples,
+                    alpha=alpha,
+                    cluster_selection_epsilon=cluster_selection_epsilon,
+                    cluster_selection_method=cluster_selection_method)
+            labels = scan.fit_predict(x)
 
     # Get the unique clusters and sort them; -1 are unassigned clusters
     cluster_df = pd.DataFrame(labels, columns=['cluster'])
@@ -126,7 +129,7 @@ def _run_hdbscan_assign(
 
     # If all the clusters are unassigned, then use all the samples as exemplars,
     # and assign them to the unknown cluster. If embedding is empty, this is also the case (failed to extract embeddings)
-    if len(unique_clusters) == 1 and unique_clusters[0] == -1:
+    if len(unique_clusters) == 1 and unique_clusters[0] == -1 or len(x) == 1:
         avg_sim_scores = []
         exemplar_df = pd.DataFrame()
         exemplar_df['cluster'] = len(x) * ['Unknown']
