@@ -124,13 +124,6 @@ def _run_hdbscan_assign(
     unique_clusters.sort()
     info(f"Number of clusters including unassigned -1 cluster: {len(unique_clusters)}")
 
-    cluster_df['score'] = scan.probabilities_
-    # Get the index of the highest scores for each unique cluster sorted in increasing order
-    # and use this as a representative image for the cluster
-    max_scores = cluster_df.sort_values('cluster', ascending=True).groupby('cluster')['score'].idxmax()
-    # Remove the last index which is the -1 cluster
-    max_scores = max_scores[:-1]
-
     # If all the clusters are unassigned, then use all the samples as exemplars,
     # and assign them to the unknown cluster. If embedding is empty, this is also the case (failed to extract embeddings)
     if len(unique_clusters) == 1 and unique_clusters[0] == -1:
@@ -143,6 +136,13 @@ def _run_hdbscan_assign(
         cluster_means = []
         coverage = 0.0
         return avg_sim_scores, exemplar_df, clusters, cluster_means, coverage
+
+    cluster_df['score'] = scan.probabilities_
+    # Get the index of the highest scores for each unique cluster sorted in increasing order
+    # and use this as a representative image for the cluster
+    max_scores = cluster_df.sort_values('cluster', ascending=True).groupby('cluster')['score'].idxmax()
+    # Remove the last index which is the -1 cluster
+    max_scores = max_scores[:-1]
 
     # Get the representative embeddings for the max scoring examplars for each cluster and store them in a numpy array
     exemplar_emb = [image_emb[i] for i in max_scores]
