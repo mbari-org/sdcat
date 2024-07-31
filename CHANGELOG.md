@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## v1.9.2 (2024-07-31)
+
+### Fix
+
+* fix: handle small cluster dataset reduction plot by switching to PCA and reduce build to only linux ([`16ab4de`](https://github.com/mbari-org/sdcat/commit/16ab4ded38b62665007cc5e5b1b6d1eec5865803))
+
 ## v1.9.1 (2024-07-31)
 
 ### Fix
