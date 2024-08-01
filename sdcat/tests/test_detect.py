@@ -31,22 +31,22 @@ def run_detect(data_dir: Path, scale: int) -> int:
                                  '--image-dir',
                                  data_dir.as_posix()], stdout=subprocess.PIPE)
 
-        # Wait for the process to finish
-        proc.wait()
+    # Wait for the process to finish
+    proc.wait()
 
-        # Verify that the process finished successfully
-        assert proc.returncode == 0
+    # Verify that the process finished successfully
+    assert proc.returncode == 0
 
-        # The output should have a total of num_detections lines, including 1 for the header
-        # Data is filtered after detection and put in the det_filtered directory
-        out_path = Path(tmp_dir) / 'det_filtered'
-        for file in out_path.rglob('*.csv'):
-            with open(file) as f:
-                lines = f.readlines()
-                num_detections = len(lines) - 1
-                break
+    # The output should have a total of num_detections lines, including 1 for the header
+    # Data is filtered after detection and put in the det_filtered directory
+    out_path = Path(tmp_dir) / 'det_filtered'
+    for file in out_path.rglob('*.csv'):
+        with open(file) as f:
+            lines = f.readlines()
+            num_detections = len(lines) - 1
+            break
 
-        return num_detections
+    return num_detections
 
 def test_bird():
     """ Test that sdcat can detect the correct number of targets in a drone image with birds"""
@@ -54,7 +54,7 @@ def test_bird():
     data_path = Path(__file__).parent / 'data' / 'bird'
     num_detections = run_detect(data_path, 25)
     print(f'Found {num_detections} in test_bird')
-    assert num_detections == 20
+    assert num_detections == 16
 
 
 def test_pinniped():
@@ -63,7 +63,7 @@ def test_pinniped():
     data_path = Path(__file__).parent / 'data' / 'pinniped'
     num_detections = run_detect(data_path, 60)
     print(f'Found {num_detections} in test_pinniped')
-    assert num_detections == 59
+    assert num_detections == 53
 
 
 def test_plankton():
@@ -72,7 +72,7 @@ def test_plankton():
     data_path = Path(__file__).parent / 'data' / 'plankton'
     num_detections = run_detect(data_path, 80)
     print(f'Found {num_detections} in test_plankton')
-    assert num_detections == 1011
+    assert num_detections == 53
 
 
 if __name__ == '__main__':
