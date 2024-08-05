@@ -256,7 +256,7 @@ def run_cluster_det(det_dir, save_dir, device, config_ini, alpha, cluster_select
 
         # Cluster the detections
         df_cluster = cluster_vits(prefix, model, df, save_dir, alpha, cluster_selection_epsilon, cluster_selection_method,
-                                  min_similarity, min_cluster_size, min_samples, use_tsne)
+                                  min_similarity, min_cluster_size, min_samples, use_tsne, device)
 
         # Merge the results with the original DataFrame
         df.update(df_cluster)
@@ -357,7 +357,7 @@ def run_cluster_roi(roi_dir, save_dir, device, config_ini, alpha, cluster_select
 
         # Cluster the detections
         df_cluster = cluster_vits(prefix, model, df, save_dir, alpha, cluster_selection_epsilon, cluster_selection_method,
-                                  min_similarity, min_cluster_size, min_samples, use_tsne, roi=True)
+                                  min_similarity, min_cluster_size, min_samples, device, use_tsne, roi=True)
 
         # Merge the results with the original DataFrame
         df.update(df_cluster)

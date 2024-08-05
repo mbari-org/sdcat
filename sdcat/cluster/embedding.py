@@ -120,12 +120,13 @@ def compute_embedding_vits(images: list, model_name: str, device: str = "cpu"):
             err(f'Error processing {batch}: {e}')
 
 
-def compute_norm_embedding(model_name: str, images: list):
+def compute_norm_embedding(model_name: str, images: list, device: str = "cpu"):
     """
     Compute the embedding for a list of images and save them to disk.
     Args:
     :param images:  List of image paths
     :param model_name: Name of the model to use for the embedding generation
+    :param device: Device to use for the computation (cpu or cuda:0, cuda:1, etc.)
     Returns:
 
     """
@@ -136,7 +137,7 @@ def compute_norm_embedding(model_name: str, images: list):
 
     # If using a GPU, set then skip the parallel CPU processing
     if torch.cuda.is_available():
-        compute_embedding_vits(images, model_name)
+        compute_embedding_vits(images, model_name, device)
     else:
         # Use a pool of processes to speed up the embedding generation 20 images at a time on each process
         num_processes = min(multiprocessing.cpu_count(), len(images) // 20)

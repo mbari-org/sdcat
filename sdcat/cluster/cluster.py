@@ -260,6 +260,7 @@ def cluster_vits(
         min_similarity: float,
         min_cluster_size: int,
         min_samples: int,
+        device: str = "cpu",
         use_tsne: bool = False,
         roi: bool = False) -> pd.DataFrame:
     """  Cluster the crops using the VITS embeddings.
@@ -274,6 +275,8 @@ def cluster_vits(
     :param min_similarity: The minimum similarity score to use for -1 cluster reassignment
     :param min_cluster_size: The minimum number of samples in a cluster
     :param min_samples:The number of samples in a neighborhood for a point
+    :param device: The device to use for clustering, 'cpu' or 'cuda'
+    :param use_tsne: Whether to use t-SNE for dimensionality reduction
     :return:  a dataframe with the assigned cluster indexes, or -1 for non-assigned."""
 
     # If there are no detections, return an empty dataframe
@@ -311,7 +314,7 @@ def cluster_vits(
     # Skip the embedding extraction if all the embeddings are cached
     if num_cached != len(images):
         debug(f'Extracted embeddings from {num_cached} images...')
-        compute_norm_embedding(model, images)
+        compute_norm_embedding(model, images, device)
 
     # Fetch the cached embeddings
     debug(f'Fetching embeddings ...')
