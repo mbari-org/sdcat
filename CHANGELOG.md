@@ -1,5 +1,25 @@
 # CHANGELOG
 
+## v1.9.4 (2024-08-05)
+
+### Build
+
+* build: install cuda enabled torch ([`c01259b`](https://github.com/mbari-org/sdcat/commit/c01259b1a7cea197612e446330f9d6f2ea3457ae))
+
+### Documentation
+
+* docs: changing 2 parameters to ISIIS images ([`417bbf4`](https://github.com/mbari-org/sdcat/commit/417bbf4e4eecbc8a61de2d8b66d3cabfb1604fbc))
+
+### Fix
+
+* fix: pass through device correctly for clustering ([`0996b8c`](https://github.com/mbari-org/sdcat/commit/0996b8cfb4adffa0f57276fb9c0b87a97a7fbcb6))
+
+### Test
+
+* test: adjust plankton detections ([`25ce6bd`](https://github.com/mbari-org/sdcat/commit/25ce6bd32836fcd4eb288179e47905f87c255248))
+
+* test: adjust per changing for  ISIIS images ([`de1ba65`](https://github.com/mbari-org/sdcat/commit/de1ba65f8dff5c133bac2b03fe6b5a539619824b))
+
 ## v1.9.3 (2024-07-31)
 
 ### Ci
