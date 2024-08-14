@@ -11,7 +11,7 @@ This repository processes images using a sliced detection and clustering workflo
 If your images look something like the image below, and you want to detect objects in the images, 
 and optionally cluster the detections, then this repository may be useful to you.
 The repository is designed to be run from the command line, and can be run in a Docker container,
-with or without a GPU (recommended).
+without or with a GPU (recommended).
 
 --- 
 ![](https://raw.githubusercontent.com/mbari-org/sdcat/main/docs/imgs/example_images.jpg)
@@ -55,11 +55,24 @@ sdcat cluster roi --roi <roi> --save-dir <save-dir> --model <model>
 
 The clustering is done with a Vision Transformer (ViT) model, and a cosine similarity metric with the HDBSCAN algorithm.
 The ViT model is used to generate embeddings for the detections, and the HDBSCAN algorithm is used to cluster the detections.
+What is an embedding?  An embedding is a vector representation of an object in an image.  
+
 The defaults are set to produce fine-grained clusters, but the parameters can be adjusted to produce coarser clusters.
 The algorithm workflow looks like this:
 
 ![](https://raw.githubusercontent.com/mbari-org/sdcat/main/docs/imgs/cluster_workflow.png)
-  
+
+| Vision Transformer (ViT) Models      | Description                                                                    |
+|--------------------------------------|--------------------------------------------------------------------------------|
+| google/vit-base-patch16-224(default) | 16 block size trained on ImageNet21k with 21k classes                          |
+| facebook/dino-vits8                  | trained on ImageNet which contains 1.3 M images with labels from 1000 classes  |
+| facebook/dino-vits16                 | trained on ImageNet which contains 1.3 M images with labels from 1000 classes  |
+
+Smaller block_size means more patches and more accurate fine-grained clustering on smaller objects, so
+ViTS models with 8 block size are recommended for fine-grained clustering on small objects, and 16 is recommended for coarser clustering on 
+larger objects.  We recommend running with multiple models to see which model works best for your data,
+and to experiment with the --min_samples and --min-cluster-size options to get good clustering results.
+   
 # Installation
  
 Pip install the sdcat package with:
@@ -180,7 +193,8 @@ sdcat cluster --det-dir <det-dir> --save-dir <save-dir> --model yolov5s
   
 
 # Related work
-* https://github.com/obss/sahi
-* https://github.com/facebookresearch/dinov2
+* https://github.com/obss/sahi SAHI
+* https://arxiv.org/abs/2010.11929 An Image is Worth 16x16 Words: Transformers for Image Recognition at Scale
+* https://github.com/facebookresearch/dinov2 DINOv2
 * https://arxiv.org/pdf/1911.02282.pdf HDBSCAN
-* https://github.com/muratkrty/specularity-removal
+* https://github.com/muratkrty/specularity-removal Specularity Removal
