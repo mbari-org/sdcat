@@ -76,8 +76,7 @@ def create_logger_file(prefix: str = "sdcat"):
         try:
             log_path.mkdir(parents=True, exist_ok=True)
             test_file = log_path / "test.txt"
-            with open(test_file, "w") as f:
-                f.write("test")
+            test_file.touch()
             test_file.unlink()
         except PermissionError:
             import tempfile
