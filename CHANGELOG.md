@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## v1.10.1 (2024-08-22)
+
+### Chore
+
+* chore: revert changes to author list ([`b7cd5a5`](https://github.com/mbari-org/sdcat/commit/b7cd5a588743e6173e1045d57abd26d8e20ec16f))
+
+### Fix
+
+* fix: trigger release with changes to pyproject.toml to update __version__ ([`6b7f641`](https://github.com/mbari-org/sdcat/commit/6b7f641c192846167926d7c7c7920c0680eb128f))
+
 ## v1.10.0 (2024-08-22)
 
 ### Build
