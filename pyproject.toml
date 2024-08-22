@@ -3,9 +3,9 @@ name = "sdcat"
 version = "1.10.0"
 description = "Sliced Detection and Clustering Analysis Toolkit - Developed by MBARI"
 authors = [
-  {name = "Danelle Cline", email = "dcline@mbari.org"},
-  {name = "Duane Edgington", email = "duane@mbari.org"},
-  {name = "Fernanda Lecaros Saavedra", email = "fernandalecaros@mbari.org"},
+    "Danelle Cline <dcline@mbari.org>",
+    "Duane Edgington <duane@mbari.org>",
+    "Fernanda Lecaros Saavedra <fernandalecaros@mbari.org>",
 ]
 license = "Apache"
 readme = "README.md"
