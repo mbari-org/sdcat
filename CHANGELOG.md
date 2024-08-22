@@ -1,5 +1,31 @@
 # CHANGELOG
 
+## v1.10.0 (2024-08-22)
+
+### Build
+
+* build: adjust test path ([`83119fb`](https://github.com/mbari-org/sdcat/commit/83119fbbf479a2f09543355b2872a9f58a2f34ce))
+
+### Chore
+
+* chore: moved tests to root of project ([`ccf2601`](https://github.com/mbari-org/sdcat/commit/ccf2601eb292591824064b42f8ccd940a2128537))
+
+### Documentation
+
+* docs: added clustering table, transformer paper, and other minor revisions ([`56b4e17`](https://github.com/mbari-org/sdcat/commit/56b4e170b19d5b2d9c6984ce8c5cc7e1bc370c93))
+
+### Feature
+
+* feat: added latest 30 and 18k models ([`673a7f6`](https://github.com/mbari-org/sdcat/commit/673a7f64a9b69f45e0edd72e381c8fe3fce01e75))
+
+### Fix
+
+* fix: better handling of testing log write permissions ([`728b145`](https://github.com/mbari-org/sdcat/commit/728b14526b931ee895865b059a129f966b923e4d))
+
+### Performance
+
+* perf: removed color image normalization in preprocessing for SAHI and extract min_std and block_size for more flexible application across projects ([`d9d954a`](https://github.com/mbari-org/sdcat/commit/d9d954a24ceed9431a357340ca7e959a9111d062))
+
 ## v1.9.4 (2024-08-05)
 
 ### Build
