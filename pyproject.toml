@@ -3,9 +3,9 @@ name = "sdcat"
 version = "1.10.0"
 description = "Sliced Detection and Clustering Analysis Toolkit - Developed by MBARI"
 authors = [
-    "Danelle Cline <dcline@mbari.org>",
-    "Duane Edgington <duane@mbari.org>",
-    "Fernanda Lecaros Saavedra <fernandalecaros@mbari.org>",
+  {name = "Danelle Cline", email = "dcline@mbari.org"},
+  {name = "Duane Edgington", email = "duane@mbari.org"},
+  {name = "Fernanda Lecaros Saavedra", email = "fernandalecaros@mbari.org"},
 ]
 license = "Apache"
 readme = "README.md"
@@ -21,6 +21,8 @@ sdcat = "sdcat.__main__:cli"
 branch = "main"
 upload_to_PyPI = false
 upload_to_release = true
+tag_format = "v{version}"
+commit_version_number = true
 version_variable = [
     "sdcat/__init__.py:__version__"
 ]
