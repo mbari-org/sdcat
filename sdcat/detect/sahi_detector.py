@@ -85,11 +85,6 @@ def run_sahi_detect(scale_percent: int,
     img_color = cv2.imread(image_path.as_posix())
     img_color_rescaled = rescale(img_color, scale_percent=scale_percent)
 
-    # Run image normalization on each color channel
-    img_color_rescaled[:, :, 0] = cv2.equalizeHist(img_color_rescaled[:, :, 0])
-    img_color_rescaled[:, :, 1] = cv2.equalizeHist(img_color_rescaled[:, :, 1])
-    img_color_rescaled[:, :, 2] = cv2.equalizeHist(img_color_rescaled[:, :, 2])
-
     # Calculate the slice size
     if slice_width and slice_height:
         info(f'Using slice size width: {slice_width} and height: {slice_height}')

@@ -14,10 +14,11 @@ from pathlib import Path
 # This is a global variable to control whether to save the algorithm results; useful for debugging or presentation
 save = True
 
-def compute_saliency(contour, img_saliency: np.ndarray, img_luminance: np.ndarray) -> int:
+def compute_saliency(contour, min_std: float, img_saliency: np.ndarray, img_luminance: np.ndarray) -> int:
     """
     Calculate the saliency cost of a contour. Lower saliency contours are more likely to be reflections.
     :param contour: the contour
+    :param min_std: minimum standard deviation of the contour to be considered
     :param img_saliency: saliency image
     :param img_luminance: luminance image
     :return: saliency cost (int)
@@ -44,17 +45,18 @@ def compute_saliency(contour, img_saliency: np.ndarray, img_luminance: np.ndarra
     cost = (area * (mean_intensity_l + mean_intensity_s + 0.1 * area) - variance) / factor
 
     # If the std is too low, then the contour is not interesting; set the cost to 1
-    if std < 8.0:
+    if std < min_std:
         cost = 1
 
     return int(cost)
 
 
-def process_contour(contours: np.ndarray, img_s: np.ndarray, img_l: np.ndarray) -> np.ndarray:
+def process_contour(contours: np.ndarray, min_std: float, img_s: np.ndarray, img_l: np.ndarray) -> np.ndarray:
     """
     Process a single contour. Save the results to a csv file.
     This is a separate function, so it can be run in parallel.
     :param contours:  List of contours
+    :param min_std: minimum standard deviation of the contour to be considered
     :param img_s: Saliency image
     :param img_l: Luminance image
     :return: dataframe of blobs
@@ -64,14 +66,13 @@ def process_contour(contours: np.ndarray, img_s: np.ndarray, img_l: np.ndarray) 
         x, y, w, h = cv2.boundingRect(c)
 
         area = cv2.contourArea(c)
-        saliency = compute_saliency(c, img_s, img_l)
+        saliency = compute_saliency(c, min_std, img_s, img_l)
 
-        # if interest_intensity >= 0:#100.0:
         debug(f'Found blob area: {area}, saliency: {saliency}, area: {area}')
         df = pd.concat([df, pd.DataFrame({
             'image_path': '',
             'class': 'Unknown',
-            'score': 0.1,
+            'score': 0.,
             'area': area,
             'saliency': saliency,
             'x': x,
@@ -111,9 +112,11 @@ def smooth_reflections(image: np.ndarray, show=False) -> np.ndarray:
     return image
 
 
-def extract_blobs(saliency_map: np.ndarray, img_color: np.ndarray, show=False) -> (pd.DataFrame, np.ndarray):
+def extract_blobs(min_std: float, block_size: int, saliency_map: np.ndarray, img_color: np.ndarray, show=False) -> (pd.DataFrame, np.ndarray):
     """
     Extract blobs from a saliency map
+    :param min_std: minimum standard deviation of the contour to be considered
+    :param block_size: block size for adaptive thresholding
     :param saliency_map: normalized saliency map
     :param img_color: color image used when showing the results
     :param show: True to show the results
@@ -135,7 +138,7 @@ def extract_blobs(saliency_map: np.ndarray, img_color: np.ndarray, show=False) -
         255,  # Max pixel value
         cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
         cv2.THRESH_BINARY,
-        23,  # Block size (size of the local neighborhood)
+        block_size,  # Block size (size of the local neighborhood)
         3  # Constant subtracted from the mean
     )
 
@@ -176,7 +179,7 @@ def extract_blobs(saliency_map: np.ndarray, img_color: np.ndarray, show=False) -
 
     # Get the luminance to use in saliency calculation
     img_lum = cv2.cvtColor(img_color, cv2.COLOR_BGR2LAB)[:, :, 0]
-    df = process_contour(contours, saliency_map_thres_c.astype(np.uint8), img_lum)
+    df = process_contour(contours, min_std, saliency_map_thres_c.astype(np.uint8), img_lum)
 
     if show:
         for i, row in df.iterrows():
@@ -278,6 +281,8 @@ def run_saliency_detect_bulk(spec_removal: bool,
                              scale_percent: int,
                              images: list,
                              out_path: Path,
+                             min_std: float = 8.,
+                             block_size: int = 23,
                              clahe:bool = False,
                              show: bool = False):
     info(f'Processing {len(images)} images')
@@ -289,6 +294,8 @@ def run_saliency_detect_bulk(spec_removal: bool,
                             f.as_posix(),
                             out_csv_file.as_posix(),
                             out_image_file.as_posix() if out_image_file else None,
+                            min_std,
+                            block_size,
                             clahe,
                             show)
 
@@ -298,6 +305,8 @@ def run_saliency_detect(spec_removal: bool,
                         in_image_file: str,
                         out_csv_file: str,
                         out_image_file: str = None,
+                        min_std: float = 8.,
+                        block_size: int = 23,
                         clahe: bool = False,
                         show: bool = False):
     """
@@ -309,6 +318,8 @@ def run_saliency_detect(spec_removal: bool,
     :param show: True to show the results
     :param out_csv_file: The csv path to save the results
     :param out_image_file: (optional) The image filename to save the results
+    :param min_std: minimum standard deviation of the contour to be considered
+    :param block_size: block size for adaptive thresholding
     :return:
     """
     info(f'Processing {in_image_file}')
@@ -339,7 +350,7 @@ def run_saliency_detect(spec_removal: bool,
     saliency_map = fine_grained_saliency(img_spc, clahe=clahe, show=show)
 
     # Extract blobs from the saliency map
-    df, contour_img = extract_blobs(saliency_map, img_spc, show=show)
+    df, contour_img = extract_blobs(min_std, block_size, saliency_map, img_spc, show=show)
 
     info(f'Found {len(df)} blobs in {image_path}')
 
@@ -409,6 +420,8 @@ if __name__ == '__main__':
                                 in_image_file,
                                 (temp_path / f'{in_image_file.stem}.csv').as_posix(),
                                 (temp_path / f'{in_image_file.stem}.jpg').as_posix(),
+                                min_std=8.,
+                                block_size=23,
                                 show=True)
 
         # Copy the results to the output directory

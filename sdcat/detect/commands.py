@@ -38,8 +38,8 @@ default_model = 'MBARI/megamidwater'
 @click.option('--conf', default=0.1, help='Confidence threshold.')
 @click.option('--scale-percent', default=80, help='Scaling factor to rescale the images before processing.')
 @click.option('--model', default=default_model, help=f'Model to use. Defaults to {default_model}')
-@click.option('--slice-size-width', default=900, help='Slice width size, leave blank for auto slicing')
-@click.option('--slice-size-height', default=900, help='Slice height size, leave blank for auto slicing')
+@click.option('--slice-size-width', help='Slice width size, leave blank for auto slicing')
+@click.option('--slice-size-height', help='Slice height size, leave blank for auto slicing')
 @click.option('--postprocess-match-metric', default='IOS', help='Postprocess match metric for NMS. postprocess_match_metric IOU for intersection over union, IOS for intersection over smaller area.')
 @click.option('--overlap-width-ratio', default=0.4, help='Overlap width ratio for NMS')
 @click.option('--overlap-height-ratio', default=0.4, help='Overlap height ratio for NMS')
@@ -52,6 +52,8 @@ def run_detect(show: bool, image_dir: str, save_dir: str, model: str,
                config_ini: str, clahe: bool, start_image: str, end_image: str):
     config = cfg.Config(config_ini)
     clahe = clahe if clahe else config('detect', 'clahe') == 'True'
+    block_size = int(config('detect', 'block_size'))
+    min_std = float(config('detect', 'min_std'))
     max_area = int(config('detect', 'max_area'))
     min_area = int(config('detect', 'min_area'))
     min_saliency = int(config('detect', 'min_saliency'))
@@ -200,6 +202,7 @@ def run_detect(show: bool, image_dir: str, save_dir: str, model: str,
         # run_saliency_detect(spec_remove, scale_percent, images[0].as_posix(), (save_path_det_raw / f'{images[0].stem}.csv').as_posix(), clahe=clahe, show=True)
         # Do the work in parallel to speed up the processing on multicore machines
         num_processes = multiprocessing.cpu_count()
+        num_processes = min(num_processes, num_images)
         info(f'Using {num_processes} processes to compute {num_images} images 10 at a time ...')
         # # Run multiple processes in parallel num_cpu images at a time
         with multiprocessing.Pool(num_processes) as pool:
@@ -208,6 +211,8 @@ def run_detect(show: bool, image_dir: str, save_dir: str, model: str,
                          scale_percent,
                          images[i:i + 1],
                          save_path_det_raw,
+                         min_std,
+                         block_size,
                          clahe,
                          show)
                         for i in range(0, num_images, 1)]
@@ -238,6 +243,8 @@ def run_detect(show: bool, image_dir: str, save_dir: str, model: str,
                                     f.as_posix(),
                                     (save_path_det_raw / f'{f.stem}.csv').as_posix(),
                                     None,
+                                    min_std,
+                                    block_size,
                                     clahe,
                                     show)
             if not skip_sahi:
