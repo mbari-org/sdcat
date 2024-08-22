@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## v1.10.2 (2024-08-22)
+
+### Fix
+
+* fix: trigger release with changes to __init__.py ([`e275d9c`](https://github.com/mbari-org/sdcat/commit/e275d9cec3094c37d3bca337ebfe2bfb8364b5d1))
+
 ## v1.10.1 (2024-08-22)
 
 ### Chore

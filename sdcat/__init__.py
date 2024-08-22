@@ -1,2 +1,2 @@
 # sdcat/__init__.py
-__version__ = "1.8.0"
+__version__ = "1.10.2"
