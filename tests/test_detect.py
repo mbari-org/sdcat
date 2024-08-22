@@ -15,7 +15,7 @@ def run_detect(data_dir: Path, scale: int) -> int:
     """
 
     # Get the root directory of the project
-    root_dir = Path(__file__).parent.parent
+    root_dir = Path(__file__).parent.parent / 'sdcat'
 
     num_detections = 0
     # Run in temporary directory
