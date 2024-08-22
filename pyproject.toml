@@ -12,7 +12,7 @@ readme = "README.md"
 packages = [
     { include = "sdcat" }
 ]
-exclude = ["sdcat/tests"]
+exclude = ["tests"]
 
 [tool.poetry.scripts]
 sdcat = "sdcat.__main__:cli"
@@ -86,7 +86,7 @@ show_error_codes = true
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
-testpaths = ["sdcat/tests",]
+testpaths = ["tests",]
 pythonpath = ["."]
 
 [tool.ruff]
