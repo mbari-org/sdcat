@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## v1.10.3 (2024-09-03)
+
+### Fix
+
+* fix: do not load the last cluster in exemplars ([`bbc3a9a`](https://github.com/mbari-org/sdcat/commit/bbc3a9a0fd73c1ef3852f19928c01c983c34d241))
+
 ## v1.10.2 (2024-08-22)
 
 ### Fix
