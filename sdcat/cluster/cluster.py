@@ -140,6 +140,16 @@ def _run_hdbscan_assign(
         coverage = 0.0
         return avg_sim_scores, exemplar_df, clusters, cluster_means, coverage
 
+    # Remove the last cluster which is the unknown cluster
+    # Note that in the rare case where the coverage is 100%, the last cluster may not be the unknown cluster!
+    # TODO: how to handle this case?
+    max_clusters = len(unique_clusters) - 1
+    num_before = len(cluster_df)
+    info(f"Removing {num_before - len(cluster_df[cluster_df['cluster'] != max_clusters])} samples from the unknown cluster")
+    cluster_df = cluster_df[cluster_df['cluster'] != max_clusters]
+    num_after = len(cluster_df)
+    info(f"Number of samples after removing unknown cluster: {num_after}")
+
     cluster_df['score'] = scan.probabilities_
     # Get the index of the highest scores for each unique cluster sorted in increasing order
     # and use this as a representative image for the cluster
