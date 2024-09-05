@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## v1.10.4 (2024-09-05)
+
+### Fix
+
+* fix: move last cluster removal to exemplars only ([`96fc5db`](https://github.com/mbari-org/sdcat/commit/96fc5dbf5953bf823b929e1d41958bcfa9978698))
+
 ## v1.10.3 (2024-09-03)
 
 ### Fix
