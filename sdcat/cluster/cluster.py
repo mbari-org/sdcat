@@ -140,16 +140,6 @@ def _run_hdbscan_assign(
         coverage = 0.0
         return avg_sim_scores, exemplar_df, clusters, cluster_means, coverage
 
-    # Remove the last cluster which is the unknown cluster
-    # Note that in the rare case where the coverage is 100%, the last cluster may not be the unknown cluster!
-    # TODO: how to handle this case?
-    max_clusters = len(unique_clusters) - 1
-    num_before = len(cluster_df)
-    info(f"Removing {num_before - len(cluster_df[cluster_df['cluster'] != max_clusters])} samples from the unknown cluster")
-    cluster_df = cluster_df[cluster_df['cluster'] != max_clusters]
-    num_after = len(cluster_df)
-    info(f"Number of samples after removing unknown cluster: {num_after}")
-
     cluster_df['score'] = scan.probabilities_
     # Get the index of the highest scores for each unique cluster sorted in increasing order
     # and use this as a representative image for the cluster
@@ -157,7 +147,7 @@ def _run_hdbscan_assign(
     # Remove the last index which is the -1 cluster
     max_scores = max_scores[:-1]
 
-    # Get the representative embeddings for the max scoring examplars for each cluster and store them in a numpy array
+    # Get the representative embeddings for the max scoring exemplars for each cluster and store them in a numpy array
     exemplar_emb = [image_emb[i] for i in max_scores]
     exemplar_emb = np.array(exemplar_emb)
 
@@ -167,6 +157,16 @@ def _run_hdbscan_assign(
     if ancillary_df is not None and 'image_path' in ancillary_df.columns:
         exemplar_df['image_path'] = ancillary_df.iloc[max_scores]['image_path'].tolist()
     exemplar_df['embedding'] = exemplar_emb.tolist()
+
+    # Remove the last cluster which is the unknown cluster
+    # Note that in the rare case where the coverage is 100%, the last cluster may not be the unknown cluster!
+    # TODO: how to handle this case?
+    max_clusters = len(unique_clusters) - 1
+    num_before = len(exemplar_df)
+    info(f"Removing {num_before - len(exemplar_df[exemplar_df['cluster'] != max_clusters])} samples from the unknown cluster")
+    exemplar_df = exemplar_df[exemplar_df['cluster'] != max_clusters]
+    num_after = len(exemplar_df)
+    info(f"Number of samples after removing unknown cluster: {num_after}")
 
     # Reassign the unknowns to the closest cluster - this is only needed if the coverage is less than 1
     clustered = labels >= 0
