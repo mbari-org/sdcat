@@ -323,7 +323,7 @@ def cluster_vits(
 
     # Skip the embedding extraction if all the embeddings are cached
     if num_cached != len(images):
-        debug(f'Extracted embeddings from {num_cached} images...')
+        debug(f'Extracted embeddings from {len(images)} images...')
         compute_norm_embedding(model, images, device)
 
     # Fetch the cached embeddings
