@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## v1.10.5 (2024-09-13)
+
+### Fix
+
+* fix: minor fix to correct debug statement and correct order arg for cluster ([`645e979`](https://github.com/mbari-org/sdcat/commit/645e9790909496e8f3a385174270bb70f069a165))
+
 ## v1.10.4 (2024-09-05)
 
 ### Fix
