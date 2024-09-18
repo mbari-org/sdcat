@@ -27,6 +27,7 @@ from sdcat.cluster.cluster import cluster_vits
 @common_args.start_image
 @common_args.end_image
 @common_args.use_tsne
+@common_args.skip_visualization
 @common_args.alpha
 @common_args.cluster_selection_epsilon
 @common_args.cluster_selection_method
@@ -34,7 +35,7 @@ from sdcat.cluster.cluster import cluster_vits
 @click.option('--det-dir', help='Input folder(s) with raw detection results', multiple=True, required=True)
 @click.option('--save-dir', help='Output directory to save clustered detection results', required=True)
 @click.option('--device', help='Device to use, e.g. cpu or cuda:0', type=str)
-def run_cluster_det(det_dir, save_dir, device, config_ini, alpha, cluster_selection_epsilon, cluster_selection_method, min_cluster_size, start_image, end_image, use_tsne):
+def run_cluster_det(det_dir, save_dir, device, config_ini, alpha, cluster_selection_epsilon, cluster_selection_method, min_cluster_size, start_image, end_image, use_tsne, skip_visualization):
     config = cfg.Config(config_ini)
     max_area = int(config('cluster', 'max_area'))
     min_area = int(config('cluster', 'min_area'))
@@ -256,7 +257,8 @@ def run_cluster_det(det_dir, save_dir, device, config_ini, alpha, cluster_select
 
         # Cluster the detections
         df_cluster = cluster_vits(prefix, model, df, save_dir, alpha, cluster_selection_epsilon, cluster_selection_method,
-                                  min_similarity, min_cluster_size, min_samples, device,  use_tsne, roi=False)
+                                  min_similarity, min_cluster_size, min_samples, device, use_tsne,
+                                  skip_visualization=skip_visualization, roi=False)
 
         # Merge the results with the original DataFrame
         df.update(df_cluster)
@@ -270,6 +272,7 @@ def run_cluster_det(det_dir, save_dir, device, config_ini, alpha, cluster_select
 @click.command('roi', help='Cluster roi. See cluster --config-ini to override cluster defaults.')
 @common_args.config_ini
 @common_args.use_tsne
+@common_args.skip_visualization
 @common_args.alpha
 @common_args.cluster_selection_epsilon
 @common_args.cluster_selection_method
@@ -277,7 +280,7 @@ def run_cluster_det(det_dir, save_dir, device, config_ini, alpha, cluster_select
 @click.option('--roi-dir', help='Input folder(s) with raw ROI images', multiple=True, required=True)
 @click.option('--save-dir', help='Output directory to save clustered detection results', required=True)
 @click.option('--device', help='Device to use, e.g. cpu or cuda:0', type=str)
-def run_cluster_roi(roi_dir, save_dir, device, config_ini, alpha, cluster_selection_epsilon, cluster_selection_method, min_cluster_size, use_tsne):
+def run_cluster_roi(roi_dir, save_dir, device, config_ini, alpha, cluster_selection_epsilon, cluster_selection_method, min_cluster_size, use_tsne, skip_visualization):
     config = cfg.Config(config_ini)
     min_samples = int(config('cluster', 'min_samples'))
     alpha = alpha if alpha else float(config('cluster', 'alpha'))
@@ -357,7 +360,8 @@ def run_cluster_roi(roi_dir, save_dir, device, config_ini, alpha, cluster_select
 
         # Cluster the detections
         df_cluster = cluster_vits(prefix, model, df, save_dir, alpha, cluster_selection_epsilon, cluster_selection_method,
-                                  min_similarity, min_cluster_size, min_samples, device, use_tsne, roi=True)
+                                  min_similarity, min_cluster_size, min_samples, device, use_tsne,
+                                  skip_visualization=skip_visualization, roi=True)
 
         # Merge the results with the original DataFrame
         df.update(df_cluster)

@@ -44,3 +44,7 @@ min_cluster_size = click.option('--min-cluster-size',
 use_tsne = click.option('--use-tsne',
                         is_flag=True,
                         help='Use t-SNE for dimensionality reduction. Default is False')
+
+skip_visualization = click.option('--skip-visualization',
+                                    is_flag=True,
+                                    help='Skip visualization. Default is False')

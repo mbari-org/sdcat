@@ -272,6 +272,7 @@ def cluster_vits(
         min_samples: int,
         device: str = "cpu",
         use_tsne: bool = False,
+        skip_visualization: bool = False,
         roi: bool = False) -> pd.DataFrame:
     """  Cluster the crops using the VITS embeddings.
     :param prefix:  A unique prefix to save artifacts from clustering
@@ -286,6 +287,7 @@ def cluster_vits(
     :param min_cluster_size: The minimum number of samples in a cluster
     :param min_samples:The number of samples in a neighborhood for a point
     :param device: The device to use for clustering, 'cpu' or 'cuda'
+    :param skip_visualization: Whether to skip the visualization of the clusters
     :param use_tsne: Whether to use t-SNE for dimensionality reduction
     :return:  a dataframe with the assigned cluster indexes, or -1 for non-assigned."""
 
@@ -400,17 +402,18 @@ def cluster_vits(
         err(f'No processes available to visualize the clusters')
         return None
 
-    # Use a pool of processes to speed up the visualization of the clusters
-    with multiprocessing.Pool(num_processes) as pool:
-        args = [(prefix,  # prefix
-                 cluster_sim[cluster_id],  # average similarity for the cluster
-                 cluster_id,  # cluster id
-                 unique_clusters[cluster_id],  # cluster indices
-                 4 if len(unique_clusters[cluster_id]) < 50 else 8,  # grid size; larger clusters get larger grids
-                 [images[idx] for idx in unique_clusters[cluster_id]],  # images in the cluster
-                 output_path / prefix) for cluster_id in
-                range(0, len(unique_clusters))]
-        pool.starmap(cluster_grid, args)
+    if not skip_visualization:
+        # Use a pool of processes to speed up the visualization of the clusters
+        with multiprocessing.Pool(num_processes) as pool:
+            args = [(prefix,  # prefix
+                     cluster_sim[cluster_id],  # average similarity for the cluster
+                     cluster_id,  # cluster id
+                     unique_clusters[cluster_id],  # cluster indices
+                     4 if len(unique_clusters[cluster_id]) < 50 else 8,  # grid size; larger clusters get larger grids
+                     [images[idx] for idx in unique_clusters[cluster_id]],  # images in the cluster
+                     output_path / prefix) for cluster_id in
+                    range(0, len(unique_clusters))]
+            pool.starmap(cluster_grid, args)
 
     # Save the exemplar embeddings with the model type
     exemplar_df['model'] = model
