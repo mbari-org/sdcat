@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## v1.11.0 (2024-09-18)
+
+### Feature
+
+* feat: add to cluster command option --skip-visualization since this takes some time and is not needed for prod ml workflows ([`48d1f19`](https://github.com/mbari-org/sdcat/commit/48d1f1955510ad2269def64dee9e14b96db36c0f))
+
 ## v1.10.5 (2024-09-13)
 
 ### Fix
