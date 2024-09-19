@@ -1,41 +1,27 @@
-FROM nvidia/cuda:12.4.1-cudnn-runtime-ubuntu22.04 AS builder
-
-RUN apt-get update && apt-get install --no-install-recommends -y \
-    python3 python3-dev python3-venv python3-pip python3-wheel build-essential && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
-
-RUN python3 -m venv /venv
-ENV PATH="/venv/bin:$PATH"
-RUN python3 -m pip install --upgrade pip
-
-ADD . .
-RUN pip install poetry && poetry build && python3 -m pip install dist/*.whl
-
-FROM nvidia/cuda:12.4.1-cudnn-runtime-ubuntu22.04
-
-ARG GIT_VERSION=latest
-ARG IMAGE_URI=mbari/sdcat:${GIT_VERSION}
+FROM python:3.11-slim
 
 LABEL vendor="MBARI"
 LABEL maintainer="dcline@mbari.org"
 LABEL license="Apache License 2.0"
 
-COPY --from=builder /venv /venv
+RUN python3 -m venv /venv
 
-RUN apt-get update && apt-get install --no-install-recommends -y \
-    python3 && apt-get clean && rm -rf /var/lib/apt/lists/*
+ARG GIT_VERSION=latest
+ARG IMAGE_URI=mbari/sdcat:${GIT_VERSION}
 
 # Set environment variables
-ENV PYTHONUNBUFFERED=1
 ENV PATH="/venv/bin:$PATH"
 ENV APP_HOME=/app
 ENV HF_HOME=/tmp/transformers_cache
-ENV HOME=${APP_HOME}
-ENV NUMBA_CACHE_DIR=/tmp
+
+RUN pip install --upgrade pip
+RUN if GIT_VERSION=latest; then pip install sdcat; else pip install sdcat==${GIT_VERSION}; fi
 
 WORKDIR ${APP_HOME}
 ENV HOME=${APP_HOME}
-RUN chmod a+rwx -R /app
-RUN python3 -m pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
+RUN chmod a+rwx -R ${APP_HOME}
 ENTRYPOINT ["sdcat"]
 
+RUN pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cu121
+
+ENTRYPOINT ["sdcat"]
