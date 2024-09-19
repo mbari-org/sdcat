@@ -77,6 +77,12 @@ jobs:
           poetry config pypi-token.pypi $PYPI_TOKEN
           poetry publish
 
+      - name: Clean up build artifacts
+        run: rm -rf dist/
+
+      - name: Clear Poetry cache
+        run: poetry cache clear pypi --all
+
       - name: Get PyPI version
         id: get_pypi_version
         run: |
