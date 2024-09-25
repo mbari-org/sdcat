@@ -108,7 +108,7 @@ def _run_hdbscan_assign(
                 min_samples=min_samples,
                 alpha=alpha,
                 cluster_selection_epsilon=cluster_selection_epsilon,
-                cluster_selection_method=cluster_selection_method).fit_predict(x)
+                cluster_selection_method=cluster_selection_method)
             labels = scan.fit_predict(x)
         else:
             scan = HDBSCAN(
