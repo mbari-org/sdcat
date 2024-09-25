@@ -1,5 +1,23 @@
 # CHANGELOG
 
+## v1.11.1 (2024-09-25)
+
+### Ci
+
+* ci: disable release ([`cbf6394`](https://github.com/mbari-org/sdcat/commit/cbf63942d760e52ad89ee4c04660ef8e00559c34))
+
+* ci: clean up poetry build before docker ([`c74efc8`](https://github.com/mbari-org/sdcat/commit/c74efc82f5ed4f5db4bde4ad61a06a8f5b84c597))
+
+* ci: revert to only only amd cuda build ([`dd133f0`](https://github.com/mbari-org/sdcat/commit/dd133f086babd4e05113499f1a74e6a852980cbf))
+
+* ci: revert to only only amd cuda build ([`f181dfc`](https://github.com/mbari-org/sdcat/commit/f181dfc231f333b7633d36de00f46b2bf2d4b517))
+
+* ci: slimmer docker add optional imports ([`48ae61a`](https://github.com/mbari-org/sdcat/commit/48ae61acc6eeb9df4235484d13679e7565030db8))
+
+### Fix
+
+* fix: correct CUDA HDBSCAN fit ([`c6a8db3`](https://github.com/mbari-org/sdcat/commit/c6a8db33e274c356a4c5d8b26a7f380f615fb6e1))
+
 ## v1.11.0 (2024-09-18)
 
 ### Feature
