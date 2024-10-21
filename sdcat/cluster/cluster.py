@@ -1,13 +1,16 @@
 # sdcat, Apache-2.0 license
 # Filename: sdcat/cluster/cluster.py
 # Description: Clustering using vision transformer features and HDBSCAN density-based clustering
-
+import io
 import multiprocessing
+from collections import Counter
 from importlib.util import find_spec
 import pandas as pd
 from pathlib import Path
 import os
 import json
+
+import requests
 import seaborn as sns
 import numpy as np
 from umap import UMAP
@@ -34,6 +37,90 @@ else:
 
 sns.set_style("darkgrid", {"axes.facecolor": ".9"})
 sns.set(rc={"figure.figsize": (12, 10)})
+
+
+def top_majority(model_predictions, model_scores, threshold: float):
+    """Find the top prediction"""
+
+    # Only keep predictions with scores above the threshold
+    data = [(pred, score) for pred, score in zip(model_predictions, model_scores) if float(score) >= threshold]
+
+    if len(data) == 0:
+        return None, None
+
+    p, s = zip(*data)
+    model_predictions = list(p)
+    model_scores = list(s)
+
+    # Count occurrences of each prediction in the top lists
+    counter = Counter(model_predictions)
+
+    majority_count = (len(model_predictions) // 2) + 1
+
+    majority_predictions = [pred for pred, count in counter.items() if count >= majority_count]
+
+    # If there are no majority predictions
+    if len(majority_predictions) == 0:
+        # Pick the prediction with the highest score
+        # best_pred, max_score = max_score_p(model_predictions, model_scores)
+        return None, None
+
+    best_pred = majority_predictions[0]
+    best_score = 0.0
+    num_majority = 0
+    # Sum all the scores for the majority predictions
+    for pred, score in zip(model_predictions, model_scores):
+        if pred in majority_predictions:
+            best_score += float(score)
+            num_majority += 1
+    best_score /= num_majority
+
+    return best_pred, best_score
+
+
+def run_vss(image_t: tuple[str, np.array], vss_url: str, project: str, vss_threshold: float, top_k: int = 3) -> tuple[str, float]:
+    """
+    Run vector similarity
+    :param image_t: tuple of path, image bytes
+    :param vss_threshold: threshold for vss
+    :param vss_url: url for vss service
+    :param project: project name in vss
+    :param top_k: number of vss to use for prediction; 1, 3, 5 etc.
+    :return:
+    """
+    url_vss = f"{vss_url}/{top_k}/{project}"
+    debug(f"URL: {url_vss} threshold: {vss_threshold}")
+    files = [("files", image_t)]
+    response = requests.post(url_vss, headers={"accept": "application/json"}, files=files)
+    debug(f"Response: {response.status_code}")
+
+    if response.status_code != 200:
+        err(f"Error processing images: {response.text}")
+        return None, None
+
+    predictions = response.json()["predictions"]
+    debug(f"Predictions: {predictions}")
+
+    if len(predictions) == 0:
+        return None, None
+
+    scores = response.json()["scores"][0]
+    # Scores are  1 - score, so we need to invert them
+    scores = [1 - float(x) for x in scores]
+    debug(f"Scores: {scores}")
+    best_pred, best_score = top_majority(predictions, scores, threshold=vss_threshold)
+
+    if best_pred is None:
+        err(f"No majority prediction for {image_t[0]}")
+        return None, None
+
+    return best_pred, best_score
+
+
+def read_image(file_path: str) -> tuple[str, bytes]:
+    with open(file_path, 'rb') as file:
+        img = io.BytesIO(file.read()).getvalue()
+        return file_path, img
 
 
 def _run_hdbscan_assign(
@@ -153,7 +240,7 @@ def _run_hdbscan_assign(
 
     # Save the exemplar embeddings to a dataframe with some metadata
     exemplar_df = pd.DataFrame()
-    exemplar_df['cluster'] = [f'Unknown C{i}' for i in range(0, len(max_scores))]
+    exemplar_df['cluster'] = range(0, len(max_scores)) # Just use the index as the cluster id
     if ancillary_df is not None and 'image_path' in ancillary_df.columns:
         exemplar_df['image_path'] = ancillary_df.iloc[max_scores]['image_path'].tolist()
     exemplar_df['embedding'] = exemplar_emb.tolist()
@@ -163,7 +250,8 @@ def _run_hdbscan_assign(
     # TODO: how to handle this case?
     max_clusters = len(unique_clusters) - 1
     num_before = len(exemplar_df)
-    info(f"Removing {num_before - len(exemplar_df[exemplar_df['cluster'] != max_clusters])} samples from the unknown cluster")
+    info(
+        f"Removing {num_before - len(exemplar_df[exemplar_df['cluster'] != max_clusters])} samples from the unknown cluster")
     exemplar_df = exemplar_df[exemplar_df['cluster'] != max_clusters]
     num_after = len(exemplar_df)
     info(f"Number of samples after removing unknown cluster: {num_after}")
@@ -271,6 +359,7 @@ def cluster_vits(
         min_cluster_size: int,
         min_samples: int,
         device: str = "cpu",
+        vss_url: str = None,
         use_tsne: bool = False,
         skip_visualization: bool = False,
         roi: bool = False) -> pd.DataFrame:
@@ -287,6 +376,7 @@ def cluster_vits(
     :param min_cluster_size: The minimum number of samples in a cluster
     :param min_samples:The number of samples in a neighborhood for a point
     :param device: The device to use for clustering, 'cpu' or 'cuda'
+    :param vss_url: The URL to use for the VSS service - this is used to assign the clusters
     :param skip_visualization: Whether to skip the visualization of the clusters
     :param use_tsne: Whether to use t-SNE for dimensionality reduction
     :return:  a dataframe with the assigned cluster indexes, or -1 for non-assigned."""
@@ -414,6 +504,23 @@ def cluster_vits(
                      output_path / prefix) for cluster_id in
                     range(0, len(unique_clusters))]
             pool.starmap(cluster_grid, args)
+
+    # Assign the clusters to a class if the vss_url is provided
+    if vss_url is not None:
+        # Assign the clusters to the classes
+        for idx, exemplar in exemplar_df.iterrows():
+            # Get the cluster id, e.g. Unknown C0
+            cluster_id = exemplar['cluster']
+            # Run the VSS service to assign the cluster to a class
+            image_t = read_image(exemplar['image_path'])
+            best_prediction, best_score = run_vss(image_t, vss_url=vss_url, vss_threshold=.1, project='901103-biodiversity', top_k=1)
+            if best_prediction is None:
+                warn(f'No predictions found for {exemplar["image_path"]}')
+                continue
+            # Assign the class to the cluster in df_dets
+            info(f'Assigning {cluster_id} to class {best_prediction} with score {best_score}')
+            df_dets.loc[df_dets['cluster'] == cluster_id, 'class'] = best_prediction
+            df_dets.loc[df_dets['cluster'] == cluster_id, 'score'] = best_score
 
     # Save the exemplar embeddings with the model type
     exemplar_df['model'] = model
