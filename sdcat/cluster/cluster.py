@@ -513,7 +513,7 @@ def cluster_vits(
             cluster_id = exemplar['cluster']
             # Run the VSS service to assign the cluster to a class
             image_t = read_image(exemplar['image_path'])
-            best_prediction, best_score = run_vss(image_t, vss_url=vss_url, vss_threshold=.1, project='901103-biodiversity', top_k=1)
+            best_prediction, best_score = run_vss(image_t, vss_url=vss_url, vss_threshold=.1, project='i2map', top_k=1)
             if len(best_prediction) == 0:
                 warn(f'No predictions found for {exemplar["image_path"]}')
                 continue
@@ -526,7 +526,7 @@ def cluster_vits(
         unknowns = df_dets[df_dets['cluster'] == -1]
         for idx, row in unknowns.iterrows():
             image_t = read_image(row['crop_path'])
-            best_prediction, best_score = run_vss(image_t, vss_url=vss_url, vss_threshold=.1, project='901103-biodiversity', top_k=1)
+            best_prediction, best_score = run_vss(image_t, vss_url=vss_url, vss_threshold=.1, project='i2map', top_k=1)
             if len(best_prediction) == 0:
                 warn(f'No predictions found for {row["crop_path"]}')
                 continue
