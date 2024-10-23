@@ -221,7 +221,7 @@ def _run_hdbscan_assign(
         exemplar_df = pd.DataFrame()
         exemplar_df['cluster'] = len(x) * ['Unknown']
         exemplar_df['embedding'] = x.tolist()
-        exemplar_df['image_path'] = ancillary_df['image_path'].tolist()
+        exemplar_df['crop_path'] = ancillary_df['crop_path'].tolist()
         clusters = []
         cluster_means = []
         coverage = 0.0
@@ -242,7 +242,7 @@ def _run_hdbscan_assign(
     exemplar_df = pd.DataFrame()
     exemplar_df['cluster'] = range(0, len(max_scores)) # Just use the index as the cluster id
     if ancillary_df is not None and 'image_path' in ancillary_df.columns:
-        exemplar_df['image_path'] = ancillary_df.iloc[max_scores]['image_path'].tolist()
+        exemplar_df['crop_path'] = ancillary_df.iloc[max_scores]['crop_path'].tolist()
     exemplar_df['embedding'] = exemplar_emb.tolist()
 
     # Remove the last cluster which is the unknown cluster
@@ -512,8 +512,8 @@ def cluster_vits(
             # Get the cluster id, e.g. Unknown C0
             cluster_id = exemplar['cluster']
             # Run the VSS service to assign the cluster to a class
-            image_t = read_image(exemplar['image_path'])
-            best_prediction, best_score = run_vss(image_t, vss_url=vss_url, vss_threshold=.1, project='i2map', top_k=1)
+            image_t = read_image(exemplar['crop_path'])
+            best_prediction, best_score = run_vss(image_t, vss_url=vss_url, vss_threshold=.5, project='i2map', top_k=3)
             if len(best_prediction) == 0:
                 warn(f'No predictions found for {exemplar["image_path"]}')
                 continue
@@ -526,7 +526,7 @@ def cluster_vits(
         unknowns = df_dets[df_dets['cluster'] == -1]
         for idx, row in unknowns.iterrows():
             image_t = read_image(row['crop_path'])
-            best_prediction, best_score = run_vss(image_t, vss_url=vss_url, vss_threshold=.1, project='i2map', top_k=1)
+            best_prediction, best_score = run_vss(image_t, vss_url=vss_url, vss_threshold=.5, project='i2map', top_k=3)
             if len(best_prediction) == 0:
                 warn(f'No predictions found for {row["crop_path"]}')
                 continue
