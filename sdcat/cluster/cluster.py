@@ -5,6 +5,9 @@ import io
 import multiprocessing
 from collections import Counter
 from importlib.util import find_spec
+from typing import List
+
+import cv2
 import pandas as pd
 from pathlib import Path
 import os
@@ -61,8 +64,9 @@ def top_majority(model_predictions, model_scores, threshold: float):
 
     # If there are no majority predictions
     if len(majority_predictions) == 0:
-        # Pick the prediction with the highest score
-        # best_pred, max_score = max_score_p(model_predictions, model_scores)
+        # Pick the prediction with the highest score if there is at least a .05 between the top two scores
+        if len(model_predictions) > 1 and model_scores[0] - model_scores[1] >= 0.05:
+            return model_predictions[0], model_scores[0]
         return None, None
 
     best_pred = majority_predictions[0]
@@ -181,7 +185,7 @@ def _run_hdbscan_assign(
         embedding = tsne.fit_transform(df.values)
     else:
         embedding = df.values
-    x = MinMaxScaler().fit_transform(embedding) # scale the embedding to 0-1
+    x = MinMaxScaler().fit_transform(embedding)  # scale the embedding to 0-1
 
     # Cluster the embeddings using HDBSCAN
     if len(df) == 1:
@@ -240,7 +244,7 @@ def _run_hdbscan_assign(
 
     # Save the exemplar embeddings to a dataframe with some metadata
     exemplar_df = pd.DataFrame()
-    exemplar_df['cluster'] = range(0, len(max_scores)) # Just use the index as the cluster id
+    exemplar_df['cluster'] = range(0, len(max_scores))  # Just use the index as the cluster id
     if ancillary_df is not None and 'image_path' in ancillary_df.columns:
         exemplar_df['crop_path'] = ancillary_df.iloc[max_scores]['crop_path'].tolist()
     exemplar_df['embedding'] = exemplar_emb.tolist()
@@ -505,28 +509,11 @@ def cluster_vits(
                     range(0, len(unique_clusters))]
             pool.starmap(cluster_grid, args)
 
-    # Assign the clusters to a class if the vss_url is provided
+    # Assign the detections to a class if the vss_url is provided
     if vss_url is not None:
-        # Assign the clusters to the classes
-        for idx, exemplar in exemplar_df.iterrows():
-            # Get the cluster id, e.g. Unknown C0
-            cluster_id = exemplar['cluster']
-            # Run the VSS service to assign the cluster to a class
-            image_t = read_image(exemplar['crop_path'])
-            best_prediction, best_score = run_vss(image_t, vss_url=vss_url, vss_threshold=.5, project='i2map', top_k=3)
-            if len(best_prediction) == 0:
-                warn(f'No predictions found for {exemplar["image_path"]}')
-                continue
-            # Assign the class to the cluster in df_dets
-            info(f'Assigning {cluster_id} to class {best_prediction} with score {best_score}')
-            df_dets.loc[df_dets['cluster'] == cluster_id, 'class'] = best_prediction
-            df_dets.loc[df_dets['cluster'] == cluster_id, 'score'] = best_score
-
-        # Try to assign everything not in a cluster to a class
-        unknowns = df_dets[df_dets['cluster'] == -1]
-        for idx, row in unknowns.iterrows():
+        for idx, row in df_dets.iterrows():
             image_t = read_image(row['crop_path'])
-            best_prediction, best_score = run_vss(image_t, vss_url=vss_url, vss_threshold=.5, project='i2map', top_k=3)
+            best_prediction, best_score = run_vss(image_t, vss_url=vss_url, vss_threshold=.3, project='901902-uavs', top_k=3)
             if len(best_prediction) == 0:
                 warn(f'No predictions found for {row["crop_path"]}')
                 continue
