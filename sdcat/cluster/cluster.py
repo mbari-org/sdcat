@@ -82,43 +82,58 @@ def top_majority(model_predictions, model_scores, threshold: float):
     return best_pred, best_score
 
 
-def run_vss(image_t: tuple[str, np.array], vss_url: str, project: str, vss_threshold: float, top_k: int = 3) -> tuple[str, float]:
+
+def run_vss(image_batch: List[tuple[np.array, str]], vss_url: str, project: str, vss_threshold: float, top_k: int = 3):
     """
     Run vector similarity
-    :param image_t: tuple of path, image bytes
-    :param vss_threshold: threshold for vss
-    :param vss_url: url for vss service
-    :param project: project name in vss
+    :param image_batch: batch of images path/binary tuples to process, maximum of 3 as supported by the inference
+    :param config_dict: dictionary of config for vss server
     :param top_k: number of vss to use for prediction; 1, 3, 5 etc.
-    :return: best prediction and score
+    :return:
     """
-    url_vss = f"{vss_url}/{top_k}/{project}"
-    debug(f"URL: {url_vss} threshold: {vss_threshold}")
-    files = [("files", image_t)]
-    response = requests.post(url_vss, headers={"accept": "application/json"}, files=files)
+    info(f"Processing {len(image_batch)} images")
+    url_vs = f"{vss_url}/{top_k}/{project}"
+    debug(f"URL: {url_vs} threshold: {vss_threshold}")
+    files = []
+    file_paths = [x[1][0] for x in files]
+    for img, path in image_batch:
+        files.append(("files", (path, img)))
+
+    info(f"Processing {len(files)} images with {url_vs}")
+    response = requests.post(url_vs, headers={"accept": "application/json"}, files=files)
     debug(f"Response: {response.status_code}")
 
     if response.status_code != 200:
         err(f"Error processing images: {response.text}")
-        return "", 0.0
+        return [f"Error processing images: {response.text}"]
 
     predictions = response.json()["predictions"]
+    scores = response.json()["scores"]
+    # Scores are  1 - score, so we need to invert them
+    scores = [[1 - float(x) for x in y] for y in scores]
     debug(f"Predictions: {predictions}")
+    debug(f"Scores: {scores}")
 
     if len(predictions) == 0:
-        return "", 0.0
+        return file_paths, [], []
 
-    scores = response.json()["scores"][0]
-    # Scores are  1 - score, so we need to invert them
-    scores = [1 - float(x) for x in scores]
-    debug(f"Scores: {scores}")
-    best_pred, best_score = top_majority(predictions, scores, threshold=vss_threshold)
+    # Workaround for bogus prediction output - put the predictions in a list
+    # top_k predictions per image
+    batch_size = len(image_batch)
+    predictions = [predictions[i:i + top_k] for i in range(0, batch_size * top_k, top_k)]
+    file_paths = [x[1][0] for x in files]
+    best_predictions = []
+    best_scores = []
+    for i, element in enumerate(zip(scores, predictions)):
+        score, pred = element
+        score = [float(x) for x in score]
+        info(f"Prediction: {pred} with score {score} for image {file_paths[i]}")
+        best_pred, best_score = top_majority(pred, score, threshold=vss_threshold, majority_count=-1)
+        best_predictions.append(best_pred)
+        best_scores.append(best_score)
+        info(f"Best prediction: {best_pred} with score {best_score} for image {file_paths[i]}")
 
-    if best_pred is None:
-        err(f"No majority prediction for {image_t[0]}")
-        return "", 0.0
-
-    return best_pred, best_score
+    return file_paths, best_predictions, best_scores
 
 
 def read_image(file_path: str) -> tuple[str, bytes]:
@@ -509,19 +524,18 @@ def cluster_vits(
                     range(0, len(unique_clusters))]
             pool.starmap(cluster_grid, args)
 
-    # Assign the detections to a class if the vss_url is provided
+    # Assign the detections to a class if the vss_url is provided in batches of 32
     if vss_url is not None:
-        for idx, row in df_dets.iterrows():
-            image_t = read_image(row['crop_path'])
-            best_prediction, best_score = run_vss(image_t, vss_url=vss_url, vss_threshold=.3, project='901902-uavs', top_k=3)
-            if len(best_prediction) == 0:
-                warn(f'No predictions found for {row["crop_path"]}')
-                continue
-            # Assign the class to the cluster in df_dets
-            info(f'Assigning {row["crop_path"]} to class {best_prediction} with score {best_score}')
-            df_dets.loc[df_dets['crop_path'] == row['crop_path'], 'class'] = best_prediction
-            df_dets.loc[df_dets['crop_path'] == row['crop_path'], 'score'] = best_score
-
+        for batch in range(0, len(df_dets), 32):
+            batch_df = df_dets[batch:batch + 32]
+            image_batch = [(read_image(row['crop_path'])) for index, row in batch_df.iterrows()]
+            crop_paths, best_prediction, best_score = run_vss(image_batch, vss_url=vss_url, vss_threshold=.3, project='901902-uavs',
+                                                  top_k=3)
+            for crop_path, best_prediction, best_score in zip(crop_paths, best_prediction, best_score):
+                # Assign the class to the cluster in df_dets
+                info(f'Assigning {crop_path} to class {best_prediction} with score {best_score}')
+                df_dets.loc[df_dets['crop_path'] == crop_path, 'class'] = best_prediction
+                df_dets.loc[df_dets['crop_path'] == crop_path, 'score'] = best_score
     # Save the exemplar embeddings with the model type
     exemplar_df['model'] = model
     exemplar_df.to_csv(output_path / f'{prefix}_exemplars.csv', index=False)
