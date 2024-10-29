@@ -133,6 +133,18 @@ def run_detect(show: bool, image_dir: str, save_dir: str, model: str,
                 confidence_threshold=conf,
                 device=device,
             )
+        elif model == 'MBARI/yolov5x6-uavs-oneclass':
+            # Download model path
+            from huggingface_hub import hf_hub_download
+            model_path = hf_hub_download(repo_id="MBARI-org/yolov5x6-uavs-oneclass", filename="best_uavs_oneclass.pt")
+
+            detection_model = AutoDetectionModel.from_pretrained(
+                model_type='yolov5',
+                model_path=model_path,
+                config_path=model_path,
+                confidence_threshold=conf,
+                device=device,
+            )
         elif model == 'FathomNet/MBARI-315k-yolov5':
             # Download model path
             from huggingface_hub import hf_hub_download

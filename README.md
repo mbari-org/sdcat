@@ -21,14 +21,15 @@ Detection
 Detection can be done with a fine-grained saliency-based detection model,  and/or one the following models run with the SAHI algorithm.
 Both detections algorithms are run by default and combined to produce the final detections.
 
-| Model                         | Description                                                     |
-|-------------------------------|-----------------------------------------------------------------|
-| yolov8s                       | YOLOv8s model from Ultralytics                                  |
-| hustvl/yolos-small            | YOLOS model a Vision Transformer (ViT)                          |
-| hustvl/yolos-tiny             | YOLOS model a Vision Transformer (ViT)                          |
-| MBARI/megamidwater  (default) | MBARI midwater YOLOv5x for general detection in midwater images |
-| MBARI/uav-yolov5              | MBARI UAV YOLOv5x for general detection in UAV images           |
-| FathomNet/MBARI-315k-yolov5   | MBARI YOLOv5x for general detection in benthic images           |
+| Model                         | Description                                                        |
+|-------------------------------|--------------------------------------------------------------------|
+| yolov8s                       | YOLOv8s model from Ultralytics                                     |
+| hustvl/yolos-small            | YOLOS model a Vision Transformer (ViT)                             |
+| hustvl/yolos-tiny             | YOLOS model a Vision Transformer (ViT)                             |
+| MBARI/megamidwater  (default) | MBARI midwater YOLOv5x for general detection in midwater images    |
+| MBARI/uav-yolov5              | MBARI UAV YOLOv5x for general detection in UAV images              |
+| MBARI/yolov5x6-uavs-oneclass  | MBARI UAV YOLOv5x for general detection in UAV images single class |
+| FathomNet/MBARI-315k-yolov5   | MBARI YOLOv5x for general detection in benthic images              |
 
 
 To skip saliency detection, use the --skip-saliency option. 
