@@ -210,7 +210,7 @@ def run_detect(show: bool, image_dir: str, save_dir: str, model: str,
     if num_images == 0:
         return
 
-    if device == 'cpu':
+    if not skip_saliency:
         # run_saliency_detect(spec_remove, scale_percent, images[0].as_posix(), (save_path_det_raw / f'{images[0].stem}.csv').as_posix(), clahe=clahe, show=True)
         # Do the work in parallel to speed up the processing on multicore machines
         num_processes = multiprocessing.cpu_count()
@@ -218,25 +218,25 @@ def run_detect(show: bool, image_dir: str, save_dir: str, model: str,
         info(f'Using {num_processes} processes to compute {num_images} images 10 at a time ...')
         # # Run multiple processes in parallel num_cpu images at a time
         with multiprocessing.Pool(num_processes) as pool:
-            if not skip_saliency:
-                args = [(spec_remove,
-                         scale_percent,
-                         images[i:i + 1],
-                         save_path_det_raw,
-                         min_std,
-                         block_size,
-                         clahe,
-                         show)
-                        for i in range(0, num_images, 1)]
-                pool.starmap(run_saliency_detect_bulk, args)
-                pool.close()
+            args = [(spec_remove,
+                     scale_percent,
+                     images[i:i + 1],
+                     save_path_det_raw,
+                     min_std,
+                     block_size,
+                     clahe,
+                     show)
+                    for i in range(0, num_images, 1)]
+            pool.starmap(run_saliency_detect_bulk, args)
+            pool.close()
+    if device == 'cpu':
         with multiprocessing.Pool(num_processes) as pool:
             if not skip_sahi:
                 # Run sahi detection on each image
                 args = [(scale_percent,
                          slice_size_width,
                          slice_size_height,
-                         images[i:i + 10],
+                         [image],
                          save_path_det_raw,
                          detection_model,
                          postprocess_match_metric,
@@ -244,7 +244,7 @@ def run_detect(show: bool, image_dir: str, save_dir: str, model: str,
                          overlap_height_ratio,
                          allowable_classes,
                          class_agnostic)
-                        for i in range(0, num_images, 1)]
+                        for image in images]
                 pool.starmap(run_sahi_detect_bulk, args)
                 pool.close()
     else:
