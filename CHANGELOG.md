@@ -1,6 +1,13 @@
 # CHANGELOG
 
 
+## v1.12.1 (2024-10-29)
+
+### Performance Improvements
+
+* perf: always run saliency on multiproc regardless of cpu or gpu as it is not gpu enabled ([`b7e913e`](https://github.com/mbari-org/sdcat/commit/b7e913e855899c90c89eaa3f32d6156a8ffc6849))
+
+
 ## v1.12.0 (2024-10-29)
 
 ### Bug Fixes
