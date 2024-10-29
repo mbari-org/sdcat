@@ -45,7 +45,7 @@ def run_cluster_det(det_dir, save_dir, device, config_ini, alpha, cluster_select
     min_cluster_size = min_cluster_size if min_cluster_size else int(config('cluster', 'min_cluster_size'))
     cluster_selection_epsilon = cluster_selection_epsilon if cluster_selection_epsilon else float(config('cluster','cluster_selection_epsilon'))
     cluster_selection_method = cluster_selection_method if cluster_selection_method else config('cluster', 'cluster_selection_method')
-    remove_corners = config('cluster', 'remove_corners')
+    remove_corners = config('cluster', 'remove_corners') == 'True'
     latitude = float(config('cluster', 'latitude'))
     longitude = float(config('cluster', 'longitude'))
     min_score = float(config('cluster', 'min_score'))
