@@ -96,7 +96,7 @@ def run_vss(image_batch: List[tuple[np.array, str]], vss_url: str, project: str,
     debug(f"URL: {url_vs} threshold: {vss_threshold}")
     files = []
     file_paths = [x[1][0] for x in files]
-    for img, path in image_batch:
+    for path, img in image_batch:
         files.append(("files", (path, img)))
 
     info(f"Processing {len(files)} images with {url_vs}")
@@ -128,7 +128,7 @@ def run_vss(image_batch: List[tuple[np.array, str]], vss_url: str, project: str,
         score, pred = element
         score = [float(x) for x in score]
         info(f"Prediction: {pred} with score {score} for image {file_paths[i]}")
-        best_pred, best_score = top_majority(pred, score, threshold=vss_threshold, majority_count=-1)
+        best_pred, best_score = top_majority(pred, score, threshold=vss_threshold)
         best_predictions.append(best_pred)
         best_scores.append(best_score)
         info(f"Best prediction: {best_pred} with score {best_score} for image {file_paths[i]}")
@@ -434,7 +434,7 @@ def cluster_vits(
 
     # Skip the embedding extraction if all the embeddings are cached
     if num_cached != len(images):
-        debug(f'Extracted embeddings from {len(images)} images...')
+        debug(f'Extracted embeddings from {len(images)} images using model {model}...')
         compute_norm_embedding(model, images, device)
 
     # Fetch the cached embeddings
