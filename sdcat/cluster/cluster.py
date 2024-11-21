@@ -323,7 +323,7 @@ def cluster_vits(
         min_cluster_size: int,
         min_samples: int,
         device: str = "cpu",
-        use_predictions: bool = False,
+        use_vits: bool = False,
         use_tsne: bool = False,
         skip_visualization: bool = False,
         roi: bool = False) -> pd.DataFrame:
@@ -340,7 +340,7 @@ def cluster_vits(
     :param min_cluster_size: The minimum number of samples in a cluster
     :param min_samples:The number of samples in a neighborhood for a point
     :param device: The device to use for clustering, 'cpu' or 'cuda'
-    :param use_predictions: Whether to use the predictions from the model used for clustering to assign classes
+    :param use_vits: Set to using the predictions from the vits cluster model
     :param skip_visualization: Whether to skip the visualization of the clusters
     :param use_tsne: Whether to use t-SNE for dimensionality reduction
     :return:  a dataframe with the assigned cluster indexes, or -1 for non-assigned."""
@@ -452,8 +452,8 @@ def cluster_vits(
             debug(f'Adding {images[idx]} to cluster id {cluster_id} ')
             df_dets.loc[df_dets['crop_path'] == images[idx], 'cluster'] = cluster_id
 
-    # If use_predictions is true, then assign the class to each detection
-    if use_predictions:
+    # If use_vits is true, then assign the class to each detection
+    if use_vits:
         for idx, row in df_dets.iterrows():
             predictions, scores = image_predictions[idx], image_scores[idx]
             df_dets.loc[idx, 'class'] = predictions[0] # Use the top prediction

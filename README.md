@@ -68,11 +68,12 @@ The algorithm workflow looks like this:
 | google/vit-base-patch16-224(default) | 16 block size trained on ImageNet21k with 21k classes                          |
 | facebook/dino-vits8                  | trained on ImageNet which contains 1.3 M images with labels from 1000 classes  |
 | facebook/dino-vits16                 | trained on ImageNet which contains 1.3 M images with labels from 1000 classes  |
+| MBARI-org/mbari-uav-vit-b-16         | MBARI UAV vits16 model trained on 10425 UAV images with labels from 21 classes |
 
 Smaller block_size means more patches and more accurate fine-grained clustering on smaller objects, so
 ViTS models with 8 block size are recommended for fine-grained clustering on small objects, and 16 is recommended for coarser clustering on 
 larger objects.  We recommend running with multiple models to see which model works best for your data,
-and to experiment with the --min_samples and --min-cluster-size options to get good clustering results.
+and to experiment with the --min-samples and --min-cluster-size options to get good clustering results.
    
 # Installation
  
@@ -145,7 +146,7 @@ Commands:
 
 ## File organization
 
-The sdcat toolkit generates data in the following folders. Here, we assume both detection and clustering is output to the same root folder.:
+The sdcat toolkit generates data in the following folders. Here, we assume both detection and clustering is stored in the same root folder:
  
 ```
 /data/20230504-MBARI/
@@ -173,23 +174,23 @@ The sdcat toolkit generates data in the following folders. Here, we assume both 
 
 ```
 
-## Process images creating bounding box detections with the YOLOv5 model.
-The YOLOv5s model is not as accurate as other models, but is fast and good for detecting larger objects in images,
+## Process images creating bounding box detections with the YOLOv8s model.
+The YOLOv8s model is not as accurate as other models, but is fast and good for detecting larger objects in images,
 and good for experiments and quick results. 
 **Slice size** is the size of the detection window.  The default is to allow the SAHI algorithm to determine the slice size;
 a smaller slice size will take longer to process.
 
 ```shell
-sdcat detect --image-dir <image-dir> --save-dir <save-dir> --model yolov5s --slice-size-width 900 --slice-size-height 900
+sdcat detect --image-dir <image-dir> --save-dir <save-dir> --model yolov8s --slice-size-width 900 --slice-size-height 900
 ```
 
-## Cluster detections from the YOLOv5 model
+## Cluster detections from the YOLOv8s model, but use the classifications from the ViT model.
 
-Cluster the detections from the YOLOv5 model.  The detections are clustered using cosine similarity and embedding
-features from a FaceBook Vision Transformer (ViT) model.   
+Cluster the detections from the YOLOv8s model.  The detections are clustered using cosine similarity and embedding
+features from the default Vision Transformer (ViT) model `google/vit-base-patch16-224` 
 
 ```shell
-sdcat cluster --det-dir <det-dir> --save-dir <save-dir> --model yolov5s
+sdcat cluster --det-dir <det-dir>/yolov8s/det_filtered --save-dir <save-dir>  --use-vits
 ```
   
 

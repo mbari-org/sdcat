@@ -35,8 +35,8 @@ from sdcat.cluster.cluster import cluster_vits
 @click.option('--det-dir', help='Input folder(s) with raw detection results', multiple=True, required=True)
 @click.option('--save-dir', help='Output directory to save clustered detection results', required=True)
 @click.option('--device', help='Device to use, e.g. cpu or cuda:0', type=str, default='cpu')
-@click.option('--use-predictions', help='Set to using the cluster model for prediction', is_flag=True)
-def run_cluster_det(det_dir, save_dir, device, use_predictions, config_ini, alpha, cluster_selection_epsilon, cluster_selection_method, min_cluster_size, start_image, end_image, use_tsne, skip_visualization):
+@click.option('--use-vits', help='Set to using the predictions from the vits cluster model', is_flag=True)
+def run_cluster_det(det_dir, save_dir, device, use_vits, config_ini, alpha, cluster_selection_epsilon, cluster_selection_method, min_cluster_size, start_image, end_image, use_tsne, skip_visualization):
     config = cfg.Config(config_ini)
     max_area = int(config('cluster', 'max_area'))
     min_area = int(config('cluster', 'min_area'))
@@ -259,7 +259,7 @@ def run_cluster_det(det_dir, save_dir, device, use_predictions, config_ini, alph
         # Cluster the detections
         df_cluster = cluster_vits(prefix, model, df, save_dir, alpha, cluster_selection_epsilon, cluster_selection_method,
                                   min_similarity, min_cluster_size, min_samples, device, use_tsne=use_tsne,
-                                  skip_visualization=skip_visualization, roi=False, use_predictions=use_predictions)
+                                  skip_visualization=skip_visualization, roi=False, use_vits=use_vits)
 
         # Merge the results with the original DataFrame
         df.update(df_cluster)
@@ -281,8 +281,8 @@ def run_cluster_det(det_dir, save_dir, device, use_predictions, config_ini, alph
 @click.option('--roi-dir', help='Input folder(s) with raw ROI images', multiple=True, required=True)
 @click.option('--save-dir', help='Output directory to save clustered detection results', required=True)
 @click.option('--device', help='Device to use, e.g. cpu or cuda:0', type=str)
-@click.option('--use-predictions', help='Set to using the cluster model for prediction', is_flag=True)
-def run_cluster_roi(roi_dir, save_dir, device, use_predictions, config_ini, alpha, cluster_selection_epsilon, cluster_selection_method, min_cluster_size, use_tsne, skip_visualization):
+@click.option('--use-vits', help='Set to using the predictions from the vits cluster model', is_flag=True)
+def run_cluster_roi(roi_dir, save_dir, device, use_vits, config_ini, alpha, cluster_selection_epsilon, cluster_selection_method, min_cluster_size, use_tsne, skip_visualization):
     config = cfg.Config(config_ini)
     min_samples = int(config('cluster', 'min_samples'))
     alpha = alpha if alpha else float(config('cluster', 'alpha'))
@@ -363,7 +363,7 @@ def run_cluster_roi(roi_dir, save_dir, device, use_predictions, config_ini, alph
         # Cluster the detections
         df_cluster = cluster_vits(prefix, model, df, save_dir, alpha, cluster_selection_epsilon, cluster_selection_method,
                                   min_similarity, min_cluster_size, min_samples, device, use_tsne,
-                                  skip_visualization=skip_visualization, use_predictions=use_predictions, roi=True)
+                                  skip_visualization=skip_visualization, use_vits=use_vits, roi=True)
 
         # Merge the results with the original DataFrame
         df.update(df_cluster)
