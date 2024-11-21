@@ -73,6 +73,7 @@ tqdm = "4.66.4"
 transformers = "4.42.4"
 umap-learn = "0.5.5"
 
+ephem = "^4.1.6"
 [tool.poetry.group.dev.dependencies]
 build = "^1.2.1"
 twine = "^5.1.1"

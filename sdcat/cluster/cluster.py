@@ -1,13 +1,19 @@
 # sdcat, Apache-2.0 license
 # Filename: sdcat/cluster/cluster.py
 # Description: Clustering using vision transformer features and HDBSCAN density-based clustering
-
+import io
 import multiprocessing
+from collections import Counter
 from importlib.util import find_spec
+from typing import List
+
+import cv2
 import pandas as pd
 from pathlib import Path
 import os
 import json
+
+import requests
 import seaborn as sns
 import numpy as np
 from umap import UMAP
@@ -34,6 +40,51 @@ else:
 
 sns.set_style("darkgrid", {"axes.facecolor": ".9"})
 sns.set(rc={"figure.figsize": (12, 10)})
+
+
+def top_majority(model_predictions, model_scores, threshold: float):
+    """Find the top prediction"""
+
+    # Only keep predictions with scores above the threshold
+    data = [(pred, score) for pred, score in zip(model_predictions, model_scores) if float(score) >= threshold]
+
+    if len(data) == 0:
+        return None, None
+
+    p, s = zip(*data)
+    model_predictions = list(p)
+    model_scores = list(s)
+
+    # Count occurrences of each prediction in the top lists
+    counter = Counter(model_predictions)
+
+    majority_count = (len(model_predictions) // 2) + 1
+
+    majority_predictions = [pred for pred, count in counter.items() if count >= majority_count]
+
+    # If there are no majority predictions
+    if len(majority_predictions) == 0:
+        # Pick the prediction with the highest score if there is at least a .05 between the top two scores
+        if len(model_predictions) > 1 and model_scores[0] - model_scores[1] >= 0.05:
+            return model_predictions[0], model_scores[0]
+        return None, None
+
+    best_pred = majority_predictions[0]
+    best_score = 0.0
+    num_majority = 0
+    # Sum all the scores for the majority predictions
+    for pred, score in zip(model_predictions, model_scores):
+        if pred in majority_predictions:
+            best_score += float(score)
+            num_majority += 1
+    best_score /= num_majority
+
+    return best_pred, best_score
+
+def read_image(file_path: str) -> tuple[str, bytes]:
+    with open(file_path, 'rb') as file:
+        img = io.BytesIO(file.read()).getvalue()
+        return file_path, img
 
 
 def _run_hdbscan_assign(
@@ -94,7 +145,7 @@ def _run_hdbscan_assign(
         embedding = tsne.fit_transform(df.values)
     else:
         embedding = df.values
-    x = MinMaxScaler().fit_transform(embedding) # scale the embedding to 0-1
+    x = MinMaxScaler().fit_transform(embedding)  # scale the embedding to 0-1
 
     # Cluster the embeddings using HDBSCAN
     if len(df) == 1:
@@ -134,7 +185,7 @@ def _run_hdbscan_assign(
         exemplar_df = pd.DataFrame()
         exemplar_df['cluster'] = len(x) * ['Unknown']
         exemplar_df['embedding'] = x.tolist()
-        exemplar_df['image_path'] = ancillary_df['image_path'].tolist()
+        exemplar_df['crop_path'] = ancillary_df['crop_path'].tolist()
         clusters = []
         cluster_means = []
         coverage = 0.0
@@ -153,9 +204,9 @@ def _run_hdbscan_assign(
 
     # Save the exemplar embeddings to a dataframe with some metadata
     exemplar_df = pd.DataFrame()
-    exemplar_df['cluster'] = [f'Unknown C{i}' for i in range(0, len(max_scores))]
+    exemplar_df['cluster'] = range(0, len(max_scores))  # Just use the index as the cluster id
     if ancillary_df is not None and 'image_path' in ancillary_df.columns:
-        exemplar_df['image_path'] = ancillary_df.iloc[max_scores]['image_path'].tolist()
+        exemplar_df['crop_path'] = ancillary_df.iloc[max_scores]['crop_path'].tolist()
     exemplar_df['embedding'] = exemplar_emb.tolist()
 
     # Remove the last cluster which is the unknown cluster
@@ -163,7 +214,8 @@ def _run_hdbscan_assign(
     # TODO: how to handle this case?
     max_clusters = len(unique_clusters) - 1
     num_before = len(exemplar_df)
-    info(f"Removing {num_before - len(exemplar_df[exemplar_df['cluster'] != max_clusters])} samples from the unknown cluster")
+    info(
+        f"Removing {num_before - len(exemplar_df[exemplar_df['cluster'] != max_clusters])} samples from the unknown cluster")
     exemplar_df = exemplar_df[exemplar_df['cluster'] != max_clusters]
     num_after = len(exemplar_df)
     info(f"Number of samples after removing unknown cluster: {num_after}")
@@ -271,6 +323,7 @@ def cluster_vits(
         min_cluster_size: int,
         min_samples: int,
         device: str = "cpu",
+        use_predictions: bool = False,
         use_tsne: bool = False,
         skip_visualization: bool = False,
         roi: bool = False) -> pd.DataFrame:
@@ -287,6 +340,7 @@ def cluster_vits(
     :param min_cluster_size: The minimum number of samples in a cluster
     :param min_samples:The number of samples in a neighborhood for a point
     :param device: The device to use for clustering, 'cpu' or 'cuda'
+    :param use_predictions: Whether to use the predictions from the model used for clustering to assign classes
     :param skip_visualization: Whether to skip the visualization of the clusters
     :param use_tsne: Whether to use t-SNE for dimensionality reduction
     :return:  a dataframe with the assigned cluster indexes, or -1 for non-assigned."""
@@ -325,19 +379,23 @@ def cluster_vits(
 
     # Skip the embedding extraction if all the embeddings are cached
     if num_cached != len(images):
-        debug(f'Extracted embeddings from {len(images)} images...')
+        debug(f'Extracted embeddings from {len(images)} images using model {model}...')
         compute_norm_embedding(model, images, device)
 
     # Fetch the cached embeddings
-    debug(f'Fetching embeddings ...')
+    debug('Fetching embeddings ...')
     image_emb = []
+    image_predictions = []
+    image_scores = []
     for filename in images:
-        emb = fetch_embedding(model, filename)
+        emb, label, score = fetch_embedding(model, filename)
         if len(emb) == 0:
             # If the embeddings are zero, then the extraction failed; add a zero array
             image_emb.append(np.zeros(384, dtype=np.float32))
         else:
             image_emb.append(emb)
+        image_predictions.append(label)
+        image_scores.append(score)
 
     # If the embeddings are zero, then the extraction failed
     num_failed = [i for i, e in enumerate(image_emb) if np.all(e == 0)]
@@ -393,6 +451,13 @@ def cluster_vits(
         for idx in cluster:
             debug(f'Adding {images[idx]} to cluster id {cluster_id} ')
             df_dets.loc[df_dets['crop_path'] == images[idx], 'cluster'] = cluster_id
+
+    # If use_predictions is true, then assign the class to each detection
+    if use_predictions:
+        for idx, row in df_dets.iterrows():
+            predictions, scores = image_predictions[idx], image_scores[idx]
+            df_dets.loc[idx, 'class'] = predictions[0] # Use the top prediction
+            df_dets.loc[idx, 'score'] = scores[0]
 
     # For each cluster  let's create a grid of the images to check the quality of the clustering results
     num_processes = min(multiprocessing.cpu_count(), len(unique_clusters))
