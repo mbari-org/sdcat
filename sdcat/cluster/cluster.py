@@ -385,8 +385,6 @@ def cluster_vits(
     # Fetch the cached embeddings
     debug('Fetching embeddings ...')
     image_emb = []
-    image_predictions = []
-    image_scores = []
     for filename in images:
         emb, label, score = fetch_embedding(model, filename)
         if len(emb) == 0:
@@ -394,8 +392,9 @@ def cluster_vits(
             image_emb.append(np.zeros(384, dtype=np.float32))
         else:
             image_emb.append(emb)
-        image_predictions.append(label)
-        image_scores.append(score)
+        if use_vits:
+            df_dets.loc[df_dets['crop_path'] == filename, 'class'] = label[0]
+            df_dets.loc[df_dets['crop_path'] == filename, 'score'] = score[0]
 
     # If the embeddings are zero, then the extraction failed
     num_failed = [i for i, e in enumerate(image_emb) if np.all(e == 0)]
@@ -451,16 +450,6 @@ def cluster_vits(
         for idx in cluster:
             debug(f'Adding {images[idx]} to cluster id {cluster_id} ')
             df_dets.loc[df_dets['crop_path'] == images[idx], 'cluster'] = cluster_id
-
-    # If use_vits is true, then assign the class to each detection
-    if use_vits:
-        for idx, row in df_dets.iterrows():
-            # If the idx is our of range, then skip
-            if idx >= len(image_predictions):
-                continue
-            predictions, scores = image_predictions[idx], image_scores[idx]
-            df_dets.loc[idx, 'class'] = predictions[0] # Use the top prediction
-            df_dets.loc[idx, 'score'] = scores[0]
 
     # For each cluster  let's create a grid of the images to check the quality of the clustering results
     num_processes = min(multiprocessing.cpu_count(), len(unique_clusters))
