@@ -455,6 +455,9 @@ def cluster_vits(
     # If use_vits is true, then assign the class to each detection
     if use_vits:
         for idx, row in df_dets.iterrows():
+            # If the idx is our of range, then skip
+            if idx >= len(image_predictions):
+                continue
             predictions, scores = image_predictions[idx], image_scores[idx]
             df_dets.loc[idx, 'class'] = predictions[0] # Use the top prediction
             df_dets.loc[idx, 'score'] = scores[0]
