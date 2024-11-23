@@ -1,6 +1,19 @@
 # CHANGELOG
 
 
+## v1.13.1 (2024-11-23)
+
+### Bug Fixes
+
+- Handle index out of range on vits assign
+  ([`2aee31a`](https://github.com/mbari-org/sdcat/commit/2aee31aa2b468a6b693a9710dfc896e5cdde236c))
+
+### Refactoring
+
+- Rename vits prediction option to --use-vits
+  ([`a1e1301`](https://github.com/mbari-org/sdcat/commit/a1e13018dbe6b18b0b91f738ebe88ab1417f2def))
+
+
 ## v1.13.0 (2024-11-21)
 
 ### Bug Fixes
