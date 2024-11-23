@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v1.13.2 (2024-11-23)
+
+### Bug Fixes
+
+- Correct vits assignment
+  ([`d35ae96`](https://github.com/mbari-org/sdcat/commit/d35ae96b8d64f154621d7dfdc5ea2625fa12cf19))
+
+
 ## v1.13.1 (2024-11-23)
 
 ### Bug Fixes

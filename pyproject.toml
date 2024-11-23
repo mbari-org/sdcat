@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "sdcat"
-version = "1.13.1"
+version = "1.13.2"
 description = "Sliced Detection and Clustering Analysis Toolkit - Developed by MBARI"
 authors = [
     "Danelle Cline <dcline@mbari.org>",
