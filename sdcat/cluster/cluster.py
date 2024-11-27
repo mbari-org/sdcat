@@ -5,15 +5,12 @@ import io
 import multiprocessing
 from collections import Counter
 from importlib.util import find_spec
-from typing import List
 
-import cv2
 import pandas as pd
 from pathlib import Path
 import os
 import json
 
-import requests
 import seaborn as sns
 import numpy as np
 from umap import UMAP
@@ -21,7 +18,7 @@ from hdbscan import HDBSCAN
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.preprocessing import MinMaxScaler
 from sdcat.logger import info, warn, debug, err
-from sdcat.cluster.utils import cluster_grid, crop_square_image, square_image
+from sdcat.cluster.utils import cluster_grid, crop_square_image, square_image, clean_bad_images
 from sdcat.cluster.embedding import fetch_embedding, has_cached_embedding, compute_norm_embedding
 
 if find_spec("multicore_tsne"):
@@ -326,6 +323,7 @@ def cluster_vits(
         use_vits: bool = False,
         use_tsne: bool = False,
         skip_visualization: bool = False,
+        remove_bad_images: bool = False,
         roi: bool = False) -> pd.DataFrame:
     """  Cluster the crops using the VITS embeddings.
     :param prefix:  A unique prefix to save artifacts from clustering
@@ -342,6 +340,7 @@ def cluster_vits(
     :param device: The device to use for clustering, 'cpu' or 'cuda'
     :param use_vits: Set to using the predictions from the vits cluster model
     :param skip_visualization: Whether to skip the visualization of the clusters
+    :param remove_bad_images: Whether to remove bad images from the clustering
     :param use_tsne: Whether to use t-SNE for dimensionality reduction
     :return:  a dataframe with the assigned cluster indexes, or -1 for non-assigned."""
 
@@ -367,6 +366,13 @@ def cluster_vits(
             with multiprocessing.Pool(num_processes) as pool:
                 args = [(row, 224) for index, row in df_dets.iterrows()]
                 pool.starmap(crop_square_image, args)
+
+    if remove_bad_images:
+        # Remove any detections that are in any corner of the image
+        size_before = len(df_dets)
+        df = clean_bad_images(df_dets)
+        size_after = len(df)
+        info(f'Removed {size_before - size_after} detections that were dark or blurry')
 
     # Drop any rows with crop_path that have files that don't exist - sometimes the crops fail
     df_dets = df_dets[df_dets['crop_path'].apply(lambda x: os.path.exists(x))]

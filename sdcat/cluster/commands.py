@@ -16,6 +16,7 @@ import pytz
 import torch
 from PIL import Image
 
+from sdcat.cluster.utils import clean_bad_images
 from sdcat import common_args
 from sdcat.config import config as cfg
 from sdcat.logger import info, err, warn
@@ -47,6 +48,7 @@ def run_cluster_det(det_dir, save_dir, device, use_vits, config_ini, alpha, clus
     cluster_selection_epsilon = cluster_selection_epsilon if cluster_selection_epsilon else float(config('cluster','cluster_selection_epsilon'))
     cluster_selection_method = cluster_selection_method if cluster_selection_method else config('cluster', 'cluster_selection_method')
     remove_corners = config('cluster', 'remove_corners') == 'True'
+    remove_bad_images = config('cluster', 'remove_bad_images') == 'True'
     latitude = float(config('cluster', 'latitude'))
     longitude = float(config('cluster', 'longitude'))
     min_score = float(config('cluster', 'min_score'))
@@ -259,7 +261,8 @@ def run_cluster_det(det_dir, save_dir, device, use_vits, config_ini, alpha, clus
         # Cluster the detections
         df_cluster = cluster_vits(prefix, model, df, save_dir, alpha, cluster_selection_epsilon, cluster_selection_method,
                                   min_similarity, min_cluster_size, min_samples, device, use_tsne=use_tsne,
-                                  skip_visualization=skip_visualization, roi=False, use_vits=use_vits)
+                                  skip_visualization=skip_visualization, roi=False, use_vits=use_vits,
+                                  remove_bad_images=remove_bad_images)
 
         # Merge the results with the original DataFrame
         df.update(df_cluster)
@@ -291,6 +294,7 @@ def run_cluster_roi(roi_dir, save_dir, device, use_vits, config_ini, alpha, clus
     cluster_selection_method = cluster_selection_method if cluster_selection_method else config('cluster', 'cluster_selection_method')
     min_similarity = float(config('cluster', 'min_similarity'))
     model = config('cluster', 'model')
+    remove_bad_images = config('cluster', 'remove_bad_images') == 'True'
 
     if device:
         num_devices = torch.cuda.device_count()
@@ -363,7 +367,8 @@ def run_cluster_roi(roi_dir, save_dir, device, use_vits, config_ini, alpha, clus
         # Cluster the detections
         df_cluster = cluster_vits(prefix, model, df, save_dir, alpha, cluster_selection_epsilon, cluster_selection_method,
                                   min_similarity, min_cluster_size, min_samples, device, use_tsne,
-                                  skip_visualization=skip_visualization, use_vits=use_vits, roi=True)
+                                  skip_visualization=skip_visualization, use_vits=use_vits, roi=True,
+                                  remove_bad_images=remove_bad_images)
 
         # Merge the results with the original DataFrame
         df.update(df_cluster)

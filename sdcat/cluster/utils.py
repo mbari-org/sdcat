@@ -1,15 +1,18 @@
 # sdcat, Apache-2.0 license
 # Filename: sdcat/cluster/utils.py
 # Description: Miscellaneous utility functions for cropping, clustering, and saving detections
+import os
 
 import cv2
 import numpy as np
+import pandas as pd
 from PIL import Image
+from cleanvision import Imagelab
 from matplotlib import pyplot as plt
 from mpl_toolkits.axes_grid1 import ImageGrid
 from pathlib import Path
 
-from sdcat.logger import debug, warn, exception
+from sdcat.logger import info, debug, warn, exception
 
 
 def cluster_grid(prefix: str, cluster_sim: float, cluster_id: int, cluster_size: int, nb_images_display: int,
@@ -212,3 +215,22 @@ def rescale(img: np.ndarray, scale_percent: int = 75) -> np.ndarray:
     # Resize the image to the new dimensions exactly
     img_rescaled = cv2.resize(img, dim, interpolation=cv2.INTER_AREA)
     return img_rescaled
+
+
+def clean_bad_images(df: pd.DataFrame) -> pd.DataFrame:
+    """Remove dark or blurry images from the dataframe"""
+    crop_path = df['crop_path'].tolist()
+    data_path = Path(crop_path[0]).parent # just take the first image to get the data path
+    imagelab = Imagelab(data_path=data_path)
+    imagelab.find_issues()
+    imagelab.report()
+    # Columns to check for issues
+    issue_columns = ["is_dark_issue", "is_blurry_issue", "is_exact_duplicates_issue"]
+    bad_images  = imagelab.issues[imagelab.issues[issue_columns].any(axis=1)].index
+    num_removed = len(bad_images)
+    for img in bad_images:
+        os.remove(img)
+    # Remove the bad images from the dataframe
+    df = df[~df['crop_path'].isin(bad_images)]
+    info(f"Removed {num_removed} dark or blurry images in {crop_path}")
+    return df
