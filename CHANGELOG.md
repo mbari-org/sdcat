@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v1.14.0 (2024-11-27)
+
+### Features
+
+- Remove dark and blurry examples in clustering using cleanvision
+  ([`c04fab7`](https://github.com/mbari-org/sdcat/commit/c04fab70749799891d0b59e78a0a47c76613fe5d))
+
+
 ## v1.13.2 (2024-11-23)
 
 ### Bug Fixes
