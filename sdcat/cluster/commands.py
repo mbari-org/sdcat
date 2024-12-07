@@ -366,8 +366,9 @@ def run_cluster_roi(roi_dir, save_dir, device, use_vits, config_ini, alpha, clus
 
         # Cluster the detections
         df_cluster = cluster_vits(prefix, model, df, save_dir, alpha, cluster_selection_epsilon, cluster_selection_method,
-                                  min_similarity, min_cluster_size, min_samples, device, use_tsne,
-                                  skip_visualization=skip_visualization, use_vits=use_vits, roi=True,
+                                  min_similarity, min_cluster_size, min_samples, device,
+                                  use_tsne=use_tsne, use_vits=use_vits,
+                                  skip_visualization=skip_visualization,  roi=True,
                                   remove_bad_images=remove_bad_images)
 
         # Merge the results with the original DataFrame

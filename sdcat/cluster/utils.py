@@ -11,7 +11,6 @@ from cleanvision import Imagelab
 from matplotlib import pyplot as plt
 from mpl_toolkits.axes_grid1 import ImageGrid
 from pathlib import Path
-
 from sdcat.logger import info, debug, warn, exception
 
 
@@ -223,11 +222,11 @@ def clean_bad_images(df: pd.DataFrame) -> pd.DataFrame:
     data_path = Path(crop_path[0]).parent # just take the first image to get the data path
     imagelab = Imagelab(data_path=data_path)
     imagelab.find_issues()
-    imagelab.report()
     # Columns to check for issues
-    issue_columns = ["is_dark_issue", "is_blurry_issue", "is_exact_duplicates_issue"]
+    issue_columns = ["is_dark_issue", "is_blurry_issue", "is_near_duplicates_issue", "is_low_information_issue", "is_exact_duplicates_issue"]
     bad_images  = imagelab.issues[imagelab.issues[issue_columns].any(axis=1)].index
     num_removed = len(bad_images)
+    debug(f"Removing {num_removed} dark, blurry or duplicate images in {crop_path}")
     for img in bad_images:
         os.remove(img)
     # Remove the bad images from the dataframe
