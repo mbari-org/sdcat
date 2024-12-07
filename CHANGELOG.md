@@ -1,6 +1,15 @@
 # CHANGELOG
 
 
+## v1.14.1 (2024-12-07)
+
+### Bug Fixes
+
+- Correct clean_vision for roi and added check for is_low_information_issue and
+  is_near_duplicates_issue
+  ([`849d432`](https://github.com/mbari-org/sdcat/commit/849d4323dabb79dc98a53b5bf52066ba08271f13))
+
+
 ## v1.14.0 (2024-11-27)
 
 ### Features
@@ -34,14 +43,14 @@
 
 ### Bug Fixes
 
-- Correct order of file/byte for running vss
-  ([`1d896ee`](https://github.com/mbari-org/sdcat/commit/1d896ee11fbab5965e3862b7923ed3f662722694))
+- Assign exemplar to crop
+  ([`05b97c9`](https://github.com/mbari-org/sdcat/commit/05b97c9529c049ab62e9096ea0d90310f16b39ab))
 
 - Correct handling of remove corner
   ([`60df1ae`](https://github.com/mbari-org/sdcat/commit/60df1aeed140928c3b741e6873bd89a7117ebaec))
 
-- Assign exemplar to crop
-  ([`05b97c9`](https://github.com/mbari-org/sdcat/commit/05b97c9529c049ab62e9096ea0d90310f16b39ab))
+- Correct order of file/byte for running vss
+  ([`1d896ee`](https://github.com/mbari-org/sdcat/commit/1d896ee11fbab5965e3862b7923ed3f662722694))
 
 ### Build System
 
@@ -55,14 +64,14 @@
 
 ### Features
 
+- Added pass through of vss server and renaming cluster id in exemplar output
+  ([`67c4202`](https://github.com/mbari-org/sdcat/commit/67c4202c6ca7d661ee2cdfadb922b62d7789efa1))
+
 - Added support for assigning predictions to clusters
   ([`1b674fe`](https://github.com/mbari-org/sdcat/commit/1b674fe1ace2d0c5ab3e1a70c6e082b1064df065))
 
 - Assign unknowns via vss
   ([`947a8a3`](https://github.com/mbari-org/sdcat/commit/947a8a387150f4c908380647664ece8dd5d57113))
-
-- Added pass through of vss server and renaming cluster id in exemplar output
-  ([`67c4202`](https://github.com/mbari-org/sdcat/commit/67c4202c6ca7d661ee2cdfadb922b62d7789efa1))
 
 ### Performance Improvements
 
@@ -111,11 +120,11 @@
 
 ### Continuous Integration
 
-- Disable release
-  ([`cbf6394`](https://github.com/mbari-org/sdcat/commit/cbf63942d760e52ad89ee4c04660ef8e00559c34))
-
 - Clean up poetry build before docker
   ([`c74efc8`](https://github.com/mbari-org/sdcat/commit/c74efc82f5ed4f5db4bde4ad61a06a8f5b84c597))
+
+- Disable release
+  ([`cbf6394`](https://github.com/mbari-org/sdcat/commit/cbf63942d760e52ad89ee4c04660ef8e00559c34))
 
 - Revert to only only amd cuda build
   ([`dd133f0`](https://github.com/mbari-org/sdcat/commit/dd133f086babd4e05113499f1a74e6a852980cbf))
@@ -234,11 +243,11 @@
 
 ### Testing
 
-- Adjust plankton detections
-  ([`25ce6bd`](https://github.com/mbari-org/sdcat/commit/25ce6bd32836fcd4eb288179e47905f87c255248))
-
 - Adjust per changing for ISIIS images
   ([`de1ba65`](https://github.com/mbari-org/sdcat/commit/de1ba65f8dff5c133bac2b03fe6b5a539619824b))
+
+- Adjust plankton detections
+  ([`25ce6bd`](https://github.com/mbari-org/sdcat/commit/25ce6bd32836fcd4eb288179e47905f87c255248))
 
 
 ## v1.9.3 (2024-07-31)
@@ -335,11 +344,11 @@
 
 ### Documentation
 
-- Updated cluster to include latest roi
-  ([`b02464e`](https://github.com/mbari-org/sdcat/commit/b02464e99ad50db709e53a6395811ff1c7dcc754))
-
 - More detail on detection and model table
   ([`981beb2`](https://github.com/mbari-org/sdcat/commit/981beb2252dec546873cdbf136a6d24a1f2e6c4b))
+
+- Updated cluster to include latest roi
+  ([`b02464e`](https://github.com/mbari-org/sdcat/commit/b02464e99ad50db709e53a6395811ff1c7dcc754))
 
 
 ## v1.8.1 (2024-07-19)
@@ -365,18 +374,18 @@
 
 ### Continuous Integration
 
-- Simplified docker build within pypi size limits with pip build and renamed accidentally commited
-  backup file
-  ([`cfcb581`](https://github.com/mbari-org/sdcat/commit/cfcb58187e016287280aa2501732c38ea5d0c518))
+- Add pip package called sdcat with poetry build and other minor corrections in comments
+  ([`dbe494a`](https://github.com/mbari-org/sdcat/commit/dbe494a2112de76839ec37b079e5507908cab1ba))
 
 - Minor change to more specific CUDA docker version in docker tag
   ([`dd2286b`](https://github.com/mbari-org/sdcat/commit/dd2286b92c496e5cbddbec73388524a42750170f))
 
+- Simplified docker build within pypi size limits with pip build and renamed accidentally commited
+  backup file
+  ([`cfcb581`](https://github.com/mbari-org/sdcat/commit/cfcb58187e016287280aa2501732c38ea5d0c518))
+
 - Updated poetry lock file with pytest
   ([`a8b62b0`](https://github.com/mbari-org/sdcat/commit/a8b62b04b75192ee50cff8dd705d395eab370b09))
-
-- Add pip package called sdcat with poetry build and other minor corrections in comments
-  ([`dbe494a`](https://github.com/mbari-org/sdcat/commit/dbe494a2112de76839ec37b079e5507908cab1ba))
 
 ### Features
 
@@ -388,11 +397,11 @@
 
 ### Build System
 
-- Removed unused imports and bump torch to python3.11 compatible and
-  ([`57c6c2b`](https://github.com/mbari-org/sdcat/commit/57c6c2b4232730ffec878b5c3c75491f1ff42c87))
-
 - Fix docker build
   ([`0d7ab83`](https://github.com/mbari-org/sdcat/commit/0d7ab83fc57d331fc58dabb8eb8291790b22bc3e))
+
+- Removed unused imports and bump torch to python3.11 compatible and
+  ([`57c6c2b`](https://github.com/mbari-org/sdcat/commit/57c6c2b4232730ffec878b5c3c75491f1ff42c87))
 
 ### Continuous Integration
 
@@ -419,20 +428,32 @@
 
 ### Continuous Integration
 
-- Fix release version from tag
-  ([`5d083df`](https://github.com/mbari-org/sdcat/commit/5d083df54902dba4abb91400732ccd82715fdd5a))
+- Add CPU only build
+  ([`8750d94`](https://github.com/mbari-org/sdcat/commit/8750d94d98ec2a5cf51b83cdf8a3220d97b6a0b7))
 
-- Remove pass through of version to dockerhub
-  ([`a43cba7`](https://github.com/mbari-org/sdcat/commit/a43cba7ac1c9599fa48230e0bc8789b49bd3f0cd))
+- Add docker hub description
+  ([`9695146`](https://github.com/mbari-org/sdcat/commit/9695146473f5f0fe49122b0322d4570ae836ff4b))
 
-- Correct order of tags in build and reduce dockerhub short description to < 100
-  ([`86bedcf`](https://github.com/mbari-org/sdcat/commit/86bedcff3f3dd4afc8675a6dcc99430f37b8ed36))
+- Adding in Docker CUDA12 build semantic release for amd/arm64
+  ([`38aebba`](https://github.com/mbari-org/sdcat/commit/38aebbaff101b86b873b5c35208312babf7159f4))
+
+- Consistent image tag
+  ([`63165fb`](https://github.com/mbari-org/sdcat/commit/63165fb9f14f6dbff027f87041bf1676fe4d89fb))
+
+- Correct addition of docker user
+  ([`07aff58`](https://github.com/mbari-org/sdcat/commit/07aff585297d000810ceca0cfa6f45dca4307239))
 
 - Correct order of tags in build
   ([`86f100c`](https://github.com/mbari-org/sdcat/commit/86f100c2f5f213efeba6efad0415b7824d726097))
 
-- Consistent image tag
-  ([`63165fb`](https://github.com/mbari-org/sdcat/commit/63165fb9f14f6dbff027f87041bf1676fe4d89fb))
+- Correct order of tags in build and reduce dockerhub short description to < 100
+  ([`86bedcf`](https://github.com/mbari-org/sdcat/commit/86bedcff3f3dd4afc8675a6dcc99430f37b8ed36))
+
+- Correct pypi name for MulticoreTSNE
+  ([`4d0702c`](https://github.com/mbari-org/sdcat/commit/4d0702c0344b016879be4c0a784328f0da67a2b8))
+
+- Fix release version from tag
+  ([`5d083df`](https://github.com/mbari-org/sdcat/commit/5d083df54902dba4abb91400732ccd82715fdd5a))
 
 - Install tsne separately and clean
   ([`17f5a6e`](https://github.com/mbari-org/sdcat/commit/17f5a6ebb0c40a7b172b3461e808b766396f20a5))
@@ -440,20 +461,8 @@
 - Pin build for torch
   ([`3f32cb6`](https://github.com/mbari-org/sdcat/commit/3f32cb6e4264c838f096105c99dc0f8f1db7157d))
 
-- Add docker hub description
-  ([`9695146`](https://github.com/mbari-org/sdcat/commit/9695146473f5f0fe49122b0322d4570ae836ff4b))
-
-- Add CPU only build
-  ([`8750d94`](https://github.com/mbari-org/sdcat/commit/8750d94d98ec2a5cf51b83cdf8a3220d97b6a0b7))
-
-- Correct pypi name for MulticoreTSNE
-  ([`4d0702c`](https://github.com/mbari-org/sdcat/commit/4d0702c0344b016879be4c0a784328f0da67a2b8))
-
-- Correct addition of docker user
-  ([`07aff58`](https://github.com/mbari-org/sdcat/commit/07aff585297d000810ceca0cfa6f45dca4307239))
-
-- Adding in Docker CUDA12 build semantic release for amd/arm64
-  ([`38aebba`](https://github.com/mbari-org/sdcat/commit/38aebbaff101b86b873b5c35208312babf7159f4))
+- Remove pass through of version to dockerhub
+  ([`a43cba7`](https://github.com/mbari-org/sdcat/commit/a43cba7ac1c9599fa48230e0bc8789b49bd3f0cd))
 
 ### Documentation
 
@@ -490,8 +499,14 @@
 
 ### Bug Fixes
 
+- Added image width/height and fixed multiproc to square
+  ([`b7e2f21`](https://github.com/mbari-org/sdcat/commit/b7e2f21e136abc80d1e88133928cc68d2f30eebf))
+
 - Check for det columns
   ([`ff9a29d`](https://github.com/mbari-org/sdcat/commit/ff9a29dbe6c81cee0e0038401b9a99309c2baecd))
+
+- Correct PIL image path
+  ([`c0da6b6`](https://github.com/mbari-org/sdcat/commit/c0da6b67a79c636606a207571873ebb6bf8ebb0b))
 
 - Image size in int not float needed for resize
   ([`cf3ebd3`](https://github.com/mbari-org/sdcat/commit/cf3ebd37436ddd7e160a0b7b0ea14ac29ba64fe3))
@@ -499,36 +514,30 @@
 - Image size in int not float needed for resize
   ([`18fc005`](https://github.com/mbari-org/sdcat/commit/18fc005a5fc39a14327e47b6d0225ea6a79317ab))
 
-- Correct PIL image path
-  ([`c0da6b6`](https://github.com/mbari-org/sdcat/commit/c0da6b67a79c636606a207571873ebb6bf8ebb0b))
-
-- Added image width/height and fixed multiproc to square
-  ([`b7e2f21`](https://github.com/mbari-org/sdcat/commit/b7e2f21e136abc80d1e88133928cc68d2f30eebf))
-
 - Path to string
   ([`977ef32`](https://github.com/mbari-org/sdcat/commit/977ef32902f82d4816716118a34b36a8978210a6))
-
-- Roi_dir needs to support lists
-  ([`3808bf9`](https://github.com/mbari-org/sdcat/commit/3808bf9531ed27d55e3dbf1e4ebd9cafc9c6454a))
 
 - Removed unused args for start/end frame
   ([`f91ac03`](https://github.com/mbari-org/sdcat/commit/f91ac03dcd1a3ff735b982cc2b0647eb8dc32938))
 
-### Chores
+- Roi_dir needs to support lists
+  ([`3808bf9`](https://github.com/mbari-org/sdcat/commit/3808bf9531ed27d55e3dbf1e4ebd9cafc9c6454a))
 
-- Remove area for ROI since approximations are probably a bad idea
-  ([`a54d88f`](https://github.com/mbari-org/sdcat/commit/a54d88fa4463c8937288565d06a85f274be0c324))
+### Chores
 
 - All options with dashes instead of underscores
   ([`8dbc5ad`](https://github.com/mbari-org/sdcat/commit/8dbc5ad6b0145bf56f690779ab5790d537c3d2e7))
 
-### Features
+- Remove area for ROI since approximations are probably a bad idea
+  ([`a54d88f`](https://github.com/mbari-org/sdcat/commit/a54d88fa4463c8937288565d06a85f274be0c324))
 
-- Added tsne reduction
-  ([`d0f7647`](https://github.com/mbari-org/sdcat/commit/d0f764735d1f0dc91f8090b92367434724b34376))
+### Features
 
 - Added square black pad resize for roi
   ([`473aa34`](https://github.com/mbari-org/sdcat/commit/473aa34c6e5efd02bb9983b55f358d3afea89ed8))
+
+- Added tsne reduction
+  ([`d0f7647`](https://github.com/mbari-org/sdcat/commit/d0f764735d1f0dc91f8090b92367434724b34376))
 
 - Initial commit of new option to cluster roi only
   ([`f08053c`](https://github.com/mbari-org/sdcat/commit/f08053c27d6c7c5750416165ed20a40c542f23cd))
@@ -722,13 +731,22 @@
 
 ### Build System
 
-- Minor rev to pytest to try to fix PYTHONPATH
-  ([`ed5dec7`](https://github.com/mbari-org/sdcat/commit/ed5dec79fd4d973d654a1b06e5ebe6f242e8aa02))
-
 - Bumped version
   ([`af998f4`](https://github.com/mbari-org/sdcat/commit/af998f4bc730660a537c7d3ba818b10585771e27))
 
+- Minor rev to pytest to try to fix PYTHONPATH
+  ([`ed5dec7`](https://github.com/mbari-org/sdcat/commit/ed5dec79fd4d973d654a1b06e5ebe6f242e8aa02))
+
 ### Chores
+
+- Correct comment
+  ([`1004d95`](https://github.com/mbari-org/sdcat/commit/1004d9588cf46e4864faa9444d077f7df0179de1))
+
+- Correct comment on multiproc
+  ([`a826de9`](https://github.com/mbari-org/sdcat/commit/a826de930ab851a3ca77cff36f6cf4a99170ba7d))
+
+- Removed unused code
+  ([`ccb95e3`](https://github.com/mbari-org/sdcat/commit/ccb95e33f2f4657eaf7cbbf237765d1a8bb077dc))
 
 - **release**: 1.0.3 [skip ci]
   ([`3dce93a`](https://github.com/mbari-org/sdcat/commit/3dce93a216cde0790f77fa267f1e005b28358e39))
@@ -740,15 +758,6 @@
 * correct import paths
   ([6ca36e1](https://github.com/mbari-org/sdcat/commit/6ca36e13a321cf8a4460a2598cf8f1e6cf73c2c3))
 
-- Removed unused code
-  ([`ccb95e3`](https://github.com/mbari-org/sdcat/commit/ccb95e33f2f4657eaf7cbbf237765d1a8bb077dc))
-
-- Correct comment on multiproc
-  ([`a826de9`](https://github.com/mbari-org/sdcat/commit/a826de930ab851a3ca77cff36f6cf4a99170ba7d))
-
-- Correct comment
-  ([`1004d95`](https://github.com/mbari-org/sdcat/commit/1004d9588cf46e4864faa9444d077f7df0179de1))
-
 ### Documentation
 
 - Added sahi example and constrain python to 3.9-3.11
@@ -759,22 +768,22 @@
 - Add missing PYTHONPATH
   ([`4371400`](https://github.com/mbari-org/sdcat/commit/437140021ff3295a3142d94f9ada2f400af2c213))
 
-- Minor typo fix in pytest.yml
-  ([`a108717`](https://github.com/mbari-org/sdcat/commit/a108717b7e93fc8efeb27a8e175c87f4d7be23c3))
-
 - Fixed path to main and allow pytest to be run manually
   ([`f586fd4`](https://github.com/mbari-org/sdcat/commit/f586fd4903a8bb9f470047e944308920a955c628))
+
+- Minor typo fix in pytest.yml
+  ([`a108717`](https://github.com/mbari-org/sdcat/commit/a108717b7e93fc8efeb27a8e175c87f4d7be23c3))
 
 
 ## v1.0.2 (2024-02-17)
 
 ### Bug Fixes
 
-- Remove unused arguments
-  ([`ad06613`](https://github.com/mbari-org/sdcat/commit/ad066138a233b0bcb79fda18c50b54da658fe545))
-
 - Pass through config agnostic flat
   ([`7b5f940`](https://github.com/mbari-org/sdcat/commit/7b5f940bae4a10591f0c7c14b87f2a60b14d69c2))
+
+- Remove unused arguments
+  ([`ad06613`](https://github.com/mbari-org/sdcat/commit/ad066138a233b0bcb79fda18c50b54da658fe545))
 
 ### Build System
 
@@ -827,11 +836,11 @@
 
 ### Documentation
 
-- Minor reformatting
-  ([`7afeca2`](https://github.com/mbari-org/sdcat/commit/7afeca2b56845dee95b882f777fe3a449ffd5477))
-
 - Added ref to HDBSCAN paper
   ([`4a4edbc`](https://github.com/mbari-org/sdcat/commit/4a4edbca2d910dbdf7919716375f896d7bfde3da))
+
+- Minor reformatting
+  ([`7afeca2`](https://github.com/mbari-org/sdcat/commit/7afeca2b56845dee95b882f777fe3a449ffd5477))
 
 
 ## v1.0.0 (2024-02-14)
@@ -855,11 +864,11 @@
 
 ### Documentation
 
-- Correct links to image and reset version history
-  ([`2c98876`](https://github.com/mbari-org/sdcat/commit/2c9887661b6d6fa0a562c470e6282a00f54d5d3a))
-
 - Added example images and cluster workflow diagram
   ([`b228480`](https://github.com/mbari-org/sdcat/commit/b228480926cfce24d3e8575c786d1b952e8be256))
+
+- Correct links to image and reset version history
+  ([`2c98876`](https://github.com/mbari-org/sdcat/commit/2c9887661b6d6fa0a562c470e6282a00f54d5d3a))
 
 ### Features
 
