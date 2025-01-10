@@ -16,7 +16,6 @@ import pytz
 import torch
 from PIL import Image
 
-from sdcat.cluster.utils import clean_bad_images
 from sdcat import common_args
 from sdcat.config import config as cfg
 from sdcat.logger import info, err, warn
@@ -348,6 +347,10 @@ def run_cluster_roi(roi_dir, save_dir, device, use_vits, config_ini, alpha, clus
     df['crop_path'] = df.apply(lambda row:
                                f'{crop_path}/{Path(row["image_path"]).stem}.png',
                                axis=1)
+
+    # Copy the images to the crop path directory. Images may be cleaned so we want to duplicate them here.
+    for index, row in df.iterrows():
+        shutil.copy(row['image_path'], row['crop_path'])
 
     # Add in a column for the unique crop name for each detection with a unique id
     df['cluster'] = -1  # -1 is the default value and means that the image is not in a cluster
