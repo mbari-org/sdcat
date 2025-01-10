@@ -223,7 +223,7 @@ def clean_bad_images(df: pd.DataFrame) -> pd.DataFrame:
     imagelab = Imagelab(data_path=data_path)
     imagelab.find_issues()
     # Columns to check for issues
-    issue_columns = ["is_dark_issue", "is_blurry_issue", "is_near_duplicates_issue", "is_low_information_issue", "is_exact_duplicates_issue"]
+    issue_columns = ["is_dark_issue", "is_blurry_issue"]
     bad_images  = imagelab.issues[imagelab.issues[issue_columns].any(axis=1)].index
     num_removed = len(bad_images)
     debug(f"Removing {num_removed} dark, blurry or duplicate images in {crop_path}")
