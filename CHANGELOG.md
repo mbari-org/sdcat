@@ -1,6 +1,19 @@
 # CHANGELOG
 
 
+## v1.14.2 (2025-01-10)
+
+### Bug Fixes
+
+- Copy rois to crop path to avoid removal
+  ([`00ca30f`](https://github.com/mbari-org/sdcat/commit/00ca30f288d94ab6b6325101a1242ff4280ed9e1))
+
+### Performance Improvements
+
+- Remove only dark and blurry
+  ([`1e0de1f`](https://github.com/mbari-org/sdcat/commit/1e0de1fff4b2039d9b6e9c0569e8332bfe4eb29e))
+
+
 ## v1.14.1 (2024-12-07)
 
 ### Bug Fixes
