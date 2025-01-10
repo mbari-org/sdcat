@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v1.15.0 (2025-01-10)
+
+### Features
+
+- Add second score and class assignment for roi cluster
+  ([`8412941`](https://github.com/mbari-org/sdcat/commit/84129413fc87730f2b83a2fbdddf6d317614b269))
+
+
 ## v1.14.2 (2025-01-10)
 
 ### Bug Fixes
