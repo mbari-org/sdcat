@@ -399,6 +399,8 @@ def cluster_vits(
         if use_vits:
             df_dets.loc[df_dets['crop_path'] == filename, 'class'] = label[0]
             df_dets.loc[df_dets['crop_path'] == filename, 'score'] = score[0]
+            df_dets.loc[df_dets['crop_path'] == filename, 'class_s'] = label[1]
+            df_dets.loc[df_dets['crop_path'] == filename, 'score_s'] = score[1]
 
     # If the embeddings are zero, then the extraction failed
     num_failed = [i for i, e in enumerate(image_emb) if np.all(e == 0)]
@@ -412,12 +414,13 @@ def cluster_vits(
         (output_path / prefix).mkdir(parents=True)
 
     # Remove everything except ancillary data to include in clustering
-    columns = ['x', 'y', 'xx', 'xy', 'w', 'h', 'image_width', 'image_height', 'cluster_id', 'cluster', 'score',
-               'class', 'image_path', 'crop_path']
+    columns = ['x', 'y', 'xx', 'xy', 'w', 'h', 'image_width', 'image_height', 'cluster_id',
+               'cluster', 'score', 'class', 'score_s', 'class_s', 'image_path', 'crop_path']
     # Check if the columns exist in the dataframe
     if all(col in df_dets.columns for col in columns):
         ancillary_df = df_dets.drop(
-            columns=['x', 'y', 'xx', 'xy', 'w', 'h', 'image_width', 'image_height', 'cluster_id', 'cluster', 'score',
+            columns=['x', 'y', 'xx', 'xy', 'w', 'h', 'image_width', 'image_height', 'cluster_id',
+                     'cluster', 'score', 'cluster_s', 'score_s',
                      'class', 'image_path', 'crop_path'])
     else:
         ancillary_df = df_dets

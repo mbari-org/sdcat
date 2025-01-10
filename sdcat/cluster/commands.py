@@ -352,8 +352,11 @@ def run_cluster_roi(roi_dir, save_dir, device, use_vits, config_ini, alpha, clus
     for index, row in df.iterrows():
         shutil.copy(row['image_path'], row['crop_path'])
 
-    # Add in a column for the unique crop name for each detection with a unique id
     df['cluster'] = -1  # -1 is the default value and means that the image is not in a cluster
+    df['class'] = 'Unknown'
+    df['class_s'] = 'Unknown'
+    df['score'] = 0.
+    df['score_s'] = 0.
 
     # Replace any NaNs with 0
     df.fillna(0)
