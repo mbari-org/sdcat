@@ -13,11 +13,12 @@ from sahi.postprocess.combine import nms
 from sdcat import common_args
 from sdcat.config import config as cfg
 from sdcat.config.config import default_config_ini
+from sdcat.detect.model_util import create_model
 from sdcat.detect.sahi_detector import run_sahi_detect_bulk, run_sahi_detect
 from sdcat.detect.saliency_detector import run_saliency_detect, run_saliency_detect_bulk
 from sdcat.logger import exception, info, warn, create_logger_file
 
-default_model = 'MBARI/megamidwater'
+default_model = 'MBARI-org/megamidwater'
 
 
 @click.command('detect',
@@ -38,6 +39,7 @@ default_model = 'MBARI/megamidwater'
 @click.option('--conf', default=0.1, help='Confidence threshold.')
 @click.option('--scale-percent', default=80, help='Scaling factor to rescale the images before processing.')
 @click.option('--model', default=default_model, help=f'Model to use. Defaults to {default_model}')
+@click.option('--model-type', help=f'Type of model, e.g. yolov5, yolov8. Defaults to auto-detect.')
 @click.option('--slice-size-width', help='Slice width size, leave blank for auto slicing')
 @click.option('--slice-size-height', help='Slice height size, leave blank for auto slicing')
 @click.option('--postprocess-match-metric', default='IOS', help='Postprocess match metric for NMS. postprocess_match_metric IOU for intersection over union, IOS for intersection over smaller area.')
@@ -45,9 +47,9 @@ default_model = 'MBARI/megamidwater'
 @click.option('--overlap-height-ratio', default=0.4, help='Overlap height ratio for NMS')
 @click.option('--clahe', is_flag=True, help='Run the CLAHE algorithm to contrast enhance before detection useful images with non-uniform lighting')
 
-def run_detect(show: bool, image_dir: str, save_dir: str, model: str,
+def run_detect(show: bool, image_dir: str, save_dir: str, model: str, model_type:str,
                slice_size_width: int, slice_size_height: int, scale_percent: int,
-                postprocess_match_metric: str, overlap_width_ratio: float, overlap_height_ratio: float,
+               postprocess_match_metric: str, overlap_width_ratio: float, overlap_height_ratio: float,
                device: str, conf: float, skip_sahi: bool, skip_saliency: bool, spec_remove: bool,
                config_ini: str, clahe: bool, start_image: str, end_image: str):
     config = cfg.Config(config_ini)
@@ -67,98 +69,7 @@ def run_detect(show: bool, image_dir: str, save_dir: str, model: str,
     create_logger_file('detect')
 
     if not skip_sahi:
-        from sahi import AutoDetectionModel
-        if model == 'yolov8s':
-            detection_model = AutoDetectionModel.from_pretrained(
-                model_type='yolov8',
-                model_path='ultralyticsplus/yolov8s',
-                confidence_threshold=conf,
-                device=device,
-            )
-        elif model == 'yolov8x':
-            detection_model = AutoDetectionModel.from_pretrained(
-                model_type='yolov8',
-                model_path='yolov8x.pt',
-                confidence_threshold=conf,
-                device=device,
-            )
-        elif model == 'hustvl/yolos-small':
-            model_path = 'hustvl/yolos-small'
-            detection_model = AutoDetectionModel.from_pretrained(
-                model_type='huggingface',
-                model_path=model_path,
-                config_path=model_path,
-                confidence_threshold=conf,
-                device=device,
-            )
-        elif model == 'hustvl/yolos-tiny':
-            model_path = 'hustvl/yolos-tiny'
-            detection_model = AutoDetectionModel.from_pretrained(
-                model_type='huggingface',
-                model_path=model_path,
-                config_path=model_path,
-                confidence_threshold=conf,
-                device=device,
-            )
-        elif model == 'MBARI/megamidwater':
-            # Download model path
-            from huggingface_hub import hf_hub_download
-            model_path = hf_hub_download(repo_id="MBARI-org/megamidwater", filename="best.pt")
-            detection_model = AutoDetectionModel.from_pretrained(
-                model_type='yolov5',
-                model_path=model_path,
-                config_path=model_path,
-                confidence_threshold=conf,
-                device=device,
-            )
-        elif model == 'MBARI/uav-yolov5-30k':
-            # Download model path
-            from huggingface_hub import hf_hub_download
-            model_path = hf_hub_download(repo_id="MBARI-org/yolov5x6-uav-30k", filename="yolov5x6-uav-30k.pt")
-            detection_model = AutoDetectionModel.from_pretrained(
-                model_type='yolov5',
-                model_path=model_path,
-                config_path=model_path,
-                confidence_threshold=conf,
-                device=device,
-            )
-        elif model == 'MBARI/uav-yolov5-18k':
-            # Download model path
-            from huggingface_hub import hf_hub_download
-            model_path = hf_hub_download(repo_id="MBARI-org/yolov5-uav-18k", filename="yolov5x6-uav-18k.pt")
-            detection_model = AutoDetectionModel.from_pretrained(
-                model_type='yolov5',
-                model_path=model_path,
-                config_path=model_path,
-                confidence_threshold=conf,
-                device=device,
-            )
-        elif model == 'MBARI/yolov5x6-uavs-oneclass':
-            # Download model path
-            from huggingface_hub import hf_hub_download
-            model_path = hf_hub_download(repo_id="MBARI-org/yolov5x6-uavs-oneclass", filename="best_uavs_oneclass.pt")
-
-            detection_model = AutoDetectionModel.from_pretrained(
-                model_type='yolov5',
-                model_path=model_path,
-                config_path=model_path,
-                confidence_threshold=conf,
-                device=device,
-            )
-        elif model == 'FathomNet/MBARI-315k-yolov5':
-            # Download model path
-            from huggingface_hub import hf_hub_download
-            model_path = hf_hub_download(repo_id="FathomNet/MBARI-315k-yolov5", filename="mbari_315k_yolov5.pt")
-            detection_model = AutoDetectionModel.from_pretrained(
-                model_type='yolov5',
-                model_path=model_path,
-                config_path=model_path,
-                confidence_threshold=conf,
-                device=device,
-            )
-        else:
-            exception(f'Unknown model: {model}')
-            return
+        detection_model = create_model(model, device, conf, model_type)
 
     images_path = Path(image_dir)
     base_path = Path(save_dir) / model
