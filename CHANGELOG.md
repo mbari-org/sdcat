@@ -1,6 +1,16 @@
 # CHANGELOG
 
 
+## v1.16.0 (2025-01-11)
+
+### Features
+
+- Added support for auto-detecting detection model types from huggingface and loading models from a
+  directory. If models do not have the model type encoded in the name, e.g. yolov5 the --model-type
+  yolov5 must be used
+  ([`3ea7612`](https://github.com/mbari-org/sdcat/commit/3ea76120344e53936bc9cd63cea8815106abf312))
+
+
 ## v1.15.0 (2025-01-10)
 
 ### Features
