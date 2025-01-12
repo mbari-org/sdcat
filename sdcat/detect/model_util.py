@@ -7,7 +7,7 @@ from huggingface_hub import hf_hub_download
 from sdcat.logger import err
 
 
-def create_model(model, conf, device, model_type=None):
+def create_model(model:str, conf:float, device:str, model_type=None):
     """
     Utility to determine the model type, model path, and create a detection model using SAHI.
 

@@ -36,15 +36,15 @@ default_model = 'MBARI-org/megamidwater'
                                                   '**CAUTION**this is slow. Set --scale-percent to < 100 to speed-up')
 @click.option('--skip-sahi', is_flag=True, help='Skip sahi detection.')
 @click.option('--skip-saliency', is_flag=True, help='Skip saliency detection.')
-@click.option('--conf', default=0.1, help='Confidence threshold.')
-@click.option('--scale-percent', default=80, help='Scaling factor to rescale the images before processing.')
+@click.option('--conf', default=0.1, type=float, help='Confidence threshold.')
+@click.option('--scale-percent', default=80, type=int, help='Scaling factor to rescale the images before processing.')
 @click.option('--model', default=default_model, help=f'Model to use. Defaults to {default_model}')
 @click.option('--model-type', help=f'Type of model, e.g. yolov5, yolov8. Defaults to auto-detect.')
-@click.option('--slice-size-width', help='Slice width size, leave blank for auto slicing')
-@click.option('--slice-size-height', help='Slice height size, leave blank for auto slicing')
+@click.option('--slice-size-width', type=int, help='Slice width size, leave blank for auto slicing')
+@click.option('--slice-size-height', type=int, help='Slice height size, leave blank for auto slicing')
 @click.option('--postprocess-match-metric', default='IOS', help='Postprocess match metric for NMS. postprocess_match_metric IOU for intersection over union, IOS for intersection over smaller area.')
-@click.option('--overlap-width-ratio', default=0.4, help='Overlap width ratio for NMS')
-@click.option('--overlap-height-ratio', default=0.4, help='Overlap height ratio for NMS')
+@click.option('--overlap-width-ratio', type=float, default=0.4, help='Overlap width ratio for NMS')
+@click.option('--overlap-height-ratio',type=float, default=0.4, help='Overlap height ratio for NMS')
 @click.option('--clahe', is_flag=True, help='Run the CLAHE algorithm to contrast enhance before detection useful images with non-uniform lighting')
 
 def run_detect(show: bool, image_dir: str, save_dir: str, model: str, model_type:str,
@@ -69,7 +69,10 @@ def run_detect(show: bool, image_dir: str, save_dir: str, model: str, model_type
     create_logger_file('detect')
 
     if not skip_sahi:
-        detection_model = create_model(model, device, conf, model_type)
+        detection_model = create_model(model, conf, device, model_type)
+
+    if Path(model).is_dir():
+        model = Path(model).name
 
     images_path = Path(image_dir)
     base_path = Path(save_dir) / model
