@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v1.16.1 (2025-01-13)
+
+### Bug Fixes
+
+- Correct argument order to create_model and added types for float/int args in detect
+  ([`6bb93bb`](https://github.com/mbari-org/sdcat/commit/6bb93bba765991d3255404a209c329441e4fb175))
+
+
 ## v1.16.0 (2025-01-11)
 
 ### Features
