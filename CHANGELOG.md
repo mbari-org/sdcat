@@ -1,6 +1,15 @@
 # CHANGELOG
 
 
+## v1.16.2 (2025-01-14)
+
+### Performance Improvements
+
+- Better handling of cuda devices by id across both detection and clustering commands with --device
+  cuda:0
+  ([`ae8e395`](https://github.com/mbari-org/sdcat/commit/ae8e3958cca9751b0c4d1548174a30ca974636a8))
+
+
 ## v1.16.1 (2025-01-13)
 
 ### Bug Fixes
