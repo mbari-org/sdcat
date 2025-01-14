@@ -69,6 +69,12 @@ def run_detect(show: bool, image_dir: str, save_dir: str, model: str, model_type
     create_logger_file('detect')
 
     if not skip_sahi:
+        if 'cuda' in device:
+            num_devices = torch.cuda.device_count()
+            info(f'{num_devices} cuda devices available')
+            device_ = torch.device(device)
+            torch.cuda.set_device(device_)
+            device = 'cuda'
         detection_model = create_model(model, conf, device, model_type)
 
     if Path(model).is_dir():

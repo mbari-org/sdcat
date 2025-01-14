@@ -54,15 +54,12 @@ def run_cluster_det(det_dir, save_dir, device, use_vits, config_ini, alpha, clus
     min_similarity = float(config('cluster', 'min_similarity'))
     model = config('cluster', 'model')
 
-    if device != 'cpu':
+    if 'cuda' in device:
         num_devices = torch.cuda.device_count()
         info(f'{num_devices} cuda devices available')
         info(f'Using device {device}')
-        if 'cuda' in device:
-            device_num = device.split(':')[-1]
-            info(f'Setting CUDA_VISIBLE_DEVICES to {device_num}')
-            torch.cuda.set_device(device)
-            os.environ['CUDA_VISIBLE_DEVICES'] = device_num
+        device_ = torch.device(device)
+        torch.cuda.set_device(device_)
 
     save_dir = Path(save_dir)
     save_dir.mkdir(parents=True, exist_ok=True)
