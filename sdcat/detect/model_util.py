@@ -35,8 +35,8 @@ def create_model(model:str, conf:float, device:str, model_type=None):
                         model_type = v
                         break
             if model_type is None:
-                err(f"Could not determine model type from directory name: {model}. Try the --model-type option, e.g., --model-type yolov5")
-                raise ValueError(f"Could not determine model type from directory name: {model}. Try the --model-type option, e.g., --model-type yolov5")
+                err(f"Could not determine model type from directory name: {model}. Try the --model-type option, e.g., --model-type yolov11")
+                raise ValueError(f"Could not determine model type from directory name: {model}. Try the --model-type option, e.g., --model-type yolov11")
             detection_model = AutoDetectionModel.from_pretrained(
                 model_type=model_type,
                 model_path=Path(model) / model_path[0],
