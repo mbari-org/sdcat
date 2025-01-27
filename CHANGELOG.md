@@ -1,6 +1,19 @@
 # CHANGELOG
 
 
+## v1.16.3 (2025-01-27)
+
+### Build System
+
+- Updated poetry lock
+  ([`b9a04e6`](https://github.com/mbari-org/sdcat/commit/b9a04e6bc3f2afab75bd9e3aea88b850967d7908))
+
+### Performance Improvements
+
+- Bump sahi to support YOLOv11
+  ([`d36b494`](https://github.com/mbari-org/sdcat/commit/d36b4942daac1614bd2b3cbac6e17c2300e06c21))
+
+
 ## v1.16.2 (2025-01-14)
 
 ### Performance Improvements
