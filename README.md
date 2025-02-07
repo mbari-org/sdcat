@@ -48,7 +48,8 @@ sdcat detect --skip-sahi --image-dir <image-dir> --save-dir <save-dir> --model <
 ViTS + HDBSCAN Clustering
 ---
 Once the detections are generated, the detections can be clustered.  Alternatively, 
-detections can be clustered from a collection of images by providing the detections in a folder with the roi option.
+detections can be clustered from a collection of images, sometimes referred to as 
+region of interests (ROIs) by providing the detections in a folder with the roi option.
     
 ```shell
 sdcat cluster roi --roi <roi> --save-dir <save-dir> --model <model> 
