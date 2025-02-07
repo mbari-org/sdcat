@@ -1,6 +1,19 @@
 # CHANGELOG
 
 
+## v1.17.0 (2025-02-07)
+
+### Build System
+
+- Relaxed requirements for compatibility with mbari-aidata since these are often used together
+  ([`8bf55e3`](https://github.com/mbari-org/sdcat/commit/8bf55e3c6e29660766e87622b3cc791772767d70))
+
+### Features
+
+- Trigger release to pypi with latest deps
+  ([`2490823`](https://github.com/mbari-org/sdcat/commit/249082389403626c963012cbc5205bb8d2ba24e4))
+
+
 ## v1.16.3 (2025-01-27)
 
 ### Build System
