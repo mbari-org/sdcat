@@ -13,6 +13,7 @@ import json
 
 import seaborn as sns
 import numpy as np
+import hdbscan
 from umap import UMAP
 from hdbscan import HDBSCAN
 from sklearn.metrics.pairwise import cosine_similarity
@@ -111,8 +112,13 @@ def _run_hdbscan_assign(
     :param out_path:  The output path to save the clustering artifacts to
     :return: The average similarity score for each cluster, exemplar_df, cluster ids, cluster means, and coverage
     """
-    info(f'Clustering using HDBSCAN using alpha {alpha} cluster_selection_epsilon {cluster_selection_epsilon} '
-         f'min_samples {min_samples} use_tsne {use_tsne} ...')
+    info(f'Clustering using HDBSCAN with: \n'
+        f'alpha {alpha} \n'
+        f'cluster_selection_epsilon {cluster_selection_epsilon} \n'
+        f'min_samples {min_samples} \n'
+        f'min_cluster_size {min_cluster_size} \n'
+        f'cluster_selection_method {cluster_selection_method} \n'
+        f'use_tsne {use_tsne} ...')
 
     # Remove any existing cluster images in the output_path
     for c in out_path.parent.rglob(f'{prefix}_*cluster*.png'):
@@ -160,6 +166,7 @@ def _run_hdbscan_assign(
             labels = scan.fit_predict(x)
         else:
             scan = HDBSCAN(
+                    prediction_data=True,
                     metric='l2',
                     allow_single_cluster=True,
                     min_cluster_size=min_cluster_size,
@@ -168,6 +175,39 @@ def _run_hdbscan_assign(
                     cluster_selection_epsilon=cluster_selection_epsilon,
                     cluster_selection_method=cluster_selection_method)
             labels = scan.fit_predict(x)
+
+    clusterer = scan.fit(x)
+    # Credit to hdbscan docs https://hdbscan.readthedocs.io/en/latest/soft_clustering.html
+    def top_two_probs_diff(probs):
+        sorted_probs = np.sort(probs)
+        return sorted_probs[-1] - sorted_probs[-2]
+
+    if cluster_selection_method == 'leaf': # Only tested with leaf; oem fails
+        # Get the soft cluster assignments
+        soft_clusters = hdbscan.all_points_membership_vectors(clusterer)
+        # Compute the differences between the top two probabilities
+        diffs = np.array([top_two_probs_diff(x) for x in soft_clusters])
+        mean_diffs = np.mean(diffs)
+        std_diffs = np.std(diffs)
+        mean_cluser_probs = np.mean(np.max(soft_clusters, axis=1))
+        std_cluster_probs = np.std(np.max(soft_clusters, axis=1))
+        info(f'Mean cluster probability: {mean_cluser_probs:.4f} std {std_cluster_probs:.4f}')
+        cut_off_prob = mean_cluser_probs + std_cluster_probs
+        info(f'Difference between top two probabilities: {mean_diffs:.4f} std {std_diffs:.4f}')
+        cut_off_diff = mean_diffs + 2 * std_diffs
+        # Select out the indices that have a small difference, and a larger total probability
+        mixed_points = np.where((diffs < cut_off_diff) & (np.sum(soft_clusters, axis=1) > 0.92))[0]
+    else:
+        warn('Only leaf method is supported for soft clustering')
+
+    # Assign the mixed points to the nearest cluster
+    for i in mixed_points:
+        # Find the nearest cluster that has a probability above 0.5
+        nearest_cluster = np.argmax(soft_clusters[i])
+        info(f'Assigning mixed point {i} to cluster {nearest_cluster}')
+        if soft_clusters[i][nearest_cluster] > cut_off_prob:
+            if i in labels:
+                labels[i] = int(nearest_cluster)
 
     # Get the unique clusters and sort them; -1 are unassigned clusters
     cluster_df = pd.DataFrame(labels, columns=['cluster'])
