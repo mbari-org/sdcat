@@ -32,8 +32,7 @@ cluster_selection_epsilon = click.option('--cluster-selection-epsilon',
 
 cluster_selection_method = click.option('--cluster-selection-method',
                                         type=str,
-                                        default='leaf',
-                                        help='Method for selecting the optimal number of clusters. '
+                                        help='Method for selecting the opdtimal number of clusters. '
                                              'Default is leaf. Options are leaf, eom, and dill')
 
 min_cluster_size = click.option('--min-cluster-size',
