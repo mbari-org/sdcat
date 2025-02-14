@@ -172,7 +172,7 @@ def compute_norm_embedding(model_name: str, images: list, device: str = "cpu", b
         num_processes = max(1, num_processes)
         info(f'Using {num_processes} processes to compute {len(images)} embeddings 20 at a time ...')
         with multiprocessing.Pool(num_processes) as pool:
-            args = [(vit_wrapper, images[i:i + 20]) for i in range(0, len(images), 20), batch_size]
+            args = [(vit_wrapper, images[i:i + 20], batch_size) for i in range(0, len(images), 20)]
             pool.starmap(compute_embedding_vits, args)
 
 
