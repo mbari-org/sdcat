@@ -364,7 +364,9 @@ def cluster_vits(
         use_tsne: bool = False,
         skip_visualization: bool = False,
         remove_bad_images: bool = False,
-        roi: bool = False) -> pd.DataFrame:
+        roi: bool = False,
+        batch_size: int = 32
+) -> pd.DataFrame:
     """  Cluster the crops using the VITS embeddings.
     :param prefix:  A unique prefix to save artifacts from clustering
     :param model: The model to use for clustering
@@ -424,7 +426,7 @@ def cluster_vits(
     # Skip the embedding extraction if all the embeddings are cached
     if num_cached != len(images):
         debug(f'Extracted embeddings from {len(images)} images using model {model}...')
-        compute_norm_embedding(model, images, device)
+        compute_norm_embedding(model, images, device, batch_size)
 
     # Fetch the cached embeddings
     debug('Fetching embeddings ...')

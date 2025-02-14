@@ -39,7 +39,10 @@ min_cluster_size = click.option('--min-cluster-size',
                                 type=int,
                                 help='The minimum number of samples in a group for that group to be considered a cluster. '
                                      'Default is 2. Increase for less conservative clustering, e.g. 5, 15')
-
+batch_size = click.option('--batch-size',
+                          type=int,
+                          default=32,
+                          help='Batch size for processing images. Default is 32')
 use_tsne = click.option('--use-tsne',
                         is_flag=True,
                         help='Use t-SNE for dimensionality reduction. Default is False')
