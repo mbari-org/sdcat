@@ -105,6 +105,8 @@ def run_detect(show: bool, image_dir: str, save_dir: str, save_roi:bool, roi_siz
 
     if save_roi:
         save_path_det_roi.mkdir(parents=True, exist_ok=True)
+        for f in save_path_det_roi.rglob('*'):
+            os.remove(f)
     save_path_det_raw.mkdir(parents=True, exist_ok=True)
     save_path_det_filtered.mkdir(parents=True, exist_ok=True)
     save_path_viz.mkdir(parents=True, exist_ok=True)
@@ -295,17 +297,12 @@ def run_detect(show: bool, image_dir: str, save_dir: str, save_roi:bool, roi_siz
                                            row: f"{save_path_det_roi}/{uuid.uuid5(uuid.NAMESPACE_DNS, str(row['x']) + str(row['y']) + str(row['xx']) + str(row['xy']))}.png",
                                        axis=1)
 
-            # Count how many files exists
-            num_crop = sum([os.path.exists(filename) for filename in df_final['crop_path']])
-
-            # Skip cropping if all the crops are already done
-            if num_crop != len(df_final):
-                num_processes = min(multiprocessing.cpu_count(), len(df_final))
-                # Crop and squaring the images in parallel using multiprocessing to speed up the processing
-                info(f'Cropping {len(df_final)} detections in parallel using {num_processes} processes...')
-                with multiprocessing.Pool(num_processes) as pool:
-                    args = [(row, roi_size) for index, row in df_final.iterrows()]
-                    pool.starmap(crop_square_image, args)
+            num_processes = min(multiprocessing.cpu_count(), len(df_final))
+            # Crop and squaring the images in parallel using multiprocessing to speed up the processing
+            info(f'Cropping {len(df_final)} detections in parallel using {num_processes} processes...')
+            with multiprocessing.Pool(num_processes) as pool:
+                args = [(row, roi_size) for index, row in df_final.iterrows()]
+                pool.starmap(crop_square_image, args)
 
         info(f'Found {len(pred_list)} total localizations in {f} with {len(df_combined)} after NMS')
         info(f'Slice width: {slice_size_width} height: {slice_size_height}')
