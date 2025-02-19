@@ -79,9 +79,9 @@ def create_model(model:str, conf:float, device:str, model_type=None):
             'model_type': 'yolov5',
             'model_path': lambda: hf_hub_download("MBARI-org/yolov5-uav-18k", "yolov5x6-uav-18k.pt")
         },
-        'MBARI-org/yolov5x6-uavs-oneclass': {
-            'model_type': 'yolov5',
-            'model_path': lambda: hf_hub_download("MBARI-org/yolov5x6-uavs-oneclass", "best_uavs_oneclass.pt")
+        'MBARI-org/yolo11x-uavs-detect': {
+            'model_type': 'yolo11',
+            'model_path': lambda: hf_hub_download("MBARI-org/yolo11x-uavs-detect", "uavs-oneclass-best.pt")
         },
         'FathomNet/MBARI-315k-yolov5': {
             'model_type': 'yolov5',
@@ -90,7 +90,8 @@ def create_model(model:str, conf:float, device:str, model_type=None):
     }
 
     if model not in model_map:
-        raise ValueError(f"Unknown model: {model}")
+        raise ValueError(f"Unknown model: {model}. Available models: {list(model_map.keys())}, "
+                         f"or provide a local file path. You can also use the --model-type option to specify the model type.")
 
     model_info = model_map[model]
     model_type = model_info['model_type']
