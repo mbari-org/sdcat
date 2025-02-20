@@ -1,6 +1,15 @@
 # CHANGELOG
 
 
+## v1.18.1 (2025-02-20)
+
+### Bug Fixes
+
+- Handle models that only output top 1 and default to cuda if available if not specified for
+  clustering
+  ([`164480a`](https://github.com/mbari-org/sdcat/commit/164480a2b25544e05152f136757cfdb2c1d989ef))
+
+
 ## v1.18.0 (2025-02-20)
 
 ### Features
