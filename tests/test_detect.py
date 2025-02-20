@@ -32,7 +32,7 @@ def run_detect(data_dir: Path, scale: int) -> int:
                                  data_dir.as_posix()], stdout=subprocess.PIPE)
 
     # Wait for the process to finish
-    proc.wait()
+    proc.wait(5000)
 
     # Verify that the process finished successfully
     assert proc.returncode == 0
