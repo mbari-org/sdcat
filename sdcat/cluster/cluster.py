@@ -344,6 +344,14 @@ def cluster_vits(
     :param use_tsne: Whether to use t-SNE for dimensionality reduction
     :return:  a dataframe with the assigned cluster indexes, or -1 for non-assigned."""
 
+    # Set the device to use for clustering
+    # Default to cuda if available
+    import torch
+    if torch.cuda.is_available():
+        device = 'cuda'
+    else:
+        device = 'cpu'
+
     # If there are no detections, return an empty dataframe
     if df_dets.empty:
         warn('No detections found in {detections} ')

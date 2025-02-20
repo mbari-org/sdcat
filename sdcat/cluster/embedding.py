@@ -53,12 +53,11 @@ class ViTWrapper:
             logits = outputs.logits
             embeddings = self.model.base_model(**inputs)
             batch_embeddings = embeddings.last_hidden_state[:, 0, :].cpu().numpy()
-            # predicted_class_idx = logits.argmax(-1).cpu().numpy()
-            # predicted_classes = [self.model.config.id2label[class_idx] for class_idx in predicted_class_idx]
-            # predicted_scores = F.softmax(logits, dim=-1).cpu().numpy()
-            # Get the top 3 classes and scores
-            top_scores, top_classes = torch.topk(logits, 3)
-            top_classes = top_classes.cpu().numpy()
+            # Get the top classes and scores
+            if len(logits.shape) == 1:
+                top_scores, top_classes = torch.topk(logits, 1)
+            else:
+                top_scores, top_classes = torch.topk(logits, 3)
             top_scores = F.softmax(top_scores, dim=-1).cpu().numpy()
             predicted_classes = [",".join([self.model.config.id2label[class_idx] for class_idx in class_list]) for class_list in top_classes]
             predicted_scores = [",".join([str(score) for score in score_list]) for score_list in top_scores]
