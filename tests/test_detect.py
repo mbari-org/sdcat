@@ -21,7 +21,7 @@ def run_detect(data_dir: Path, scale: int) -> int:
     # Run in temporary directory
     with tempfile.TemporaryDirectory() as tmp_dir:
         # Run sdcat
-        proc = subprocess.Popen(['python',
+        proc = subprocess.Popen(['python3',
                                  f'{root_dir}/__main__.py',
                                  'detect',
                                  '--skip-sahi',
