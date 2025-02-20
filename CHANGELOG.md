@@ -1,6 +1,22 @@
 # CHANGELOG
 
 
+## v1.18.0 (2025-02-20)
+
+### Features
+
+- Add support for --save-roi --roi-size ([#18](https://github.com/mbari-org/sdcat/pull/18),
+  [`9a801ac`](https://github.com/mbari-org/sdcat/commit/9a801ac34710f82d1b62bcd561253887858aa6cf))
+
+Added `--save-roi` and `--roi-size `options to sdcat detect. This saves the crops in a location
+  compatible with the clustering stage, but can also be used outside of sdcat. Data saved to crops
+
+├── det_filtered # The filtered detections from the model ├── crops # Crops of the detections
+
+- Trigger release for --save-roi
+  ([`8240a74`](https://github.com/mbari-org/sdcat/commit/8240a74d6363578509cc29196244b6c28d34d2c2))
+
+
 ## v1.17.0 (2025-02-07)
 
 ### Build System
