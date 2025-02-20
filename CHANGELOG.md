@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v1.18.2 (2025-02-20)
+
+### Bug Fixes
+
+- Only capture top 2 classes and scores
+  ([`9b85463`](https://github.com/mbari-org/sdcat/commit/9b854638b2303dd03752195d13bb3e68bd3dc291))
+
+
 ## v1.18.1 (2025-02-20)
 
 ### Bug Fixes
