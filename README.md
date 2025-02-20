@@ -161,7 +161,6 @@ The sdcat toolkit generates data in the following folders. Here, we assume both 
             │       ├── DSC01861.csv
             │       └── DSC01922.csv
             ├── det_filtered                    # The filtered detections from the model
-            ├── det_filtered_clustered          # Clustered detections from the model
                 ├── crops                       # Crops of the detections 
                 ├── dino_vits8...date           # The clustering results - one folder per each run of the clustering algorithm
                 ├── dino_vits8..exemplars.csv   # Exemplar embeddings - examples with the highest cosine similarity within a cluster
