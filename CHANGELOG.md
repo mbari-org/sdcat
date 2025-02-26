@@ -1,6 +1,35 @@
 # CHANGELOG
 
 
+## v1.19.0 (2025-02-26)
+
+### Features
+
+- Added softcluster ([#19](https://github.com/mbari-org/sdcat/pull/19),
+  [`cfaf784`](https://github.com/mbari-org/sdcat/commit/cfaf784c831bb61ee5998776a00c644f5824f801))
+
+* perf: better defaults for finer-grained clustering with google model
+
+* feat: added soft clustering for leaf method only
+
+* fix: remove default as this overrides what is in the .ini file
+
+* perf: add batch size as command option --batch-size; default is 32 but best size depends on
+  GPU/model memory
+
+* fix: correct args for multiproc
+
+* perf: combine soft/fuzzy and cosine sim
+
+* docs: update workflow diagram with soft/fuzzy algorithm
+
+* fix: handle models that only output top 1
+
+* fix: only capture top 2 classes and scores
+
+* chore: merged changes from main
+
+
 ## v1.18.2 (2025-02-20)
 
 ### Bug Fixes
