@@ -13,6 +13,7 @@ import json
 
 import seaborn as sns
 import numpy as np
+import hdbscan
 from umap import UMAP
 from hdbscan import HDBSCAN
 from sklearn.metrics.pairwise import cosine_similarity
@@ -111,8 +112,13 @@ def _run_hdbscan_assign(
     :param out_path:  The output path to save the clustering artifacts to
     :return: The average similarity score for each cluster, exemplar_df, cluster ids, cluster means, and coverage
     """
-    info(f'Clustering using HDBSCAN using alpha {alpha} cluster_selection_epsilon {cluster_selection_epsilon} '
-         f'min_samples {min_samples} use_tsne {use_tsne} ...')
+    info(f'Clustering using HDBSCAN with: \n'
+        f'alpha {alpha} \n'
+        f'cluster_selection_epsilon {cluster_selection_epsilon} \n'
+        f'min_samples {min_samples} \n'
+        f'min_cluster_size {min_cluster_size} \n'
+        f'cluster_selection_method {cluster_selection_method} \n'
+        f'use_tsne {use_tsne} ...')
 
     # Remove any existing cluster images in the output_path
     for c in out_path.parent.rglob(f'{prefix}_*cluster*.png'):
@@ -160,6 +166,7 @@ def _run_hdbscan_assign(
             labels = scan.fit_predict(x)
         else:
             scan = HDBSCAN(
+                    prediction_data=True,
                     metric='l2',
                     allow_single_cluster=True,
                     min_cluster_size=min_cluster_size,
@@ -221,14 +228,42 @@ def _run_hdbscan_assign(
     clustered = labels >= 0
     coverage = np.sum(clustered) / num_samples
     if coverage < 1.0:
-        # Reassign based on the closest distance to exemplar
-        for i, label in enumerate(labels):
-            if label == -1:
-                similarity_scores = cosine_similarity(image_emb[i].reshape(1, -1), exemplar_emb)
-                closest_match_index = np.argmax(similarity_scores)
-                # Only reassign if the similarity score is above the threshold
-                if similarity_scores[0][closest_match_index] >= min_similarity:
-                    labels[i] = closest_match_index
+        mixed_points = []
+        if cluster_selection_method == 'leaf':  # Only tested with leaf; oem fails
+            clusterer = scan.fit(x)
+
+            # Credit to hdbscan docs https://hdbscan.readthedocs.io/en/latest/soft_clustering.html
+            def top_two_probs_diff(probs):
+                sorted_probs = np.sort(probs)
+                return sorted_probs[-1] - sorted_probs[-2]
+
+            # Get the soft cluster assignments
+            soft_clusters = hdbscan.all_points_membership_vectors(clusterer)
+            # Compute the differences between the top two probabilities
+            diffs = np.array([top_two_probs_diff(x) for x in soft_clusters])
+            mean_diffs = np.mean(diffs)
+            std_diffs = np.std(diffs)
+            mean_cluster_probs = np.mean(np.max(soft_clusters, axis=1))
+            std_cluster_probs = np.std(np.max(soft_clusters, axis=1))
+            info(f'Mean cluster probability: {mean_cluster_probs:.4f} std {std_cluster_probs:.4f}')
+            info(f'Difference between top two probabilities: {mean_diffs:.4f} std {std_diffs:.4f}')
+            cut_off_diff = mean_diffs + 2 * std_diffs
+            # Select out the indices that have a small difference, and a larger total probability
+            mixed_points = np.where((diffs < cut_off_diff) & (np.sum(soft_clusters, axis=1) > 0.6))[0]
+        else:
+            warn('Only leaf method is supported for soft clustering')
+
+        if len(mixed_points) > 0:
+            reassign_labels = mixed_points
+        else:
+            reassign_labels = np.where(labels == -1)[0]
+        # Reassign based on the soft clustering only if very similar to the exemplar
+        for i, label in enumerate(reassign_labels):
+            similarity_scores = cosine_similarity(image_emb[i].reshape(1, -1), exemplar_emb)
+            closest_match_index = np.argmax(similarity_scores)
+            # Only reassign if the similarity score is above the threshold
+            if similarity_scores[0][closest_match_index] >= min_similarity:
+                labels[i] = closest_match_index
 
     clusters = [[] for _ in range(len(unique_clusters))]
 
@@ -324,7 +359,9 @@ def cluster_vits(
         use_tsne: bool = False,
         skip_visualization: bool = False,
         remove_bad_images: bool = False,
-        roi: bool = False) -> pd.DataFrame:
+        roi: bool = False,
+        batch_size: int = 32
+) -> pd.DataFrame:
     """  Cluster the crops using the VITS embeddings.
     :param prefix:  A unique prefix to save artifacts from clustering
     :param model: The model to use for clustering
@@ -392,7 +429,7 @@ def cluster_vits(
     # Skip the embedding extraction if all the embeddings are cached
     if num_cached != len(images):
         debug(f'Extracted embeddings from {len(images)} images using model {model}...')
-        compute_norm_embedding(model, images, device)
+        compute_norm_embedding(model, images, device, batch_size)
 
     # Fetch the cached embeddings
     debug('Fetching embeddings ...')

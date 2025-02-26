@@ -117,15 +117,13 @@ def encode_image(filename):
     return keep
 
 
-def compute_embedding_vits(vit:ViTWrapper, images: list):
+def compute_embedding_vits(vit:ViTWrapper, images: list, batch_size:int=32):
     """
     Compute the embedding for the given images using the given model
     :param vitwrapper: Wrapper for the ViT model
     :param images: List of image filenames
-    :param model_name: Name of the model (i.e. google/vit-base-patch16-224, dinov2_vits16, etc.)
-    :param device: Device to use for the computation (cpu or cuda:0, cuda:1, etc.)
+    :param batch_size: Number of images to process in a batch
     """
-    batch_size = 32
     model_name = vit.model_name
 
     # Batch process the images
@@ -146,13 +144,14 @@ def compute_embedding_vits(vit:ViTWrapper, images: list):
             err(f'Error processing {batch}: {e}')
 
 
-def compute_norm_embedding(model_name: str, images: list, device: str = "cpu"):
+def compute_norm_embedding(model_name: str, images: list, device: str = "cpu", batch_size: int = 32):
     """
     Compute the embedding for a list of images and save them to disk.
     Args:
     :param images:  List of image paths
     :param model_name: Name of the model to use for the embedding generation
     :param device: Device to use for the computation (cpu or cuda:0, cuda:1, etc.)
+    :param batch_size: Number of images to process in a batch
     Returns:
 
     """
@@ -164,14 +163,14 @@ def compute_norm_embedding(model_name: str, images: list, device: str = "cpu"):
 
     # If using a GPU, set then skip the parallel CPU processing
     if torch.cuda.is_available():
-        compute_embedding_vits(vit_wrapper, images)
+        compute_embedding_vits(vit_wrapper, images, batch_size)
     else:
         # Use a pool of processes to speed up the embedding generation 20 images at a time on each process
         num_processes = min(multiprocessing.cpu_count(), len(images) // 20)
         num_processes = max(1, num_processes)
         info(f'Using {num_processes} processes to compute {len(images)} embeddings 20 at a time ...')
         with multiprocessing.Pool(num_processes) as pool:
-            args = [(vit_wrapper, images[i:i + 20]) for i in range(0, len(images), 20)]
+            args = [(vit_wrapper, images[i:i + 20], batch_size) for i in range(0, len(images), 20)]
             pool.starmap(compute_embedding_vits, args)
 
 
