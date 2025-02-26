@@ -1,6 +1,39 @@
 # CHANGELOG
 
 
+## v1.18.2 (2025-02-20)
+
+### Bug Fixes
+
+- Only capture top 2 classes and scores
+  ([`9b85463`](https://github.com/mbari-org/sdcat/commit/9b854638b2303dd03752195d13bb3e68bd3dc291))
+
+
+## v1.18.1 (2025-02-20)
+
+### Bug Fixes
+
+- Handle models that only output top 1 and default to cuda if available if not specified for
+  clustering
+  ([`164480a`](https://github.com/mbari-org/sdcat/commit/164480a2b25544e05152f136757cfdb2c1d989ef))
+
+
+## v1.18.0 (2025-02-20)
+
+### Features
+
+- Add support for --save-roi --roi-size ([#18](https://github.com/mbari-org/sdcat/pull/18),
+  [`9a801ac`](https://github.com/mbari-org/sdcat/commit/9a801ac34710f82d1b62bcd561253887858aa6cf))
+
+Added `--save-roi` and `--roi-size `options to sdcat detect. This saves the crops in a location
+  compatible with the clustering stage, but can also be used outside of sdcat. Data saved to crops
+
+├── det_filtered # The filtered detections from the model ├── crops # Crops of the detections
+
+- Trigger release for --save-roi
+  ([`8240a74`](https://github.com/mbari-org/sdcat/commit/8240a74d6363578509cc29196244b6c28d34d2c2))
+
+
 ## v1.17.0 (2025-02-07)
 
 ### Build System

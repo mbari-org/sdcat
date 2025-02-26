@@ -2,7 +2,8 @@
 [![semantic-release](https://img.shields.io/badge/%20%20%F0%9F%93%A6%F0%9F%9A%80-semantic--release-e10079.svg)](https://github.com/semantic-release/semantic-release)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Python](https://img.shields.io/badge/language-Python-blue.svg)](https://www.python.org/downloads/)
- 
+[![Run pytest](https://github.com/mbari-org/sdcat/actions/workflows/pytest.yml/badge.svg)](https://github.com/mbari-org/sdcat/actions/workflows/pytest.yml)
+
 **sdcat** 
 
 *Sliced Detection and Clustering Analysis Toolkit*
@@ -161,7 +162,6 @@ The sdcat toolkit generates data in the following folders. Here, we assume both 
             │       ├── DSC01861.csv
             │       └── DSC01922.csv
             ├── det_filtered                    # The filtered detections from the model
-            ├── det_filtered_clustered          # Clustered detections from the model
                 ├── crops                       # Crops of the detections 
                 ├── dino_vits8...date           # The clustering results - one folder per each run of the clustering algorithm
                 ├── dino_vits8..exemplars.csv   # Exemplar embeddings - examples with the highest cosine similarity within a cluster

@@ -1,6 +1,8 @@
 import hashlib
 import multiprocessing
+import os
 import shutil
+import uuid
 from pathlib import Path
 
 import click
@@ -11,6 +13,7 @@ import torch
 from sahi.postprocess.combine import nms
 
 from sdcat import common_args
+from sdcat.cluster.utils import crop_square_image
 from sdcat.config import config as cfg
 from sdcat.config.config import default_config_ini
 from sdcat.detect.model_util import create_model
@@ -31,6 +34,8 @@ default_model = 'MBARI-org/megamidwater'
 @click.option('--show', is_flag=True, help='Show algorithm steps.')
 @click.option('--image-dir', required=True, help='Directory with images to run sliced detection.')
 @click.option('--save-dir', required=True, help='Save detections to this directory.')
+@click.option('--save-roi', is_flag=True, help='Save each region of interest/detection.')
+@click.option('--roi-size', type=int, default=224, help='Rescale the region of interest.')
 @click.option('--device', default='cpu', help='Device to use, e.g. cpu or cuda:0')
 @click.option('--spec-remove', is_flag=True, help='Run specularity removal algorithm on the images before processing. '
                                                   '**CAUTION**this is slow. Set --scale-percent to < 100 to speed-up')
@@ -47,7 +52,7 @@ default_model = 'MBARI-org/megamidwater'
 @click.option('--overlap-height-ratio',type=float, default=0.4, help='Overlap height ratio for NMS')
 @click.option('--clahe', is_flag=True, help='Run the CLAHE algorithm to contrast enhance before detection useful images with non-uniform lighting')
 
-def run_detect(show: bool, image_dir: str, save_dir: str, model: str, model_type:str,
+def run_detect(show: bool, image_dir: str, save_dir: str, save_roi:bool, roi_size: int, model: str, model_type:str,
                slice_size_width: int, slice_size_height: int, scale_percent: int,
                postprocess_match_metric: str, overlap_width_ratio: float, overlap_height_ratio: float,
                device: str, conf: float, skip_sahi: bool, skip_saliency: bool, spec_remove: bool,
@@ -95,8 +100,13 @@ def run_detect(show: bool, image_dir: str, save_dir: str, model: str, model_type
 
     save_path_det_raw = save_path_base / 'det_raw' / 'csv'
     save_path_det_filtered = save_path_base / 'det_filtered' / 'csv'
+    save_path_det_roi = save_path_base / 'det_filtered' / 'crops'
     save_path_viz = save_path_base / 'vizresults'
 
+    if save_roi:
+        save_path_det_roi.mkdir(parents=True, exist_ok=True)
+        for f in save_path_det_roi.rglob('*'):
+            os.remove(f)
     save_path_det_raw.mkdir(parents=True, exist_ok=True)
     save_path_det_filtered.mkdir(parents=True, exist_ok=True)
     save_path_viz.mkdir(parents=True, exist_ok=True)
@@ -280,11 +290,27 @@ def run_detect(show: bool, image_dir: str, save_dir: str, model: str, model_type
         df_final['w'] = (df_final['xx'] - df_final['x'])
         df_final['h'] = (df_final['xy'] - df_final['y'])
 
-        # Save DataFrame to CSV file including image_width and image_height columns
-        df_final.to_csv(pred_out_csv.as_posix(), index=False, header=True)
+        if save_roi:
+            # Add in a column for the unique crop name for each detection with a unique id
+            # create a unique uuid based on the md5 hash of the box in the row
+            df_final['crop_path'] = df_final.apply(lambda
+                                           row: f"{save_path_det_roi}/{uuid.uuid5(uuid.NAMESPACE_DNS, str(row['x']) + str(row['y']) + str(row['xx']) + str(row['xy']))}.png",
+                                       axis=1)
+
+            num_processes = min(multiprocessing.cpu_count(), len(df_final))
+            # Crop and squaring the images in parallel using multiprocessing to speed up the processing
+            info(f'Cropping {len(df_final)} detections in parallel using {num_processes} processes...')
+            with multiprocessing.Pool(num_processes) as pool:
+                args = [(row, roi_size) for index, row in df_final.iterrows()]
+                pool.starmap(crop_square_image, args)
 
         info(f'Found {len(pred_list)} total localizations in {f} with {len(df_combined)} after NMS')
         info(f'Slice width: {slice_size_width} height: {slice_size_height}')
+
+        # Save DataFrame to CSV file including image_width and image_height columns
+        info(f'Detections saved to {pred_out_csv}')
+        df_final.to_csv(pred_out_csv.as_posix(), index=False, header=True)
+        if save_roi: info(f"ROI crops saved in {save_path_det_roi}")
 
         save_stats = save_path_base / 'stats.txt'
         with open(save_stats, 'w') as sf:
