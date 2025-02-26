@@ -483,6 +483,28 @@ def cluster_vits(
                                                                                              ancillary_df,
                                                                                              output_path / prefix)
 
+    # Run the clustering again with the exemplar embeddings
+    if len(unique_clusters) > 1:
+        exemplar_emb = np.array(exemplar_df['embedding'].tolist())
+        emb_cluster_sim, exemplar_df, emb_unique_clusters, emb_cluster_means, _ = _run_hdbscan_assign(f'{prefix}_exemplar',
+                                                                                                   exemplar_emb,
+                                                                                                   alpha,
+                                                                                                   cluster_selection_epsilon,
+                                                                                                   cluster_selection_method,
+                                                                                                   min_similarity,
+                                                                                                   min_cluster_size,
+                                                                                                   min_samples,
+                                                                                                   use_tsne,
+                                                                                                   ancillary_df,
+                                                                                                   output_path / prefix)
+        # Reassign the cluster indices based on the revised clusters
+        reassigned_clusters = [[] for _ in range(len(emb_unique_clusters))]
+        for i, emb_clu in enumerate(emb_unique_clusters):
+            for idx in emb_clu:
+                reassigned_clusters[i].extend(unique_clusters[idx])
+
+        unique_clusters = reassigned_clusters
+
     # Get the average similarity across all clusters
     avg_similarity = np.mean(cluster_sim)
 
