@@ -111,40 +111,43 @@ def run_detect(show: bool, image_dir: str, save_dir: str, save_roi:bool, roi_siz
     save_path_det_filtered.mkdir(parents=True, exist_ok=True)
     save_path_viz.mkdir(parents=True, exist_ok=True)
 
-    # Run on all images recursively. Sort the dataframe by image_path to make sure the images are in order for start_image and end_image filtering
-    # Find all valid images
+    # Run on all images recursively
     images = [file for file in sorted(images_path.rglob('*'))
               if file.as_posix().endswith(('jpeg', 'png', 'jpg', 'JPEG', 'PNG', 'JPG', 'tif', 'tiff'))]
 
+    if len(images) == 0:
+        warn(f'No images found in {images_path}')
+        return
+
+    start_index = 0
+    end_index = len(images)
     # If start_image is set, find the index of the start_image in the list of images
     if start_image:
         start_image = Path(start_image)
-        start_image_index = next((i for i, image in enumerate(images) if start_image.name in image.name), None)
-        if start_image_index is None:
+        start_index = next((i for i, image in enumerate(images) if start_image.name in image.name), None)
+        if start_index is None:
             warn(f'Start image {start_image} not found in images')
             return
-        images = images[start_image_index:]
 
     # If end_image is set, find the index of the end_image in the list of images
     if end_image:
         end_image = Path(end_image)
-        end_image_index = next((i for i, image in enumerate(images) if end_image.name in image.name), None)
-        if end_image_index is None:
+        end_index = next((i for i, image in enumerate(images) if end_image.name in image.name), None)
+        if end_index is None:
             warn(f'End image {end_image} not found in images')
             return
-        images = images[:end_image_index + 1]
 
+    images = images[start_index:end_index + 1]
     num_images = len(images)
     info(f'Found {num_images} images in {images_path}')
 
     if num_images == 0:
         return
 
+    num_processes = min(multiprocessing.cpu_count(), num_images)
     if not skip_saliency:
         # run_saliency_detect(spec_remove, scale_percent, images[0].as_posix(), (save_path_det_raw / f'{images[0].stem}.csv').as_posix(), clahe=clahe, show=True)
         # Do the work in parallel to speed up the processing on multicore machines
-        num_processes = multiprocessing.cpu_count()
-        num_processes = min(num_processes, num_images)
         info(f'Using {num_processes} processes to compute {num_images} images 10 at a time ...')
         # # Run multiple processes in parallel num_cpu images at a time
         with multiprocessing.Pool(num_processes) as pool:
@@ -218,8 +221,6 @@ def run_detect(show: bool, image_dir: str, save_dir: str, save_roi:bool, roi_siz
             # Read in the csv file and add it to the combined dataframe
             df = pd.read_csv(csv_file, sep=',')
             df_combined = pd.concat([df_combined, df])
-
-        info(f'Found {len(df_combined)} detections in {f}')
 
         if len(df_combined) == 0:
             warn(f'No detections found in {f}')
@@ -313,7 +314,7 @@ def run_detect(show: bool, image_dir: str, save_dir: str, save_roi:bool, roi_siz
         if save_roi: info(f"ROI crops saved in {save_path_det_roi}")
 
         save_stats = save_path_base / 'stats.txt'
-        with open(save_stats, 'w') as sf:
+        with save_stats.open('w') as sf:
             sf.write(f"Statistics for {f}:\n")
             sf.write("----------------------------------\n")
             sf.write(f"Total number of bounding boxes: {df_combined.shape[0]}\n")
@@ -326,3 +327,4 @@ def run_detect(show: bool, image_dir: str, save_dir: str, save_roi:bool, roi_siz
             sf.write(f"Average area of bounding boxes: {df_combined['area'].mean()}\n")
             sf.write(f"Average score of bounding boxes: {df_combined['score'].mean()}\n")
             sf.write(f"Average saliency of bounding boxes: {df_combined['saliency'].mean()}\n")
+        info('Done')

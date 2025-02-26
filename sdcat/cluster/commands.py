@@ -117,7 +117,7 @@ def run_cluster_det(det_dir, save_dir, device, use_vits, config_ini, alpha, clus
         end_image = Path(end_image)
         end_image = end_image.resolve()
         end_image = end_image.stem
-        end_image_index = df[df['image_path'].str.contains(end_image)].index[0]
+        end_image_index = df[df['image_path'].str.contains(end_image)].index[-1]
         df = df.iloc[:end_image_index]
 
     # Filter by saliency, area, score or day/night
