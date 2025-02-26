@@ -58,8 +58,7 @@ class ViTWrapper:
             top_scores, top_classes = torch.topk(logits, top_n)
             top_scores = F.softmax(top_scores, dim=-1).cpu().numpy()
             top_classes = top_classes.cpu().numpy()
-            predicted_classes = [",".join([self.model.config.id2label[class_idx] for class_idx in class_list]) for
-                                 class_list in top_classes]
+            predicted_classes = [",".join([self.model.config.id2label[class_idx] for class_idx in class_list]) for class_list in top_classes]
             predicted_scores = [",".join([str(score) for score in score_list]) for score_list in top_scores]
 
         return batch_embeddings, predicted_classes, predicted_scores
