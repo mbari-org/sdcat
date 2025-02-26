@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v1.19.1 (2025-02-26)
+
+### Bug Fixes
+
+- Correct handling of bounded end image
+  ([`f510e16`](https://github.com/mbari-org/sdcat/commit/f510e160197ac8b819376395de8cdaae2ac0072a))
+
+
 ## v1.19.0 (2025-02-26)
 
 ### Features
