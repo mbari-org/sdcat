@@ -91,6 +91,7 @@ def _run_hdbscan_assign(
         alpha: float,
         cluster_selection_epsilon: float,
         cluster_selection_method: str,
+        algorithm: str,
         min_similarity: float,
         min_cluster_size: int,
         min_samples: int,
@@ -103,6 +104,7 @@ def _run_hdbscan_assign(
     :param image_emb:  The embeddings to cluster from the model
     :param alpha:  The alpha parameter for HDBSCAN
     :param cluster_selection_epsilon:  The epsilon parameter for HDBSCAN
+    :param algorithm:  The algorithm to use for clustering, 'best' or 'generic' or 'prims_kdtree' or 'boruvka_kdtree'
     :param cluster_selection_method:  The method to use for cluster selection, 'leaf' or 'eom'
     :param min_similarity:  The minimum similarity score to use for clustering reassignment
     :param min_cluster_size:  The minimum number of samples in a cluster
@@ -161,6 +163,7 @@ def _run_hdbscan_assign(
                 min_cluster_size=min_cluster_size,
                 min_samples=min_samples,
                 alpha=alpha,
+                algorithm=algorithm,
                 cluster_selection_epsilon=cluster_selection_epsilon,
                 cluster_selection_method=cluster_selection_method)
             labels = scan.fit_predict(x)
@@ -168,6 +171,7 @@ def _run_hdbscan_assign(
             scan = HDBSCAN(
                     prediction_data=True,
                     metric='l2',
+                    algorithm=algorithm,
                     allow_single_cluster=True,
                     min_cluster_size=min_cluster_size,
                     min_samples=min_samples,
@@ -351,6 +355,7 @@ def cluster_vits(
         alpha: float,
         cluster_selection_epsilon: float,
         cluster_selection_method: str,
+        algorithm: str,
         min_similarity: float,
         min_cluster_size: int,
         min_samples: int,
@@ -370,6 +375,7 @@ def cluster_vits(
     :param roi:  Whether the detections are already cropped to the ROI
     :param cluster_selection_epsilon: The epsilon parameter for HDBSCAN
     :param cluster_selection_method: The method to use for cluster selection, 'leaf' or 'eom'
+    :param algorithm:  The algorithm to use for clustering, 'best' or 'generic' or 'prims_kdtree' or 'boruvka_kdtree'
     :param alpha: The alpha parameter for HDBSCAN
     :param min_similarity: The minimum similarity score to use for -1 cluster reassignment
     :param min_cluster_size: The minimum number of samples in a cluster
@@ -468,6 +474,7 @@ def cluster_vits(
                                                                                              alpha,
                                                                                              cluster_selection_epsilon,
                                                                                              cluster_selection_method,
+                                                                                             algorithm,
                                                                                              min_similarity,
                                                                                              min_cluster_size,
                                                                                              min_samples,
@@ -483,6 +490,7 @@ def cluster_vits(
                                                                                                    alpha,
                                                                                                    cluster_selection_epsilon,
                                                                                                    cluster_selection_method,
+                                                                                                   algorithm,
                                                                                                    min_similarity,
                                                                                                    min_cluster_size,
                                                                                                    min_samples,
@@ -494,6 +502,7 @@ def cluster_vits(
         for i, emb_clu in enumerate(emb_unique_clusters):
             for idx in emb_clu:
                 reassigned_clusters[i].extend(unique_clusters[idx])
+
 
         unique_clusters = reassigned_clusters
 

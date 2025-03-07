@@ -35,6 +35,10 @@ cluster_selection_method = click.option('--cluster-selection-method',
                                         help='Method for selecting the opdtimal number of clusters. '
                                              'Default is leaf. Options are leaf, eom, and dill')
 
+algorithm = click.option('--algorithm',
+                            type=str,
+                            help='Algorithm for clustering. Default is best.  bes, generic, prims_kdtree, boruvka_kdtree')
+
 min_cluster_size = click.option('--min-cluster-size',
                                 type=int,
                                 help='The minimum number of samples in a group for that group to be considered a cluster. '
