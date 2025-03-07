@@ -295,6 +295,7 @@ def _run_hdbscan_assign(
         "min_samples": min_samples,
         "cluster_selection_method": "leaf",
         "metric": "precomputed",
+        "algorithm": algorithm,
         "alpha": alpha,
         "cluster_selection_epsilon": cluster_selection_epsilon
     }
