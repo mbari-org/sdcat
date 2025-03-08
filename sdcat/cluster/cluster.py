@@ -217,58 +217,27 @@ def _run_hdbscan_assign(
         exemplar_df['crop_path'] = ancillary_df.iloc[max_scores]['crop_path'].tolist()
     exemplar_df['embedding'] = exemplar_emb.tolist()
 
-    # Remove the last cluster which is the unknown cluster
-    # Note that in the rare case where the coverage is 100%, the last cluster may not be the unknown cluster!
-    # TODO: how to handle this case?
-    max_clusters = len(unique_clusters) - 1
-    num_before = len(exemplar_df)
-    info(
-        f"Removing {num_before - len(exemplar_df[exemplar_df['cluster'] != max_clusters])} samples from the unknown cluster")
-    exemplar_df = exemplar_df[exemplar_df['cluster'] != max_clusters]
-    num_after = len(exemplar_df)
-    info(f"Number of samples after removing unknown cluster: {num_after}")
+    from scipy.cluster.hierarchy import linkage, fcluster
+    info(f'Merging clusters with similarity threshold {min_similarity:.2f} ...')
+    linkage_matrix = linkage(exemplar_emb, method='complete', metric='cosine')
+    cluster_labels = fcluster(linkage_matrix, 1 - min_similarity, criterion='distance')
 
-    # Reassign the unknowns to the closest cluster - this is only needed if the coverage is less than 1
-    clustered = labels >= 0
-    coverage = np.sum(clustered) / num_samples
-    if coverage < 1.0:
-        mixed_points = []
-        if cluster_selection_method == 'leaf':  # Only tested with leaf; oem fails
-            clusterer = scan.fit(x)
+    # If the cluster labels are all the same, then we have a single cluster and we can't merge
+    if len(np.unique(cluster_labels)) == 1:
+        info(f'No clusters to merge')
+    else:
+        info(f'Merging {len(np.unique(cluster_labels))} clusters')
+        # Assign the exemplar clusters to the original clusters based on the linkage matrix
+        for i, j in enumerate(labels):
+            if j == -1:
+                continue
+            labels[i] = cluster_labels[j]
+            debug(f'Cluster {i} is now {cluster_labels[j]}')
+        unique_clusters = np.unique(labels)
+        for i, c in enumerate(unique_clusters):
+            debug(f'Cluster {i} has {np.sum(labels == i)} samples')
 
-            # Credit to hdbscan docs https://hdbscan.readthedocs.io/en/latest/soft_clustering.html
-            def top_two_probs_diff(probs):
-                sorted_probs = np.sort(probs)
-                return sorted_probs[-1] - sorted_probs[-2]
-
-            # Get the soft cluster assignments
-            soft_clusters = hdbscan.all_points_membership_vectors(clusterer)
-            # Compute the differences between the top two probabilities
-            diffs = np.array([top_two_probs_diff(x) for x in soft_clusters])
-            mean_diffs = np.mean(diffs)
-            std_diffs = np.std(diffs)
-            mean_cluster_probs = np.mean(np.max(soft_clusters, axis=1))
-            std_cluster_probs = np.std(np.max(soft_clusters, axis=1))
-            info(f'Mean cluster probability: {mean_cluster_probs:.4f} std {std_cluster_probs:.4f}')
-            info(f'Difference between top two probabilities: {mean_diffs:.4f} std {std_diffs:.4f}')
-            cut_off_diff = mean_diffs + 2 * std_diffs
-            # Select out the indices that have a small difference, and a larger total probability
-            mixed_points = np.where((diffs < cut_off_diff) & (np.sum(soft_clusters, axis=1) > 0.6))[0]
-        else:
-            warn('Only leaf method is supported for soft clustering')
-
-        if len(mixed_points) > 0:
-            reassign_labels = mixed_points
-        else:
-            reassign_labels = np.where(labels == -1)[0]
-        # Reassign based on the soft clustering only if very similar to the exemplar
-        for i, label in enumerate(reassign_labels):
-            similarity_scores = cosine_similarity(image_emb[i].reshape(1, -1), exemplar_emb)
-            closest_match_index = np.argmax(similarity_scores)
-            # Only reassign if the similarity score is above the threshold
-            if similarity_scores[0][closest_match_index] >= min_similarity:
-                labels[i] = closest_match_index
-
+    unique_clusters = np.unique(labels)
     clusters = [[] for _ in range(len(unique_clusters))]
 
     # Assign indices to the clusters
@@ -482,30 +451,6 @@ def cluster_vits(
                                                                                              use_tsne,
                                                                                              ancillary_df,
                                                                                              output_path / prefix)
-
-    # Run the clustering again with the exemplar embeddings
-    if len(unique_clusters) > 1:
-        exemplar_emb = np.array(exemplar_df['embedding'].tolist())
-        emb_cluster_sim, exemplar_df, emb_unique_clusters, emb_cluster_means, _ = _run_hdbscan_assign(f'{prefix}_exemplar',
-                                                                                                   exemplar_emb,
-                                                                                                   alpha,
-                                                                                                   cluster_selection_epsilon,
-                                                                                                   cluster_selection_method,
-                                                                                                   algorithm,
-                                                                                                   min_similarity,
-                                                                                                   min_cluster_size,
-                                                                                                   min_samples,
-                                                                                                   use_tsne,
-                                                                                                   ancillary_df,
-                                                                                                   output_path / prefix)
-        # Reassign the cluster indices based on the revised clusters
-        reassigned_clusters = [[] for _ in range(len(emb_unique_clusters))]
-        for i, emb_clu in enumerate(emb_unique_clusters):
-            for idx in emb_clu:
-                reassigned_clusters[i].extend(unique_clusters[idx])
-
-
-        unique_clusters = reassigned_clusters
 
     # Get the average similarity across all clusters
     avg_similarity = np.mean(cluster_sim)
