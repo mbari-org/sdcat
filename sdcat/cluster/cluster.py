@@ -13,9 +13,9 @@ import json
 
 import seaborn as sns
 import numpy as np
-import hdbscan
 from umap import UMAP
 from hdbscan import HDBSCAN
+from scipy.cluster.hierarchy import linkage, fcluster
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.preprocessing import MinMaxScaler
 from sdcat.logger import info, warn, debug, err
@@ -217,7 +217,6 @@ def _run_hdbscan_assign(
         exemplar_df['crop_path'] = ancillary_df.iloc[max_scores]['crop_path'].tolist()
     exemplar_df['embedding'] = exemplar_emb.tolist()
 
-    from scipy.cluster.hierarchy import linkage, fcluster
     info(f'Merging clusters with similarity threshold {min_similarity:.2f} ...')
     linkage_matrix = linkage(exemplar_emb, method='complete', metric='cosine')
     cluster_labels = fcluster(linkage_matrix, 1 - min_similarity, criterion='distance')
