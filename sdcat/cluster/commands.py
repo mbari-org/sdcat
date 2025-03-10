@@ -33,19 +33,20 @@ from sdcat.cluster.cluster import cluster_vits
 @common_args.cluster_selection_method
 @common_args.algorithm
 @common_args.min_cluster_size
+@common_args.min_sample_size
 @common_args.batch_size
 @click.option('--det-dir', help='Input folder(s) with raw detection results', multiple=True, required=True)
 @click.option('--save-dir', help='Output directory to save clustered detection results', required=True)
 @click.option('--device', help='Device to use, e.g. cpu or cuda:0', type=str, default='cpu')
 @click.option('--use-vits', help='Set to using the predictions from the vits cluster model', is_flag=True)
-def run_cluster_det(det_dir, save_dir, device, use_vits, config_ini, alpha, cluster_selection_epsilon, cluster_selection_method, algorithm, min_cluster_size, batch_size, start_image, end_image, use_tsne, skip_visualization):
+def run_cluster_det(det_dir, save_dir, device, use_vits, config_ini, alpha, cluster_selection_epsilon, cluster_selection_method, algorithm, min_cluster_size, min_sample_size, batch_size, start_image, end_image, use_tsne, skip_visualization):
     config = cfg.Config(config_ini)
     max_area = int(config('cluster', 'max_area'))
     min_area = int(config('cluster', 'min_area'))
     min_saliency = int(config('cluster', 'min_saliency'))
-    min_samples = int(config('cluster', 'min_samples'))
     alpha = alpha if alpha else float(config('cluster', 'alpha'))
     min_cluster_size = min_cluster_size if min_cluster_size else int(config('cluster', 'min_cluster_size'))
+    min_samples = min_sample_size if min_sample_size else int(config('cluster', 'min_samples'))
     cluster_selection_epsilon = cluster_selection_epsilon if cluster_selection_epsilon else float(config('cluster','cluster_selection_epsilon'))
     cluster_selection_method = cluster_selection_method if cluster_selection_method else config('cluster', 'cluster_selection_method')
     algorithm = algorithm if algorithm else config('cluster', 'algorithm')
@@ -281,18 +282,19 @@ def run_cluster_det(det_dir, save_dir, device, use_vits, config_ini, alpha, clus
 @common_args.cluster_selection_method
 @common_args.algorithm
 @common_args.min_cluster_size
+@common_args.min_sample_size
 @common_args.batch_size
 @click.option('--roi-dir', help='Input folder(s) with raw ROI images', multiple=True, required=True)
 @click.option('--save-dir', help='Output directory to save clustered detection results', required=True)
 @click.option('--device', help='Device to use, e.g. cpu or cuda:0', type=str)
 @click.option('--use-vits', help='Set to using the predictions from the vits cluster model', is_flag=True)
-def run_cluster_roi(roi_dir, save_dir, device, use_vits, config_ini, alpha, cluster_selection_epsilon, cluster_selection_method, algorithm, min_cluster_size, batch_size, use_tsne, skip_visualization):
+def run_cluster_roi(roi_dir, save_dir, device, use_vits, config_ini, alpha, cluster_selection_epsilon, cluster_selection_method, algorithm, min_cluster_size, min_sample_size, batch_size, use_tsne, skip_visualization):
     config = cfg.Config(config_ini)
-    min_samples = int(config('cluster', 'min_samples'))
     alpha = alpha if alpha else float(config('cluster', 'alpha'))
     min_cluster_size = min_cluster_size if min_cluster_size else int(config('cluster', 'min_cluster_size'))
     cluster_selection_epsilon = cluster_selection_epsilon if cluster_selection_epsilon else float(config('cluster','cluster_selection_epsilon'))
     cluster_selection_method = cluster_selection_method if cluster_selection_method else config('cluster', 'cluster_selection_method')
+    min_samples = min_sample_size if min_sample_size else int(config('cluster', 'min_samples'))
     algorithm = algorithm if algorithm else config('cluster', 'algorithm')
     min_similarity = float(config('cluster', 'min_similarity'))
     model = config('cluster', 'model')
