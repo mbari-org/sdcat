@@ -39,7 +39,8 @@ from sdcat.cluster.cluster import cluster_vits
 @click.option('--save-dir', help='Output directory to save clustered detection results', required=True)
 @click.option('--device', help='Device to use, e.g. cpu or cuda:0', type=str, default='cpu')
 @click.option('--use-vits', help='Set to using the predictions from the vits cluster model', is_flag=True)
-def run_cluster_det(det_dir, save_dir, device, use_vits, config_ini, alpha, cluster_selection_epsilon, cluster_selection_method, algorithm, min_cluster_size, min_sample_size, batch_size, start_image, end_image, use_tsne, skip_visualization):
+@click.option('--weight-vits', help='Weight for the score in the predictions from the vits model with the detection score', type=bool, default=False)
+def run_cluster_det(det_dir, save_dir, device, use_vits, weight_vits, config_ini, alpha, cluster_selection_epsilon, cluster_selection_method, algorithm, min_cluster_size, min_sample_size, batch_size, start_image, end_image, use_tsne, skip_visualization):
     config = cfg.Config(config_ini)
     max_area = int(config('cluster', 'max_area'))
     min_area = int(config('cluster', 'min_area'))
@@ -261,7 +262,7 @@ def run_cluster_det(det_dir, save_dir, device, use_vits, config_ini, alpha, clus
         # Cluster the detections
         df_cluster = cluster_vits(prefix, model, df, save_dir, alpha, cluster_selection_epsilon, cluster_selection_method, algorithm,
                                   min_similarity, min_cluster_size, min_samples, device, use_tsne=use_tsne,
-                                  skip_visualization=skip_visualization, roi=False, use_vits=use_vits,
+                                  skip_visualization=skip_visualization, roi=False, weight_vits=weight_vits, use_vits=use_vits,
                                   remove_bad_images=remove_bad_images, batch_size=batch_size)
 
         # Merge the results with the original DataFrame
@@ -378,7 +379,7 @@ def run_cluster_roi(roi_dir, save_dir, device, use_vits, config_ini, alpha, clus
         # Cluster the detections
         df_cluster = cluster_vits(prefix, model, df, save_dir, alpha, cluster_selection_epsilon, cluster_selection_method, algorithm,
                                   min_similarity, min_cluster_size, min_samples, device,
-                                  use_tsne=use_tsne, use_vits=use_vits,
+                                  use_tsne=use_tsne, weight_vits=False, use_vits=use_vits,
                                   skip_visualization=skip_visualization,  roi=True,
                                   remove_bad_images=remove_bad_images, batch_size=batch_size)
 
