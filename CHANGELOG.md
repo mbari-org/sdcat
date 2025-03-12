@@ -1,12 +1,75 @@
 # CHANGELOG
 
 
+## v1.20.0 (2025-03-12)
+
+### Bug Fixes
+
+- Remove cuda in cluster vits
+  ([`d449a86`](https://github.com/mbari-org/sdcat/commit/d449a86394e6f560a2ea4f37cb1fa77c1b166a18))
+
+### Chores
+
+- Clean up imports
+  ([`18da1aa`](https://github.com/mbari-org/sdcat/commit/18da1aadac42ee3a4102c9cc14f7dc07a3306624))
+
+### Continuous Integration
+
+- Only run pytest on push to main branch
+  ([`fcfb28d`](https://github.com/mbari-org/sdcat/commit/fcfb28d5cd3555ee7397bea1645691fe6a88adbe))
+
+### Documentation
+
+- Updated workflow diagram
+  ([`91ebe6a`](https://github.com/mbari-org/sdcat/commit/91ebe6a512b10d306a04e95ed373890b6e424ab7))
+
+### Features
+
+- Add weight_vits option to weight the scores from the detection model in the vits classification
+  model
+  ([`9bffe3d`](https://github.com/mbari-org/sdcat/commit/9bffe3d589a94081f0c9e9a9eb49e5a31e3e7f22))
+
+- Added feature merge
+  ([`90d182d`](https://github.com/mbari-org/sdcat/commit/90d182db13d8e56660f349bd62426dd18dc81b38))
+
+- Added hdbscan algorithm choice for clustering
+  ([`40b9ba2`](https://github.com/mbari-org/sdcat/commit/40b9ba21f685be52ee7f644fc2f25e2a4c3a7859))
+
+- Added hdbscan algorithm choice for clustering
+  ([`722da61`](https://github.com/mbari-org/sdcat/commit/722da6163aba7cfae937508a16d1e18209326349))
+
+- Added min-sample-size argument to allow for parameter sweeps
+  ([`2cf9771`](https://github.com/mbari-org/sdcat/commit/2cf9771b40090375f146e02082156a5757ae9044))
+
+- Rename to weighted_score and add back in the noise reassignment for higher coverage
+  ([`0a361a0`](https://github.com/mbari-org/sdcat/commit/0a361a0eee69fd08a821dc96cb31decea7fa777a))
+
+### Performance Improvements
+
+- Improved cluster coverage, weighted classification scores, and more options for running cluster
+  sweeps
+  ([`a94e4a9`](https://github.com/mbari-org/sdcat/commit/a94e4a91faed622e335bc8da450da1a5d61097e3))
+
+Performance - Better handling of noise cluster and merging similar clusters. This should improve
+  cluster coverage and generate somewhat larger clusters with foundation models.
+
+Features - new arg to sdcat cluster `--algorithm` default "best"; prims_kdtree or boruvka_kdtree may
+  be worth trying - new arg to sdcat cluster `--min-sample-size` which was only supported in the
+  .ini file - new arg to sdcat cluster `--weighted-score` which will weight the classification score
+  with the detection score from the ViTS models through multiplication
+
+
 ## v1.19.1 (2025-02-26)
 
 ### Bug Fixes
 
 - Correct handling of bounded end image
   ([`f510e16`](https://github.com/mbari-org/sdcat/commit/f510e160197ac8b819376395de8cdaae2ac0072a))
+
+### Features
+
+- Second pass merge cluster
+  ([`a58ce18`](https://github.com/mbari-org/sdcat/commit/a58ce189473b2a66fda10096d631bbffbafee2d6))
 
 
 ## v1.19.0 (2025-02-26)
