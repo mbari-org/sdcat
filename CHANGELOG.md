@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v1.20.1 (2025-03-12)
+
+### Bug Fixes
+
+- Correct arg for weighted score in cluster
+  ([`658ef95`](https://github.com/mbari-org/sdcat/commit/658ef9552b5c66d6f656ce461738569d1c7dfa2c))
+
+
 ## v1.20.0 (2025-03-12)
 
 ### Bug Fixes
