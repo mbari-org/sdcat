@@ -116,8 +116,9 @@ def _run_hdbscan_assign(
     """
     info(f'Clustering using HDBSCAN with: \n'
         f'alpha {alpha} \n'
+        f'algorithm {algorithm} \n'
         f'cluster_selection_epsilon {cluster_selection_epsilon} \n'
-        f'min_samples {min_samples} \n'
+        f'min_samples {min_samples} \n'        
         f'min_cluster_size {min_cluster_size} \n'
         f'cluster_selection_method {cluster_selection_method} \n'
         f'use_tsne {use_tsne} ...')
@@ -230,8 +231,18 @@ def _run_hdbscan_assign(
         for i, j in enumerate(labels):
             if j == -1:
                 continue
-            labels[i] = cluster_labels[j]
-            debug(f'Cluster {i} is now {cluster_labels[j]}')
+            labels[i] = cluster_labels[j - 1]
+            debug(f'Cluster {i} is now {cluster_labels[j - 1]}')
+
+        # Assign noise -1 cluster to the nearest exemplar
+        noise = np.where(labels == -1)[0]
+        for i in noise:
+            sim = cosine_similarity([image_emb[i]], exemplar_emb)
+            cluster = np.argmax(sim)
+            score = np.max(sim)
+            if score > min_similarity:
+                labels[i] = cluster
+                debug(f'Noise {i} is now {cluster}')
         unique_clusters = np.unique(labels)
         for i, c in enumerate(unique_clusters):
             debug(f'Cluster {i} has {np.sum(labels == i)} samples')
@@ -329,7 +340,7 @@ def cluster_vits(
         min_cluster_size: int,
         min_samples: int,
         device: str = "cpu",
-        weight_vits: bool = False,
+        weighted_score: bool = False,
         use_vits: bool = False,
         use_tsne: bool = False,
         skip_visualization: bool = False,
@@ -351,7 +362,7 @@ def cluster_vits(
     :param min_cluster_size: The minimum number of samples in a cluster
     :param min_samples:The number of samples in a neighborhood for a point
     :param device: The device to use for clustering, 'cpu' or 'cuda'
-    :param weight_vits: Whether to weight score for the prediction from vits model with detection weight
+    :param weighted_score: Whether to weight score for the prediction from vits model with detection weight
     :param use_vits: Set to using the predictions from the vits cluster model
     :param skip_visualization: Whether to skip the visualization of the clusters
     :param remove_bad_images: Whether to remove bad images from the clustering
@@ -412,7 +423,7 @@ def cluster_vits(
             image_emb.append(emb)
         if use_vits:
             weight = 1
-            if weight_vits:
+            if weighted_score:
                 weight = df_dets.loc[df_dets['crop_path'] == filename, 'score'].values[0]
                 # Weight cannot be zero or negative
                 if weight <= 0:
