@@ -32,13 +32,23 @@ cluster_selection_epsilon = click.option('--cluster-selection-epsilon',
 
 cluster_selection_method = click.option('--cluster-selection-method',
                                         type=str,
-                                        help='Method for selecting the opdtimal number of clusters. '
+                                        help='Method for selecting the optimal number of clusters. '
                                              'Default is leaf. Options are leaf, eom, and dill')
+
+algorithm = click.option('--algorithm',
+                            type=str,
+                            help='Algorithm for clustering. Default is best.  bes, generic, prims_kdtree, boruvka_kdtree')
 
 min_cluster_size = click.option('--min-cluster-size',
                                 type=int,
                                 help='The minimum number of samples in a group for that group to be considered a cluster. '
                                      'Default is 2. Increase for less conservative clustering, e.g. 5, 15')
+
+min_sample_size = click.option('--min-sample-size',
+                               type=int,
+                               help='The number of samples in a neighborhood for a point to be considered as a core point. '
+                                    'This includes the point itself. Default is 1. Increase for more conservative clustering')
+
 batch_size = click.option('--batch-size',
                           type=int,
                           default=32,

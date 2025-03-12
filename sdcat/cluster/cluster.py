@@ -13,9 +13,9 @@ import json
 
 import seaborn as sns
 import numpy as np
-import hdbscan
 from umap import UMAP
 from hdbscan import HDBSCAN
+from scipy.cluster.hierarchy import linkage, fcluster
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.preprocessing import MinMaxScaler
 from sdcat.logger import info, warn, debug, err
@@ -91,6 +91,7 @@ def _run_hdbscan_assign(
         alpha: float,
         cluster_selection_epsilon: float,
         cluster_selection_method: str,
+        algorithm: str,
         min_similarity: float,
         min_cluster_size: int,
         min_samples: int,
@@ -103,6 +104,7 @@ def _run_hdbscan_assign(
     :param image_emb:  The embeddings to cluster from the model
     :param alpha:  The alpha parameter for HDBSCAN
     :param cluster_selection_epsilon:  The epsilon parameter for HDBSCAN
+    :param algorithm:  The algorithm to use for clustering, 'best' or 'generic' or 'prims_kdtree' or 'boruvka_kdtree'
     :param cluster_selection_method:  The method to use for cluster selection, 'leaf' or 'eom'
     :param min_similarity:  The minimum similarity score to use for clustering reassignment
     :param min_cluster_size:  The minimum number of samples in a cluster
@@ -114,8 +116,9 @@ def _run_hdbscan_assign(
     """
     info(f'Clustering using HDBSCAN with: \n'
         f'alpha {alpha} \n'
+        f'algorithm {algorithm} \n'
         f'cluster_selection_epsilon {cluster_selection_epsilon} \n'
-        f'min_samples {min_samples} \n'
+        f'min_samples {min_samples} \n'        
         f'min_cluster_size {min_cluster_size} \n'
         f'cluster_selection_method {cluster_selection_method} \n'
         f'use_tsne {use_tsne} ...')
@@ -161,6 +164,7 @@ def _run_hdbscan_assign(
                 min_cluster_size=min_cluster_size,
                 min_samples=min_samples,
                 alpha=alpha,
+                algorithm=algorithm,
                 cluster_selection_epsilon=cluster_selection_epsilon,
                 cluster_selection_method=cluster_selection_method)
             labels = scan.fit_predict(x)
@@ -168,6 +172,7 @@ def _run_hdbscan_assign(
             scan = HDBSCAN(
                     prediction_data=True,
                     metric='l2',
+                    algorithm=algorithm,
                     allow_single_cluster=True,
                     min_cluster_size=min_cluster_size,
                     min_samples=min_samples,
@@ -213,58 +218,36 @@ def _run_hdbscan_assign(
         exemplar_df['crop_path'] = ancillary_df.iloc[max_scores]['crop_path'].tolist()
     exemplar_df['embedding'] = exemplar_emb.tolist()
 
-    # Remove the last cluster which is the unknown cluster
-    # Note that in the rare case where the coverage is 100%, the last cluster may not be the unknown cluster!
-    # TODO: how to handle this case?
-    max_clusters = len(unique_clusters) - 1
-    num_before = len(exemplar_df)
-    info(
-        f"Removing {num_before - len(exemplar_df[exemplar_df['cluster'] != max_clusters])} samples from the unknown cluster")
-    exemplar_df = exemplar_df[exemplar_df['cluster'] != max_clusters]
-    num_after = len(exemplar_df)
-    info(f"Number of samples after removing unknown cluster: {num_after}")
+    info(f'Merging clusters with similarity threshold {min_similarity:.2f} ...')
+    linkage_matrix = linkage(exemplar_emb, method='complete', metric='cosine')
+    cluster_labels = fcluster(linkage_matrix, 1 - min_similarity, criterion='distance')
 
-    # Reassign the unknowns to the closest cluster - this is only needed if the coverage is less than 1
-    clustered = labels >= 0
-    coverage = np.sum(clustered) / num_samples
-    if coverage < 1.0:
-        mixed_points = []
-        if cluster_selection_method == 'leaf':  # Only tested with leaf; oem fails
-            clusterer = scan.fit(x)
+    # If the cluster labels are all the same, then we have a single cluster and we can't merge
+    if len(np.unique(cluster_labels)) == 1:
+        info(f'No clusters to merge')
+    else:
+        info(f'Merging {len(np.unique(cluster_labels))} clusters')
+        # Assign the exemplar clusters to the original clusters based on the linkage matrix
+        for i, j in enumerate(labels):
+            if j == -1:
+                continue
+            labels[i] = cluster_labels[j - 1]
+            debug(f'Cluster {i} is now {cluster_labels[j - 1]}')
 
-            # Credit to hdbscan docs https://hdbscan.readthedocs.io/en/latest/soft_clustering.html
-            def top_two_probs_diff(probs):
-                sorted_probs = np.sort(probs)
-                return sorted_probs[-1] - sorted_probs[-2]
+        # Assign noise -1 cluster to the nearest exemplar
+        noise = np.where(labels == -1)[0]
+        for i in noise:
+            sim = cosine_similarity([image_emb[i]], exemplar_emb)
+            cluster = np.argmax(sim)
+            score = np.max(sim)
+            if score > min_similarity:
+                labels[i] = cluster
+                debug(f'Noise {i} is now {cluster}')
+        unique_clusters = np.unique(labels)
+        for i, c in enumerate(unique_clusters):
+            debug(f'Cluster {i} has {np.sum(labels == i)} samples')
 
-            # Get the soft cluster assignments
-            soft_clusters = hdbscan.all_points_membership_vectors(clusterer)
-            # Compute the differences between the top two probabilities
-            diffs = np.array([top_two_probs_diff(x) for x in soft_clusters])
-            mean_diffs = np.mean(diffs)
-            std_diffs = np.std(diffs)
-            mean_cluster_probs = np.mean(np.max(soft_clusters, axis=1))
-            std_cluster_probs = np.std(np.max(soft_clusters, axis=1))
-            info(f'Mean cluster probability: {mean_cluster_probs:.4f} std {std_cluster_probs:.4f}')
-            info(f'Difference between top two probabilities: {mean_diffs:.4f} std {std_diffs:.4f}')
-            cut_off_diff = mean_diffs + 2 * std_diffs
-            # Select out the indices that have a small difference, and a larger total probability
-            mixed_points = np.where((diffs < cut_off_diff) & (np.sum(soft_clusters, axis=1) > 0.6))[0]
-        else:
-            warn('Only leaf method is supported for soft clustering')
-
-        if len(mixed_points) > 0:
-            reassign_labels = mixed_points
-        else:
-            reassign_labels = np.where(labels == -1)[0]
-        # Reassign based on the soft clustering only if very similar to the exemplar
-        for i, label in enumerate(reassign_labels):
-            similarity_scores = cosine_similarity(image_emb[i].reshape(1, -1), exemplar_emb)
-            closest_match_index = np.argmax(similarity_scores)
-            # Only reassign if the similarity score is above the threshold
-            if similarity_scores[0][closest_match_index] >= min_similarity:
-                labels[i] = closest_match_index
-
+    unique_clusters = np.unique(labels)
     clusters = [[] for _ in range(len(unique_clusters))]
 
     # Assign indices to the clusters
@@ -291,6 +274,7 @@ def _run_hdbscan_assign(
         "min_samples": min_samples,
         "cluster_selection_method": "leaf",
         "metric": "precomputed",
+        "algorithm": algorithm,
         "alpha": alpha,
         "cluster_selection_epsilon": cluster_selection_epsilon
     }
@@ -351,10 +335,12 @@ def cluster_vits(
         alpha: float,
         cluster_selection_epsilon: float,
         cluster_selection_method: str,
+        algorithm: str,
         min_similarity: float,
         min_cluster_size: int,
         min_samples: int,
         device: str = "cpu",
+        weighted_score: bool = False,
         use_vits: bool = False,
         use_tsne: bool = False,
         skip_visualization: bool = False,
@@ -370,24 +356,18 @@ def cluster_vits(
     :param roi:  Whether the detections are already cropped to the ROI
     :param cluster_selection_epsilon: The epsilon parameter for HDBSCAN
     :param cluster_selection_method: The method to use for cluster selection, 'leaf' or 'eom'
+    :param algorithm:  The algorithm to use for clustering, 'best' or 'generic' or 'prims_kdtree' or 'boruvka_kdtree'
     :param alpha: The alpha parameter for HDBSCAN
     :param min_similarity: The minimum similarity score to use for -1 cluster reassignment
     :param min_cluster_size: The minimum number of samples in a cluster
     :param min_samples:The number of samples in a neighborhood for a point
     :param device: The device to use for clustering, 'cpu' or 'cuda'
+    :param weighted_score: Whether to weight score for the prediction from vits model with detection weight
     :param use_vits: Set to using the predictions from the vits cluster model
     :param skip_visualization: Whether to skip the visualization of the clusters
     :param remove_bad_images: Whether to remove bad images from the clustering
     :param use_tsne: Whether to use t-SNE for dimensionality reduction
     :return:  a dataframe with the assigned cluster indexes, or -1 for non-assigned."""
-
-    # Set the device to use for clustering
-    # Default to cuda if available
-    import torch
-    if torch.cuda.is_available():
-        device = 'cuda'
-    else:
-        device = 'cpu'
 
     # If there are no detections, return an empty dataframe
     if df_dets.empty:
@@ -442,10 +422,16 @@ def cluster_vits(
         else:
             image_emb.append(emb)
         if use_vits:
+            weight = 1
+            if weighted_score:
+                weight = df_dets.loc[df_dets['crop_path'] == filename, 'score'].values[0]
+                # Weight cannot be zero or negative
+                if weight <= 0:
+                    weight = 1
             df_dets.loc[df_dets['crop_path'] == filename, 'class'] = label[0]
-            df_dets.loc[df_dets['crop_path'] == filename, 'score'] = score[0]
+            df_dets.loc[df_dets['crop_path'] == filename, 'score'] = score[0]*weight
             df_dets.loc[df_dets['crop_path'] == filename, 'class_s'] = label[1]
-            df_dets.loc[df_dets['crop_path'] == filename, 'score_s'] = score[1]
+            df_dets.loc[df_dets['crop_path'] == filename, 'score_s'] = score[1]*weight
 
     # If the embeddings are zero, then the extraction failed
     num_failed = [i for i, e in enumerate(image_emb) if np.all(e == 0)]
@@ -476,6 +462,7 @@ def cluster_vits(
                                                                                              alpha,
                                                                                              cluster_selection_epsilon,
                                                                                              cluster_selection_method,
+                                                                                             algorithm,
                                                                                              min_similarity,
                                                                                              min_cluster_size,
                                                                                              min_samples,

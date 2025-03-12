@@ -31,22 +31,26 @@ from sdcat.cluster.cluster import cluster_vits
 @common_args.alpha
 @common_args.cluster_selection_epsilon
 @common_args.cluster_selection_method
+@common_args.algorithm
 @common_args.min_cluster_size
+@common_args.min_sample_size
 @common_args.batch_size
 @click.option('--det-dir', help='Input folder(s) with raw detection results', multiple=True, required=True)
 @click.option('--save-dir', help='Output directory to save clustered detection results', required=True)
 @click.option('--device', help='Device to use, e.g. cpu or cuda:0', type=str, default='cpu')
 @click.option('--use-vits', help='Set to using the predictions from the vits cluster model', is_flag=True)
-def run_cluster_det(det_dir, save_dir, device, use_vits, config_ini, alpha, cluster_selection_epsilon, cluster_selection_method, min_cluster_size, batch_size, start_image, end_image, use_tsne, skip_visualization):
+@click.option('--weighted-vits', help='Weight for the score in the predictions from the vits model with the detection score', type=bool, default=False)
+def run_cluster_det(det_dir, save_dir, device, use_vits, weighted_score, config_ini, alpha, cluster_selection_epsilon, cluster_selection_method, algorithm, min_cluster_size, min_sample_size, batch_size, start_image, end_image, use_tsne, skip_visualization):
     config = cfg.Config(config_ini)
     max_area = int(config('cluster', 'max_area'))
     min_area = int(config('cluster', 'min_area'))
     min_saliency = int(config('cluster', 'min_saliency'))
-    min_samples = int(config('cluster', 'min_samples'))
     alpha = alpha if alpha else float(config('cluster', 'alpha'))
     min_cluster_size = min_cluster_size if min_cluster_size else int(config('cluster', 'min_cluster_size'))
+    min_samples = min_sample_size if min_sample_size else int(config('cluster', 'min_samples'))
     cluster_selection_epsilon = cluster_selection_epsilon if cluster_selection_epsilon else float(config('cluster','cluster_selection_epsilon'))
     cluster_selection_method = cluster_selection_method if cluster_selection_method else config('cluster', 'cluster_selection_method')
+    algorithm = algorithm if algorithm else config('cluster', 'algorithm')
     remove_corners = config('cluster', 'remove_corners') == 'True'
     remove_bad_images = config('cluster', 'remove_bad_images') == 'True'
     latitude = float(config('cluster', 'latitude'))
@@ -256,9 +260,9 @@ def run_cluster_det(det_dir, save_dir, device, use_vits, config_ini, alpha, clus
         prefix = f'{model_machine_friendly}_{datetime.now().strftime("%Y%m%d_%H%M%S")}'
 
         # Cluster the detections
-        df_cluster = cluster_vits(prefix, model, df, save_dir, alpha, cluster_selection_epsilon, cluster_selection_method,
+        df_cluster = cluster_vits(prefix, model, df, save_dir, alpha, cluster_selection_epsilon, cluster_selection_method, algorithm,
                                   min_similarity, min_cluster_size, min_samples, device, use_tsne=use_tsne,
-                                  skip_visualization=skip_visualization, roi=False, use_vits=use_vits,
+                                  skip_visualization=skip_visualization, roi=False, weighted_score=weighted_score, use_vits=use_vits,
                                   remove_bad_images=remove_bad_images, batch_size=batch_size)
 
         # Merge the results with the original DataFrame
@@ -277,19 +281,22 @@ def run_cluster_det(det_dir, save_dir, device, use_vits, config_ini, alpha, clus
 @common_args.alpha
 @common_args.cluster_selection_epsilon
 @common_args.cluster_selection_method
+@common_args.algorithm
 @common_args.min_cluster_size
+@common_args.min_sample_size
 @common_args.batch_size
 @click.option('--roi-dir', help='Input folder(s) with raw ROI images', multiple=True, required=True)
 @click.option('--save-dir', help='Output directory to save clustered detection results', required=True)
 @click.option('--device', help='Device to use, e.g. cpu or cuda:0', type=str)
 @click.option('--use-vits', help='Set to using the predictions from the vits cluster model', is_flag=True)
-def run_cluster_roi(roi_dir, save_dir, device, use_vits, config_ini, alpha, cluster_selection_epsilon, cluster_selection_method, min_cluster_size, batch_size, use_tsne, skip_visualization):
+def run_cluster_roi(roi_dir, save_dir, device, use_vits, config_ini, alpha, cluster_selection_epsilon, cluster_selection_method, algorithm, min_cluster_size, min_sample_size, batch_size, use_tsne, skip_visualization):
     config = cfg.Config(config_ini)
-    min_samples = int(config('cluster', 'min_samples'))
     alpha = alpha if alpha else float(config('cluster', 'alpha'))
     min_cluster_size = min_cluster_size if min_cluster_size else int(config('cluster', 'min_cluster_size'))
     cluster_selection_epsilon = cluster_selection_epsilon if cluster_selection_epsilon else float(config('cluster','cluster_selection_epsilon'))
     cluster_selection_method = cluster_selection_method if cluster_selection_method else config('cluster', 'cluster_selection_method')
+    min_samples = min_sample_size if min_sample_size else int(config('cluster', 'min_samples'))
+    algorithm = algorithm if algorithm else config('cluster', 'algorithm')
     min_similarity = float(config('cluster', 'min_similarity'))
     model = config('cluster', 'model')
     remove_bad_images = config('cluster', 'remove_bad_images') == 'True'
@@ -370,9 +377,9 @@ def run_cluster_roi(roi_dir, save_dir, device, use_vits, config_ini, alpha, clus
         prefix = f'{model_machine_friendly}_{datetime.now().strftime("%Y%m%d_%H%M%S")}'
 
         # Cluster the detections
-        df_cluster = cluster_vits(prefix, model, df, save_dir, alpha, cluster_selection_epsilon, cluster_selection_method,
+        df_cluster = cluster_vits(prefix, model, df, save_dir, alpha, cluster_selection_epsilon, cluster_selection_method, algorithm,
                                   min_similarity, min_cluster_size, min_samples, device,
-                                  use_tsne=use_tsne, use_vits=use_vits,
+                                  use_tsne=use_tsne, weighted_score=False, use_vits=use_vits,
                                   skip_visualization=skip_visualization,  roi=True,
                                   remove_bad_images=remove_bad_images, batch_size=batch_size)
 
