@@ -218,6 +218,16 @@ def _run_hdbscan_assign(
         exemplar_df['crop_path'] = ancillary_df.iloc[max_scores]['crop_path'].tolist()
     exemplar_df['embedding'] = exemplar_emb.tolist()
 
+    # Assign noise -1 cluster to the nearest exemplar
+    noise = np.where(labels == -1)[0]
+    for i in noise:
+        sim = cosine_similarity([image_emb[i]], exemplar_emb)
+        cluster = np.argmax(sim)
+        score = np.max(sim)
+        if score > min_similarity:
+            labels[i] = cluster
+            # debug(f'Noise {i} is now {cluster} {score}')
+
     info(f'Merging clusters with similarity threshold {min_similarity:.2f} ...')
     linkage_matrix = linkage(exemplar_emb, method='complete', metric='cosine')
     cluster_labels = fcluster(linkage_matrix, 1 - min_similarity, criterion='distance')
@@ -231,20 +241,14 @@ def _run_hdbscan_assign(
         for i, j in enumerate(labels):
             if j == -1:
                 continue
-            labels[i] = cluster_labels[j - 1]
-            debug(f'Cluster {i} is now {cluster_labels[j - 1]}')
+            # debug(f'Label {labels[i]} is now {cluster_labels[labels[i]]}')
+            labels[i] = cluster_labels[labels[i]]
 
-        # Assign noise -1 cluster to the nearest exemplar
-        noise = np.where(labels == -1)[0]
-        for i in noise:
-            sim = cosine_similarity([image_emb[i]], exemplar_emb)
-            cluster = np.argmax(sim)
-            score = np.max(sim)
-            if score > min_similarity:
-                labels[i] = cluster
-                debug(f'Noise {i} is now {cluster}')
         unique_clusters = np.unique(labels)
+        info(f'Unique clusters after merging: {unique_clusters}')
+        contiguous_labels = np.arange(-1, len(unique_clusters))
         for i, c in enumerate(unique_clusters):
+            labels[labels == c] = contiguous_labels[i]
             debug(f'Cluster {i} has {np.sum(labels == i)} samples')
 
     unique_clusters = np.unique(labels)
