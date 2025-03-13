@@ -111,18 +111,20 @@ def run_cluster_det(det_dir, save_dir, device, use_vits, weighted_score, config_
     # If start_image is set, find the index of the start_image in the list of images
     if start_image:
         start_image = Path(start_image)
-        start_image = start_image.resolve()
-        start_image = start_image.stem
-        start_image_index = df[df['image_path'].str.contains(start_image)].index[0]
-        df = df.iloc[start_image_index:]
+        start_image_index = df[df['image_path'].str.contains(start_image.name)]
+        if len(start_image_index) > 0:
+            df = df.iloc[start_image_index.index[0]:]
+        else:
+            err(f'No detection csv files found for {start_image}')
 
     # If end_image is set, find the index of the end_image in the list of images
     if end_image:
         end_image = Path(end_image)
-        end_image = end_image.resolve()
-        end_image = end_image.stem
-        end_image_index = df[df['image_path'].str.contains(end_image)].index[-1]
-        df = df.iloc[:end_image_index]
+        end_image_index = df[df['image_path'].str.contains(end_image.name)]
+        if len(end_image_index) > 0:
+            df = df.iloc[:end_image_index.index[-1]]
+        else:
+            err(f'No detection csv files found for {end_image}')
 
     # Filter by saliency, area, score or day/night
     size_before = len(df)
