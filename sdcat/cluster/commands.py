@@ -39,7 +39,7 @@ from sdcat.cluster.cluster import cluster_vits
 @click.option('--save-dir', help='Output directory to save clustered detection results', required=True)
 @click.option('--device', help='Device to use, e.g. cpu or cuda:0', type=str, default='cpu')
 @click.option('--use-vits', help='Set to using the predictions from the vits cluster model', is_flag=True)
-@click.option('--weighted-score', help='Weight for the score in the predictions from the vits model with the detection score', type=bool, default=False)
+@click.option('--weighted-score', help='Weigh for the score in the predictions from the vits model with the detection score', type=bool, default=False)
 def run_cluster_det(det_dir, save_dir, device, use_vits, weighted_score, config_ini, alpha, cluster_selection_epsilon, cluster_selection_method, algorithm, min_cluster_size, min_sample_size, batch_size, start_image, end_image, use_tsne, skip_visualization):
     config = cfg.Config(config_ini)
     max_area = int(config('cluster', 'max_area'))

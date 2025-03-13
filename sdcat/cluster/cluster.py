@@ -433,9 +433,9 @@ def cluster_vits(
                 if weight <= 0:
                     weight = 1
             df_dets.loc[df_dets['crop_path'] == filename, 'class'] = label[0]
-            df_dets.loc[df_dets['crop_path'] == filename, 'score'] = score[0]*weight
+            df_dets.loc[df_dets['crop_path'] == filename, 'score'] =(score[0]+weight)/2.
             df_dets.loc[df_dets['crop_path'] == filename, 'class_s'] = label[1]
-            df_dets.loc[df_dets['crop_path'] == filename, 'score_s'] = score[1]*weight
+            df_dets.loc[df_dets['crop_path'] == filename, 'score_s'] = (score[1]+weight)/2.
 
     # If the embeddings are zero, then the extraction failed
     num_failed = [i for i, e in enumerate(image_emb) if np.all(e == 0)]
