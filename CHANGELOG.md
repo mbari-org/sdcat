@@ -1,6 +1,25 @@
 # CHANGELOG
 
 
+## v1.20.2 (2025-03-13)
+
+### Bug Fixes
+
+- Handle cases where no detections exists for specified start/end images by skipping over
+  ([`87be2b7`](https://github.com/mbari-org/sdcat/commit/87be2b7f9547c268ce5afa74065acdce18970b9f))
+
+### Performance Improvements
+
+- Always assign noise cluster and correct label assign
+  ([`5dd83bb`](https://github.com/mbari-org/sdcat/commit/5dd83bb30d63d0c2b227e714c1328fa3f042db6a))
+
+- Better defaults for cluster alpha and epsilon
+  ([`237890d`](https://github.com/mbari-org/sdcat/commit/237890df9db70c3babed4f36e8d9af5cff0a646c))
+
+- Change combined detection+classify score to average
+  ([`8def7a2`](https://github.com/mbari-org/sdcat/commit/8def7a2624c8dc7ac94853c40f3ea9e04911afa2))
+
+
 ## v1.20.1 (2025-03-12)
 
 ### Bug Fixes
