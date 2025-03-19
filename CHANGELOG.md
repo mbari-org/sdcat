@@ -1,6 +1,19 @@
 # CHANGELOG
 
 
+## v1.20.3 (2025-03-19)
+
+### Bug Fixes
+
+- Remove last cluster embedding correctly and fetch embeddings from dataframe
+  ([`e955744`](https://github.com/mbari-org/sdcat/commit/e955744ca9ea961b654eacc58d7b12a0df55ea69))
+
+### Performance Improvements
+
+- Adjust min similarity to a more conservative .9
+  ([`697f138`](https://github.com/mbari-org/sdcat/commit/697f13839a1e09f4cd5d25d021146a40fb4eb7e3))
+
+
 ## v1.20.2 (2025-03-13)
 
 ### Bug Fixes
