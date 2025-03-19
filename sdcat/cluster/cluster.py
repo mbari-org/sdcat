@@ -136,8 +136,10 @@ def _run_hdbscan_assign(
         # Normalize the numerical data from 0 to 1 and add it to the dataframe
         numerical = (numerical - numerical.min()) / (numerical.max() - numerical.min())
 
-        df = pd.merge(df, numerical, left_index=True, right_index=True, how='left')
-        df = df.fillna(0)
+        # Skip of the numerical data is all NaN
+        if not np.all(np.isnan(numerical)):
+            df = pd.merge(df, numerical, left_index=True, right_index=True, how='left')
+            df = df.fillna(0)
 
     # Get the number of samples which is the number of rows in the dataframe - this is used mostly for calculating coverage
     num_samples = df.shape[0]
@@ -204,11 +206,11 @@ def _run_hdbscan_assign(
     # Get the index of the highest scores for each unique cluster sorted in increasing order
     # and use this as a representative image for the cluster
     max_scores = cluster_df.sort_values('cluster', ascending=True).groupby('cluster')['score'].idxmax()
-    # Remove the last index which is the -1 cluster
-    max_scores = max_scores[:-1]
+    # Remove the first element which is the -1 cluster
+    max_scores = max_scores[1:]
 
     # Get the representative embeddings for the max scoring exemplars for each cluster and store them in a numpy array
-    exemplar_emb = [image_emb[i] for i in max_scores]
+    exemplar_emb = [df.iloc[i] for i in max_scores]
     exemplar_emb = np.array(exemplar_emb)
 
     # Save the exemplar embeddings to a dataframe with some metadata
@@ -221,7 +223,7 @@ def _run_hdbscan_assign(
     # Assign noise -1 cluster to the nearest exemplar
     noise = np.where(labels == -1)[0]
     for i in noise:
-        sim = cosine_similarity([image_emb[i]], exemplar_emb)
+        sim = cosine_similarity([df.iloc[i].values], exemplar_emb)
         cluster = np.argmax(sim)
         score = np.max(sim)
         if score > min_similarity:
