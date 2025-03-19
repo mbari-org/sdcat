@@ -20,16 +20,18 @@ without or with a GPU (recommended).
 Detection
 ---
 Detection can be done with a fine-grained saliency-based detection model,  and/or one the following models run with the SAHI algorithm.
-Both detections algorithms are run by default and combined to produce the final detections.
+Both detections algorithms (saliency and object dtection) are run by default and combined to produce the final detections.
+SAHI is short for Slicing Aided Hyper Inference, and is a method to slice images into smaller windows and run a detection model 
+on the windows.
 
-| Model                            | Description                                                        |
+| Object Detection Model           | Description                                                        |
 |----------------------------------|--------------------------------------------------------------------|
 | yolov8s                          | YOLOv8s model from Ultralytics                                     |
 | hustvl/yolos-small               | YOLOS model a Vision Transformer (ViT)                             |
 | hustvl/yolos-tiny                | YOLOS model a Vision Transformer (ViT)                             |
 | MBARI-org/megamidwater (default) | MBARI midwater YOLOv5x for general detection in midwater images    |
-| MBARI-org/uav-yolov5                 | MBARI UAV YOLOv5x for general detection in UAV images              |
-| MBARI-org/yolov5x6-uavs-oneclass     | MBARI UAV YOLOv5x for general detection in UAV images single class |
+| MBARI-org/uav-yolov5             | MBARI UAV YOLOv5x for general detection in UAV images              |
+| MBARI-org/yolov5x6-uavs-oneclass | MBARI UAV YOLOv5x for general detection in UAV images single class |
 | FathomNet/MBARI-315k-yolov5      | MBARI YOLOv5x for general detection in benthic images              |
 
 
