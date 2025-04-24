@@ -1,25 +1,24 @@
-import hashlib
+# sdcat, Apache-2.0 license
+# Filename: sdcat/detect/commands.py
+# Description:  Command line interface for running detection on images using SAHI and saliency detection algorithms.
 import multiprocessing
 import os
 import shutil
-import uuid
 from pathlib import Path
 
 import click
 from tqdm import tqdm
-import cv2
 import pandas as pd
 import torch
-from sahi.postprocess.combine import nms
 
 from sdcat import common_args
-from sdcat.cluster.utils import crop_square_image
 from sdcat.config import config as cfg
 from sdcat.config.config import default_config_ini
+from sdcat.detect.filter_util import process_image
 from sdcat.detect.model_util import create_model
 from sdcat.detect.sahi_detector import run_sahi_detect_bulk, run_sahi_detect
 from sdcat.detect.saliency_detector import run_saliency_detect, run_saliency_detect_bulk
-from sdcat.logger import exception, info, warn, create_logger_file
+from sdcat.logger import info, warn, create_logger_file
 
 default_model = 'MBARI-org/megamidwater'
 
@@ -205,126 +204,30 @@ def run_detect(show: bool, image_dir: str, save_dir: str, save_roi:bool, roi_siz
                                 allowable_classes,
                                 class_agnostic)
 
-    # Combine all the detections into a single dataframe per image
-    for f in tqdm(images):
-        # Get the width and height of the image
-        img_color = cv2.imread(f.as_posix())
-        height, width = img_color.shape[:2]
+    # Count the number of detections in all the images
+    total_detections = sum(pd.read_csv(f).shape[0] for f in save_path_det_raw.rglob('*.csv'))
+    total_images = len(images)
 
-        # Dataframe to store all the csv files for this image
-        df_combined = pd.DataFrame()
+    args = [(image,
+             save_path_base,
+             save_path_det_raw,
+             save_path_det_filtered,
+             save_path_det_roi,
+             save_path_viz,
+             min_area,
+             max_area,
+             min_saliency,
+             class_agnostic,
+             save_roi,
+             roi_size)
+            for image in images]
 
-        # Path to save final csv file with the detections
-        pred_out_csv = save_path_det_filtered / f'{f.stem}.csv'
+    # Process images in parallel
+    num_processes = min(multiprocessing.cpu_count(), total_images)
+    with multiprocessing.Pool(num_processes) as pool:
+        results = pool.starmap(process_image, args)
+        pool.close()
 
-        for csv_file in save_path_det_raw.rglob(f'{f.stem}*csv'):
-            # Read in the csv file and add it to the combined dataframe
-            df = pd.read_csv(csv_file, sep=',')
-            df_combined = pd.concat([df_combined, df])
-
-        if len(df_combined) == 0:
-            warn(f'No detections found in {f}')
-            continue
-
-        size_before = len(df_combined)
-        df_combined = df_combined[(df_combined['area'] > min_area) & (df_combined['area'] < max_area)]
-        size_after = len(df_combined)
-        info(f'Removed {size_before - size_after} detections that were too large or too small')
-
-        size_before = len(df_combined)
-        # allow negative saliency which means the saliency was not included - this is the case if running SAHI algorithm only and no saliency blob detect
-        df_combined = df_combined[(df_combined['saliency'] > min_saliency) | (df_combined['saliency'] == -1)]
-        size_after = len(df_combined)
-        info(f'Removed {size_before - size_after} detections that were low saliency')
-
-        if len(df_combined) == 0:
-            warn(f'No detections found in {f}')
-            continue
-
-        # Convert the x, y, xx, xy, score columns to a list of Tensors that is Shape: [num_boxes,5].
-        pred_list = df_combined[['x', 'y', 'xx', 'xy', 'score']].values.tolist()
-        pred_list = torch.tensor(pred_list)  # convert the list of Tensors to a list of Tensors
-
-        # Clean up the predictions using NMS
-        info(f'Running NMS on {len(df_combined)} predictions')
-        nms_pred_idx = nms(pred_list, 'IOU', 0.1)
-        info(f'{len(nms_pred_idx)} predictions found after NMS')
-
-        # Filter the original DataFrame based on the indices kept by NMS and keep the saliency and area columns
-        df_final = df_combined.iloc[nms_pred_idx].reset_index(drop=True)
-        df_final['saliency'] = df_combined['saliency'].iloc[nms_pred_idx].reset_index(drop=True)
-        df_final['area'] = df_combined['area'].iloc[nms_pred_idx].reset_index(drop=True)
-
-        # Plot boxes on the input frame
-        pred_list = df_final[['x', 'y', 'xx', 'xy', 'score', 'class']].values.tolist()
-        for p in pred_list:
-            if class_agnostic:
-                img_color = cv2.rectangle(img_color,
-                                          (int(p[0]), int(p[1])),
-                                          (int(p[2]), int(p[3])), (81, 12, 51), 3)
-                img_color = cv2.putText(img_color, f'{p[5]} {p[4]:.2f}', (int(p[0]), int(p[1])),
-                                        cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
-            else:
-                # Color based on the first 5 letters of the label so that the same label always gets the same color
-                md5_hash = hashlib.md5(p[5].encode())
-                hex_color = md5_hash.hexdigest()[:6]
-                r, g, b = (int(hex_color[:2], 16), int(hex_color[2:4], 16), int(hex_color[4:], 16))
-                color = (r % 256, g % 256, b % 256)
-                img_color = cv2.rectangle(img_color,
-                                          (int(p[0]), int(p[1])),
-                                          (int(p[2]), int(p[3])), color, 3)
-                img_color = cv2.putText(img_color, p[5], (int(p[0]), int(p[1])), cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2,
-                                        cv2.LINE_AA)
-        info(f'Saving visualization to {save_path_viz / f"{f.stem}.jpg"}')
-        cv2.imwrite(f"{save_path_viz / f'{f.stem}.jpg'}", img_color)
-
-        df_final['cluster'] = -1
-        df_final['image_path'] = f.as_posix()
-        df_final['image_width'] = width
-        df_final['image_height'] = height
-
-        # Normalize the predictions to 0-1.
-        df_final['x'] = df_final['x'] / width
-        df_final['y'] = df_final['y'] / height
-        df_final['xx'] = df_final['xx'] / width
-        df_final['xy'] = df_final['xy'] / height
-        df_final['w'] = (df_final['xx'] - df_final['x'])
-        df_final['h'] = (df_final['xy'] - df_final['y'])
-
-        if save_roi:
-            # Add in a column for the unique crop name for each detection with a unique id
-            # create a unique uuid based on the md5 hash of the box in the row
-            df_final['crop_path'] = df_final.apply(lambda
-                                           row: f"{save_path_det_roi}/{uuid.uuid5(uuid.NAMESPACE_DNS, str(row['x']) + str(row['y']) + str(row['xx']) + str(row['xy']))}.png",
-                                       axis=1)
-
-            num_processes = min(multiprocessing.cpu_count(), len(df_final))
-            # Crop and squaring the images in parallel using multiprocessing to speed up the processing
-            info(f'Cropping {len(df_final)} detections in parallel using {num_processes} processes...')
-            with multiprocessing.Pool(num_processes) as pool:
-                args = [(row, roi_size) for index, row in df_final.iterrows()]
-                pool.starmap(crop_square_image, args)
-
-        info(f'Found {len(pred_list)} total localizations in {f} with {len(df_combined)} after NMS')
-        info(f'Slice width: {slice_size_width} height: {slice_size_height}')
-
-        # Save DataFrame to CSV file including image_width and image_height columns
-        info(f'Detections saved to {pred_out_csv}')
-        df_final.to_csv(pred_out_csv.as_posix(), index=False, header=True)
-        if save_roi: info(f"ROI crops saved in {save_path_det_roi}")
-
-        save_stats = save_path_base / 'stats.txt'
-        with save_stats.open('w') as sf:
-            sf.write(f"Statistics for {f}:\n")
-            sf.write("----------------------------------\n")
-            sf.write(f"Total number of bounding boxes: {df_combined.shape[0]}\n")
-            sf.write(
-                f"Total number of images with (bounding box) detections found: {df_combined['image_path'].nunique()}\n")
-            sf.write(
-                f"Average number of bounding boxes per image: {df_combined.shape[0] / df_combined['image_path'].nunique()}\n")
-            sf.write(f"Average width of bounding boxes: {df_combined['w'].mean() * width}\n")
-            sf.write(f"Average height of bounding boxes: {df_combined['h'].mean() * height}\n")
-            sf.write(f"Average area of bounding boxes: {df_combined['area'].mean()}\n")
-            sf.write(f"Average score of bounding boxes: {df_combined['score'].mean()}\n")
-            sf.write(f"Average saliency of bounding boxes: {df_combined['saliency'].mean()}\n")
-        info('Done')
+    total_filtered = sum(results)
+    info(f'Found {total_detections} total localizations in {total_images} with {total_filtered} after NMS')
+    info('Done')
