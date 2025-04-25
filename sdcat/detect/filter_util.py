@@ -6,7 +6,7 @@ import pandas as pd
 import torch
 from sahi.postprocess.combine import nms
 
-from cluster.utils import crop_square_image
+from sdcat.cluster.utils import crop_square_image
 from sdcat.logger import warn, info
 
 
