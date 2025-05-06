@@ -79,23 +79,23 @@ def process_image(image_filename, save_path_base, save_path_det_raw, save_path_d
 
         # Save DataFrame to CSV file including image_width and image_height columns
         info(f'Detections saved to {pred_out_csv}')
-        df_combined.to_csv(pred_out_csv.as_posix(), index=False, header=True)
+        df_final.to_csv(pred_out_csv.as_posix(), index=False, header=True)
         if save_roi: info(f"ROI crops saved in {save_path_det_roi}")
 
         save_stats = save_path_base / 'stats.txt'
         with save_stats.open('w') as sf:
             sf.write(f"Statistics for {image_filename}:\n")
             sf.write("----------------------------------\n")
-            sf.write(f"Total number of bounding boxes: {df_combined.shape[0]}\n")
+            sf.write(f"Total number of bounding boxes: {df_final.shape[0]}\n")
             sf.write(
-                f"Total number of images with (bounding box) detections found: {df_combined['image_path'].nunique()}\n")
+                f"Total number of images with (bounding box) detections found: {df_final['image_path'].nunique()}\n")
             sf.write(
-                f"Average number of bounding boxes per image: {df_combined.shape[0] / df_combined['image_path'].nunique()}\n")
-            sf.write(f"Average width of bounding boxes: {df_combined['w'].mean() * width}\n")
-            sf.write(f"Average height of bounding boxes: {df_combined['h'].mean() * height}\n")
-            sf.write(f"Average area of bounding boxes: {df_combined['area'].mean()}\n")
-            sf.write(f"Average score of bounding boxes: {df_combined['score'].mean()}\n")
-            sf.write(f"Average saliency of bounding boxes: {df_combined['saliency'].mean()}\n")
+                f"Average number of bounding boxes per image: {df_final.shape[0] / df_final['image_path'].nunique()}\n")
+            sf.write(f"Average width of bounding boxes: {df_final['w'].mean() * width}\n")
+            sf.write(f"Average height of bounding boxes: {df_final['h'].mean() * height}\n")
+            sf.write(f"Average area of bounding boxes: {df_final['area'].mean()}\n")
+            sf.write(f"Average score of bounding boxes: {df_final['score'].mean()}\n")
+            sf.write(f"Average saliency of bounding boxes: {df_final['saliency'].mean()}\n")
         return len(df_final)
     except Exception as e:
         warn(f'Error processing {image_filename}: {e}')
