@@ -1,6 +1,25 @@
 # CHANGELOG
 
 
+## v1.20.4 (2025-05-07)
+
+### Documentation
+
+- More detail on SAHI
+  ([`04eee46`](https://github.com/mbari-org/sdcat/commit/04eee46c43454e82b1ba8b780cb2341dd7cd85d4))
+
+### Performance Improvements
+
+- Speed-up detection processing of raw to filtered using multiprocessing
+  ([`fa66969`](https://github.com/mbari-org/sdcat/commit/fa669699b7654f5aeb5ffe17b3fe6407043df632))
+
+* perf: speed-up processing of raw to filtered using multiprocessing
+
+* fix: correct import path for utils
+
+* fix: correct export of multiproc detections with image height and width
+
+
 ## v1.20.3 (2025-03-19)
 
 ### Bug Fixes
