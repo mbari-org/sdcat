@@ -13,6 +13,7 @@ import json
 
 import seaborn as sns
 import numpy as np
+from numpy.ma.core import indices
 from umap import UMAP
 from hdbscan import HDBSCAN
 from scipy.cluster.hierarchy import linkage, fcluster
@@ -40,38 +41,52 @@ sns.set_style("darkgrid", {"axes.facecolor": ".9"})
 sns.set(rc={"figure.figsize": (12, 10)})
 
 
-def _visualize_clusters(df: pd.DataFrame, unique_clusters: list, output_path: Path, prefix: str, cluster_sim: list) -> None:
+def _visualize_clusters(df: pd.DataFrame, clusters: list, output_path: Path, prefix: str, cluster_sim: list) -> None:
     """
     Visualize the clusters using t-SNE or UMAP.
     """
     # For each cluster  let's create a grid of the images to check the quality of the clustering results
-    num_processes = min(multiprocessing.cpu_count(), len(unique_clusters))
-    info(f'Using {num_processes} processes to visualize the {len(unique_clusters)} clusters')
+    num_processes = min(multiprocessing.cpu_count(), len(clusters))
+    info(f'Using {num_processes} processes to visualize the {len(clusters)} clusters')
 
     images = df['crop_path'].tolist()
     if num_processes == 0:
         err(f'No processes available to visualize the clusters')
         return None
 
-    # Use a pool of processes to speed up the visualization of the clusters
-    with multiprocessing.Pool(num_processes) as pool:
-        args = [(prefix,  # prefix
-                 cluster_sim[cluster_id],  # average similarity for the cluster
-                 cluster_id,  # cluster id
-                 unique_clusters[cluster_id],  # cluster indices
-                 4 if len(unique_clusters[cluster_id]) < 50 else 8,  # grid size; larger clusters get larger grids
-                 [images[idx] for idx in unique_clusters[cluster_id]],  # images in the cluster
-                 output_path / prefix) for cluster_id in
-                range(0, len(unique_clusters))]
-        pool.starmap(cluster_grid, args)
+    unique_clusters = {}
+    for c in clusters:
+        unique_clusters[int(c)] = list(df.loc[df['cluster_reindex'] == c].index)
 
-    pass  # Placeholder for visualization function
+    for c in unique_clusters.keys():
+        if c == -1:
+            continue
+        cluster_grid(prefix,
+                     cluster_sim[c],
+                     c,
+                     unique_clusters[c],
+                     4 if len(unique_clusters[c]) < 50 else 8,
+                     [images[idx] for idx in unique_clusters[c]],
+                     output_path / prefix
+                     )
+
+    # Use a pool of processes to speed up the visualization of the clusters
+    # with multiprocessing.Pool(num_processes) as pool:
+    #     args = [(prefix,  # prefix
+    #              cluster_sim[cluster_id],  # average similarity for the cluster
+    #              cluster_id,  # cluster id
+    #              unique_clusters[cluster_id],  # cluster indices
+    #              4 if len(unique_clusters[cluster_id]) < 50 else 8,  # grid size; larger clusters get larger grids
+    #              [images[idx] for idx in unique_clusters[cluster_id]],  # images in the cluster
+    #              output_path / prefix) for cluster_id in
+    #             range(0, len(unique_clusters))]
+    #     pool.starmap(cluster_grid, args)
 
 def _merge(
         df: pd.DataFrame,
         min_similarity: float,
         model: str
-    ) -> pd.DataFrame:
+    ) -> (pd.DataFrame, dict):
     """
     Merge clusters based on the linkage of the cosine similarity of their embeddings.
     """
@@ -90,33 +105,43 @@ def _merge(
         emb, _, _ = fetch_embedding(model, filename)
         exemplar_emb.append(emb)
 
+
+
     info(f'Merging clusters with similarity threshold {min_similarity:.2f} ...')
     linkage_matrix = linkage(exemplar_emb, method='complete', metric='cosine')
     cluster_labels = fcluster(linkage_matrix, 1 - min_similarity, criterion='distance')
 
+    unique_clusters = np.unique(cluster_labels)
+    info(f'Unique clusters before merging: {len(unique_clusters)} clusters')
     # If the cluster labels are all the same, then we have a single cluster and we can't merge
     if len(np.unique(cluster_labels)) == 1:
         info(f'No clusters to merge')
     else:
-        info(f'Merging {len(np.unique(cluster_labels))} clusters')
         labels = df['cluster_reindex'].values
         # Assign the exemplar clusters to the original clusters based on the linkage matrix
         for i, j in enumerate(labels):
-            if j == -1:
+            if j is pd.NA:
                 continue
-            debug(f'Label {labels[i]} is now {cluster_labels[labels[i]]}')
+            # debug(f'Label {labels[i]} is now {cluster_labels[labels[i]]}')
             labels[i] = cluster_labels[labels[i]]
-        df['cluster_reindex'].values = labels
+        df['cluster_reindex'] = labels
 
-        unique_clusters = np.unique(labels)
-        info(f'Unique clusters after merging: {unique_clusters}')
-        contiguous_labels = np.arange(-1, len(unique_clusters))
-        for i, c in enumerate(unique_clusters):
-            labels[labels == c] = contiguous_labels[i]
-            debug(f'Cluster {i} has {np.sum(labels == i)} samples')
+        # Replace pd.NA in cluster_reindex column with -1
+        df.fillna(-1, inplace=True)
+
+        unique_clusters = df['cluster_reindex'].unique()
+        # Drop the -1 value which are the noise
+        unique_clusters = unique_clusters.tolist()
+        unique_clusters.remove(-1)
+        unique_clusters.sort()
+
+        info(f'Unique clusters after merging: {len(unique_clusters)} clusters')
+        for c in unique_clusters:
+            rows = df[df['cluster_reindex'] == c]
+            debug(f'Cluster {c} has {len(rows)} samples')
 
     # Compute the average similarity score for each cluster
-    avg_sim_scores = []
+    avg_sim_scores = {}
     for cluster in unique_clusters:
         cluster_df = df[df['cluster_reindex'] == cluster]
         if len(cluster_df) == 0:
@@ -130,8 +155,7 @@ def _merge(
 
         # Compute the average similarity score for the cluster
         sim = cosine_similarity(cluster_emb)
-        avg_sim_score = np.mean(sim)
-        avg_sim_scores.append(avg_sim_score)
+        avg_sim_scores[cluster] = np.mean(sim)
 
     return df, avg_sim_scores
 
@@ -403,15 +427,19 @@ def cluster_vits(
         df['crop_path'] = images[start:end]
         batch_df = pd.concat([batch_df, df], ignore_index=True)
 
-
     # Merge
     final_df, avg_sim_scores = _merge(batch_df, min_similarity, model)
 
     # Get the average similarity across all clusters
-    avg_similarity = np.mean(avg_sim_scores)
+    avg_similarity = np.mean(list(avg_sim_scores.values()))
 
     info(f'Average similarity: {avg_similarity:.2f} min {min_similarity:.2f}  ')
-    unique_clusters = final_df['cluster'].unique().tolist()
+    unique_clusters = final_df['cluster_reindex'].unique()
+
+    # Drop the -1 value which are the noise
+    unique_clusters = unique_clusters.tolist()
+    unique_clusters.remove(-1)
+    unique_clusters.sort()
 
     if len(unique_clusters) == 0:
         warn('No clusters found')
@@ -427,7 +455,7 @@ def cluster_vits(
 
     # Visualize the clusters
     if not skip_visualization:
-        _visualize_clusters()
+        _visualize_clusters(final_df, unique_clusters, output_path, prefix, avg_sim_scores)
 
     num_samples = final_df.shape[0]
     clustered = final_df['cluster'].values >= 0
