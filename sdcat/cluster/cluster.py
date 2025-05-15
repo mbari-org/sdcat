@@ -390,7 +390,7 @@ def cluster_vits(
 
     # Cluster
     # Compute in batches of 300K
-    batch_size = 300
+    batch_size = 300000
     num_batches = int(np.ceil(len(images) / batch_size))
 
     batch_df = pd.DataFrame()
