@@ -116,21 +116,21 @@ def _visualize_clusters(df: pd.DataFrame, clusters: list, output_path: Path, pre
     p.savefig(f"{output_path}/{prefix}_summary.png")
     info(f"Saved {output_path}/{prefix}_summary.png")
 
-    # Save the cluster summary to a json file
     params = {
-        "clusters": len(clusters),
-        "num_samples": num_samples,
-        "num_clusters": len(clusters),
-        "clustered": np.sum(clustered),
-        "coverage": np.sum(clustered) / num_samples,
-        "avg_similarity": np.mean(list(cluster_sim.values())),
-        "min_similarity": min(cluster_sim.values()),
-        "max_similarity": max(cluster_sim.values()),
-        "cluster_sim": cluster_sim
+        "clusters": int(len(clusters)),
+        "num_samples": int(num_samples),
+        "num_clusters": int(len(clusters)),
+        "clustered": int(np.sum(clustered)),
+        "coverage": float(np.sum(clustered) / num_samples),
+        "avg_similarity": float(np.mean(list(cluster_sim.values()))),
+        "min_similarity": float(min(cluster_sim.values())),
+        "max_similarity": float(max(cluster_sim.values())),
+        "cluster_sim": {k: float(v) for k, v in cluster_sim.items()},
     }
 
     with open(f'{output_path}/{prefix}_summary.json', 'w') as f:
         json.dump(params, f)
+    info(f"Saved {output_path}/{prefix}_summary.json")
 
 def _merge(
         df: pd.DataFrame,
