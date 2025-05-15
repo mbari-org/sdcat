@@ -105,7 +105,21 @@ def _merge(
         emb, _, _ = fetch_embedding(model, filename)
         exemplar_emb.append(emb)
 
+    # Replace pd.NA in cluster_reindex column with -1
+    df.fillna(-1, inplace=True)
 
+    # Assign noise -1 cluster to the nearest exemplar
+    labels = df['cluster_reindex'].values
+    noise = np.where(labels == -1)[0]
+    for i in noise:
+        noise_emb, _, _ = fetch_embedding(model, df.iloc[i]['crop_path'])
+        sim = cosine_similarity([noise_emb], exemplar_emb)
+        cluster = np.argmax(sim)
+        score = np.max(sim)
+        if score > min_similarity:
+            labels[i] = cluster
+            debug(f'Noise {i} is now {cluster} {score}')
+    df['cluster_reindex'] = labels
 
     info(f'Merging clusters with similarity threshold {min_similarity:.2f} ...')
     linkage_matrix = linkage(exemplar_emb, method='complete', metric='cosine')
@@ -120,14 +134,12 @@ def _merge(
         labels = df['cluster_reindex'].values
         # Assign the exemplar clusters to the original clusters based on the linkage matrix
         for i, j in enumerate(labels):
-            if j is pd.NA:
+            if j == -1:
                 continue
             # debug(f'Label {labels[i]} is now {cluster_labels[labels[i]]}')
             labels[i] = cluster_labels[labels[i]]
         df['cluster_reindex'] = labels
 
-        # Replace pd.NA in cluster_reindex column with -1
-        df.fillna(-1, inplace=True)
 
         unique_clusters = df['cluster_reindex'].unique()
         # Drop the -1 value which are the noise
