@@ -41,7 +41,7 @@ sns.set_style("darkgrid", {"axes.facecolor": ".9"})
 sns.set(rc={"figure.figsize": (12, 10)})
 
 
-def _visualize_clusters(df: pd.DataFrame, clusters: list, output_path: Path, prefix: str, cluster_sim: list) -> None:
+def _visualize_clusters(df: pd.DataFrame, clusters: list, output_path: Path, prefix: str, cluster_sim: list, model: str) -> None:
     """
     Visualize the clusters using t-SNE or UMAP.
     """
@@ -54,33 +54,83 @@ def _visualize_clusters(df: pd.DataFrame, clusters: list, output_path: Path, pre
         err(f'No processes available to visualize the clusters')
         return None
 
-    unique_clusters = {}
+    # Remove the noise clusters
+    cluster_indices = {}
     for c in clusters:
-        unique_clusters[int(c)] = list(df.loc[df['cluster_reindex'] == c].index)
-
-    for c in unique_clusters.keys():
         if c == -1:
             continue
-        cluster_grid(prefix,
-                     cluster_sim[c],
-                     c,
-                     unique_clusters[c],
-                     4 if len(unique_clusters[c]) < 50 else 8,
-                     [images[idx] for idx in unique_clusters[c]],
-                     output_path / prefix
-                     )
+        cluster_indices[int(c)] = list(df.loc[df['cluster_reindex'] == c].index)
 
     # Use a pool of processes to speed up the visualization of the clusters
-    # with multiprocessing.Pool(num_processes) as pool:
-    #     args = [(prefix,  # prefix
-    #              cluster_sim[cluster_id],  # average similarity for the cluster
-    #              cluster_id,  # cluster id
-    #              unique_clusters[cluster_id],  # cluster indices
-    #              4 if len(unique_clusters[cluster_id]) < 50 else 8,  # grid size; larger clusters get larger grids
-    #              [images[idx] for idx in unique_clusters[cluster_id]],  # images in the cluster
-    #              output_path / prefix) for cluster_id in
-    #             range(0, len(unique_clusters))]
-    #     pool.starmap(cluster_grid, args)
+    with multiprocessing.Pool(num_processes) as pool:
+        args = [(prefix,
+                 cluster_sim[c],
+                 c,
+                 cluster_indices[c],  # cluster indices
+                 4 if len(cluster_indices[c]) < 50 else 8,  # grid size; larger clusters get larger grids
+                 [images[i] for i in cluster_indices[c]],  # images in the cluster
+                 output_path / prefix) for c in cluster_indices.keys()]
+        pool.starmap(cluster_grid, args)
+
+    num_samples = df.shape[0]
+    # Cannot use init='spectral' when n_components is >= num_samples - default to 'random' instead
+    n_components = min(2, num_samples)
+    if n_components >= num_samples:
+        init = 'random'
+    else:
+        init = 'spectral'
+
+    # Reduce the dimensionality of the embeddings using UMAP to 2 dimensions to visualize the clusters
+    # Only use the exemplars and a random sample of 5000 images to speed up the visualization
+    filtered_df = df[df["cluster_reindex"] != -1]
+    sampled_df = filtered_df.sample(n=min(num_samples, 5000), random_state=42, replace=True)
+    sampled_data = [fetch_embedding(model, filename)[0] for filename in sampled_df['crop_path']]
+    data = sampled_data
+    np_data = np.array(data)
+
+    n_neighbors = min(15, num_samples - 1)
+    info(f'Using {n_neighbors} neighbors for dimensional reduction')
+    if n_neighbors < 2:
+        warn('Using PCA instead of UMAP')
+        from sklearn.decomposition import PCA
+        pca = PCA(n_components=2)
+        xx = pca.fit_transform(np_data)
+    else:
+        if have_gpu:
+            xx = cuUMAP(init=init,
+                        n_components=2,
+                        n_neighbors=n_neighbors,
+                        min_dist=0.1,
+                        metric='euclidean').fit_transform(np_data)
+        else:
+            xx = UMAP(init=init,
+                      n_components=2,
+                      n_neighbors=n_neighbors,
+                      metric='cosine',
+                      low_memory=True).fit_transform(np_data)
+
+    clustered = sampled_df['cluster_reindex'].values >= 0
+    labels = sampled_df['cluster_reindex'].values
+    df = pd.DataFrame({'x': xx[:,0], 'y': xx[:,1], 'labels': labels})
+    p = sns.jointplot(data=df, x='x', y='y', hue='labels')
+    p.savefig(f"{output_path}/{prefix}_summary.png")
+    info(f"Saved {output_path}/{prefix}_summary.png")
+
+    # Save the cluster summary to a json file
+    params = {
+        "clusters": len(clusters),
+        "num_samples": num_samples,
+        "num_clusters": len(clusters),
+        "clustered": np.sum(clustered),
+        "coverage": np.sum(clustered) / num_samples,
+        "avg_similarity": np.mean(list(cluster_sim.values())),
+        "min_similarity": min(cluster_sim.values()),
+        "max_similarity": max(cluster_sim.values()),
+        "cluster_sim": cluster_sim
+    }
+
+    with open(f'{output_path}/{prefix}_summary.json', 'w') as f:
+        json.dump(params, f)
 
 def _merge(
         df: pd.DataFrame,
@@ -467,7 +517,7 @@ def cluster_vits(
 
     # Visualize the clusters
     if not skip_visualization:
-        _visualize_clusters(final_df, unique_clusters, output_path, prefix, avg_sim_scores)
+        _visualize_clusters(final_df, unique_clusters, output_path, prefix, avg_sim_scores, model)
 
     num_samples = final_df.shape[0]
     clustered = final_df['cluster'].values >= 0
@@ -483,21 +533,10 @@ def cluster_vits(
         "alpha": alpha,
         "cluster_selection_epsilon": cluster_selection_epsilon
     }
-    params = {
-        "coverage": coverage,
-        "num_clusters": len(unique_clusters),
-        "hdbscan_params": hdbscan_params,
-    }
-    info(f"Parameters {params}")
-
-    with open(output_path / f'{prefix}_params.json', 'w') as f:
-        json.dump(params, f, indent=4)
-
     exemplar_df.to_csv(output_path / f'{prefix}_exemplars.csv', index=False)
+    info(f'Wrote {output_path / f"{prefix}_exemplars.csv"}')
     final_df.to_csv(output_path / f'{prefix}_clusters.csv', index=False)
     info(f'Wrote {output_path / f"{prefix}_clusters.csv"}')
-    info(f'Wrote {output_path / f"{prefix}_exemplars.csv"}')
-    info(f'Wrote {output_path / f"{prefix}_params.json"}')
 
     return final_df
 
