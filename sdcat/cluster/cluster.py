@@ -384,20 +384,12 @@ def cluster_vits(
         warn('No detections found in {detections} ')
         return pd.DataFrame()
 
-    # Count how many files exists
-    num_crop = sum([os.path.exists(filename) for filename in df_dets['crop_path']])
-
-    # Skip cropping if all the crops are already done
-    if num_crop != len(df_dets):
-        num_processes = min(multiprocessing.cpu_count(), len(df_dets))
-        if roi is True:
-            info(f'ROI crops already exist')
-        else:
-            # Crop and squaring the images in parallel using multiprocessing to speed up the processing
-            info(f'Cropping {len(df_dets)} detections in parallel using {num_processes} processes...')
-            with multiprocessing.Pool(num_processes) as pool:
-                args = [(row, 224) for index, row in df_dets.iterrows()]
-                pool.starmap(crop_square_image, args)
+    num_processes = min(multiprocessing.cpu_count(), len(df_dets))
+    # Crop and squaring the images in parallel using multiprocessing to speed up the processing
+    info(f'Cropping {len(df_dets)} detections in parallel using {num_processes} processes...')
+    with multiprocessing.Pool(num_processes) as pool:
+        args = [(row, 224) for index, row in df_dets.iterrows()]
+        pool.starmap(crop_square_image, args)
 
     if remove_bad_images:
         info(f'Removing bad images from {len(df_dets)} ')
