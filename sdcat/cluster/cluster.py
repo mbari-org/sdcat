@@ -402,7 +402,6 @@ def cluster_vits(
 
     # If the detections are not cropped, crop them to a square
     if not roi:
-        # Wrapper for crop function
         def crop_square_wrapper(row):
             return crop_square_image(row, 224)
 
