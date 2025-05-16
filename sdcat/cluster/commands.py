@@ -4,6 +4,7 @@
 
 import re
 import shutil
+import tempfile
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -70,7 +71,7 @@ def run_cluster_det(det_dir, save_dir, device, use_vits, weighted_score, config_
     save_dir = Path(save_dir)
     save_dir.mkdir(parents=True, exist_ok=True)
 
-    detections = []
+    csv_files = []
     for d in det_dir:
         info(f'Searching in {d}')
         d_path = Path(d)
@@ -78,206 +79,219 @@ def run_cluster_det(det_dir, save_dir, device, use_vits, weighted_score, config_
             err(f'Input path {d} does not exist.')
             return
 
-        detections.extend(d_path.rglob('*.csv'))
+        csv_files.extend(d_path.rglob('*.csv'))
 
-    # Combine all the detections into a single dataframe
-    df = pd.DataFrame()
+    info(f'Found {len(csv_files)} detection files in {det_dir}')
 
     crop_path = save_dir / 'crops'
     crop_path.mkdir(parents=True, exist_ok=True)
 
-    info(f'Found {len(detections)} detection files in {det_dir}')
-    for d in tqdm(detections, desc='Loading detection files'):
-        df_new = pd.read_csv(d, sep=',')
+    # Combine all the detections into a single dataframe
+    df = pd.DataFrame()
 
-        # concatenate to the df dataframe
-        df = pd.concat([df, df_new], ignore_index=True)
+    info(f'Loading detection files')
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_dir_path = Path(temp_dir)
+        output_file = temp_dir_path / "combined.csv"
 
-    # Remove any duplicate rows; duplicates have the same .x, .y, .xx, .xy,
-    df = df.drop_duplicates(subset=['x', 'y', 'xx', 'xy'])
+        with open(output_file, "w", encoding="utf-8") as outfile:
+            first_file = True
+            for file in csv_files:
+                with open(file, "r", encoding="utf-8") as infile:
+                    lines = infile.readlines()
+                    if first_file:
+                        outfile.writelines(lines)  # include header
+                        first_file = False
+                    else:
+                        outfile.writelines(lines[1:])  # skip header
 
-    info(f'Found {len(df)} detections in {det_dir}')
+        df = pd.read_csv(output_file, sep=',', quoting=3)
 
-    if len(df) == 0:
-        info(f'No detections found in {det_dir}')
-        return
+        # Remove any duplicate rows; duplicates have the same .x, .y, .xx, .xy,
+        df = df.drop_duplicates(subset=['x', 'y', 'xx', 'xy'])
 
-    # Check if the image_path column is empty
-    if df['image_path'].isnull().values.any():
-        err(f'Found {df["image_path"].isnull().sum()} detections with no image_path')
-        return
+        info(f'Found {len(df)} detections in {det_dir}')
 
-    # Sort the dataframe by image_path to make sure the images are in order for start_image and end_image filtering
-    df = df.sort_values(by='image_path')
+        if len(df) == 0:
+            info(f'No detections found in {det_dir}')
+            return
 
-    # If start_image is set, find the index of the start_image in the list of images
-    if start_image:
-        start_image = Path(start_image)
-        start_image_index = df[df['image_path'].str.contains(start_image.name)]
-        if len(start_image_index) > 0:
-            df = df.iloc[start_image_index.index[0]:]
-        else:
-            err(f'No detection csv files found for {start_image}')
+        # Check if the image_path column is empty
+        if df['image_path'].isnull().values.any():
+            err(f'Found {df["image_path"].isnull().sum()} detections with no image_path')
+            return
 
-    # If end_image is set, find the index of the end_image in the list of images
-    if end_image:
-        end_image = Path(end_image)
-        end_image_index = df[df['image_path'].str.contains(end_image.name)]
-        if len(end_image_index) > 0:
-            df = df.iloc[:end_image_index.index[-1]]
-        else:
-            err(f'No detection csv files found for {end_image}')
+        # Sort the dataframe by image_path to make sure the images are in order for start_image and end_image filtering
+        df = df.sort_values(by='image_path')
 
-    # Filter by saliency, area, score or day/night
-    size_before = len(df)
-    if 'saliency' in df.columns:
-        df = df[(df['saliency'] > min_saliency) | (df['saliency'] == -1)]
-    if 'area' in df.columns:
-        df = df[(df['area'] > min_area) & (df['area'] < max_area)]
-    if 'score' in df.columns:
-        df = df[(df['score'] > min_score)]
-    size_after = len(df)
-    info(f'Removed {size_before - size_after} detections outside of area, saliency, or too low scoring')
+        # If start_image is set, find the index of the start_image in the list of images
+        if start_image:
+            start_image = Path(start_image)
+            start_image_index = df[df['image_path'].str.contains(start_image.name)]
+            if len(start_image_index) > 0:
+                df = df.iloc[start_image_index.index[0]:]
+            else:
+                err(f'No detection csv files found for {start_image}')
 
-    # Add in a column for the unique crop name for each detection with a unique id
-    # create a unique uuid based on the md5 hash of the box in the row
-    df['crop_path'] = df.apply(lambda
-                                   row: f"{crop_path}/{uuid.uuid5(uuid.NAMESPACE_DNS, str(row['x']) + str(row['y']) + str(row['xx']) + str(row['xy']))}.png",
-                               axis=1)
+        # If end_image is set, find the index of the end_image in the list of images
+        if end_image:
+            end_image = Path(end_image)
+            end_image_index = df[df['image_path'].str.contains(end_image.name)]
+            if len(end_image_index) > 0:
+                df = df.iloc[:end_image_index.index[-1]]
+            else:
+                err(f'No detection csv files found for {end_image}')
 
-    # Add in a column for the unique crop name for each detection with a unique id
-    df['cluster'] = -1  # -1 is the default value and means that the image is not in a cluster
-
-    # Remove small or large detections before clustering
-    size_before = len(df)
-    info(f'Searching through {size_before} detections')
-    df = df[(df['area'] > min_area) & (df['area'] < max_area)]
-    size_after = len(df)
-    info(f'Removed {size_before - size_after} detections that were too large or too small')
-
-    def within_1_percent_of_corners(row):
-        threshold = 0.01  # 1% threshold
-
-        x, y, xx, yy = row['x'], row['y'], row['xx'], row['xy']
-
-        # Check if any of the coordinates are within 1% of the image corners
-        return (
-                (0 <= x <= threshold or 1 - threshold <= x <= 1) or
-                (0 <= y <= threshold or 1 - threshold <= y <= 1) or
-                (0 <= xx <= threshold or 1 - threshold <= xx <= 1) or
-                (0 <= yy <= threshold or 1 - threshold <= yy <= 1)
-        )
-
-    if remove_corners:
-        # Remove any detections that are in any corner of the image
+        # Filter by saliency, area, score or day/night
         size_before = len(df)
-        df = df[~df.apply(within_1_percent_of_corners, axis=1)]
+        if 'saliency' in df.columns:
+            df = df[(df['saliency'] > min_saliency) | (df['saliency'] == -1)]
+        if 'area' in df.columns:
+            df = df[(df['area'] > min_area) & (df['area'] < max_area)]
+        if 'score' in df.columns:
+            df = df[(df['score'] > min_score)]
         size_after = len(df)
-        info(f'Removed {size_before - size_after} detections that were in the corners of the image')
+        info(f'Removed {size_before - size_after} detections outside of area, saliency, or too low scoring')
 
-    pattern_date1 = re.compile(r'(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z')  # 20161025T184500Z
-    pattern_date2 = re.compile(r'(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z\d*mF*')
-    pattern_date3 = re.compile(r'(\d{2})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z')  # 161025T184500Z
-    pattern_date4 = re.compile(r'(\d{2})-(\d{2})-(\d{2})T(\d{2})_(\d{2})_(\d{2})-')  # 16-06-06T16_04_54
-    pattern_number = re.compile(r'^DSC(\d+)\.JPG')
+        # Add in a column for the unique crop name for each detection with a unique id
+        # create a unique uuid based on the md5 hash of the box in the row
+        df['crop_path'] = df.apply(lambda
+                                       row: f"{crop_path}/{uuid.uuid5(uuid.NAMESPACE_DNS, str(row['x']) + str(row['y']) + str(row['xx']) + str(row['xy']))}.png",
+                                   axis=1)
 
-    # Grab any additional metadata from the image name, e.g. depth, yearday, number, day/night
-    depth = {}
-    yearday = {}
-    number = {}
-    day_flag = {}
-    observer = ephem.Observer()
-    observer.lat = latitude
-    observer.lon = longitude
+        # Add in a column for the unique crop name for each detection with a unique id
+        df['cluster'] = -1  # -1 is the default value and means that the image is not in a cluster
 
-    def is_day(utc_dt):
-        observer.date = utc_dt
-        sun = ephem.Sun(observer)
-        if sun.alt > 0:
-            return 1
-        return 0
+        # Remove small or large detections before clustering
+        size_before = len(df)
+        info(f'Searching through {size_before} detections')
+        df = df[(df['area'] > min_area) & (df['area'] < max_area)]
+        size_after = len(df)
+        info(f'Removed {size_before - size_after} detections that were too large or too small')
 
-    for index, row in sorted(df.iterrows()):
-        image_name = Path(row.image_path).name
-        for depth_str in ['50m', '100m', '200m', '300m', '400m', '500m', '299m', '250m', '150m', '199m']:
-            if depth_str in image_name:
-                depth[index] = int(depth_str.split('m')[0])
-        if pattern_date1.search(image_name):
-            match = pattern_date1.search(image_name).groups()
-            year, month, day, hour, minute, second = map(int, match)
-            dt = datetime(year, month, day, hour, minute, second, tzinfo=pytz.utc)
-            yearday[index] = int(dt.strftime("%j")) - 1
-            day_flag[index] = is_day(dt)
-        if pattern_date2.search(image_name):
-            match = pattern_date2.search(image_name).groups()
-            year, month, day, hour, minute, second = map(int, match)
-            dt = datetime(year, month, day, hour, minute, second, tzinfo=pytz.utc)
-            yearday[index] = int(dt.strftime("%j")) - 1
-            day_flag[index] = is_day(dt)
-        if pattern_date3.search(image_name):
-            match = pattern_date3.search(image_name).groups()
-            year, month, day, hour, minute, second = map(int, match)
-            dt = datetime(year, month, day, hour, minute, second, tzinfo=pytz.utc)
-            yearday[index] = int(dt.strftime("%j")) - 1
-            day_flag[index] = is_day(dt)
-        if pattern_date4.search(image_name):
-            match = pattern_date4.search(image_name).groups()
-            year, month, day, hour, minute, second = map(int, match)
-            dt = datetime(year, month, day, hour, minute, second, tzinfo=pytz.utc)
-            yearday[index] = int(dt.strftime("%j")) - 1
-            day_flag[index] = is_day(dt)
-        if pattern_number.search(image_name):
-            match = pattern_number.match(image_name)
-            numeric = int(match.group(1))
-            number[index] = numeric
+        def within_1_percent_of_corners(row):
+            threshold = 0.01  # 1% threshold
 
-    # Add the depth, yearday, day, and night columns to the dataframe if they exist
-    if len(depth) > 0:
-        df['depth'] = depth
-        df['depth'] = df['depth'].astype(int)
-    if len(yearday) > 0:
-        df['yearday'] = yearday
-        df['yearday'] = df['yearday'].astype(int)
-    if len(number) > 0:
-        df['frame'] = number
-    if len(day_flag) > 0:
-        df['day'] = day_flag
-        df['day'] = df['day'].astype(int)
+            x, y, xx, yy = row['x'], row['y'], row['xx'], row['xy']
 
-    # Filter by day/night
-    # size_before = len(df)
-    # df = df[df['day'] == 1]
-    # size_after = len(df)
-    # info(f'Removed {size_before - size_after} detections that were at night')
+            # Check if any of the coordinates are within 1% of the image corners
+            return (
+                    (0 <= x <= threshold or 1 - threshold <= x <= 1) or
+                    (0 <= y <= threshold or 1 - threshold <= y <= 1) or
+                    (0 <= xx <= threshold or 1 - threshold <= xx <= 1) or
+                    (0 <= yy <= threshold or 1 - threshold <= yy <= 1)
+            )
 
-    # Replace any NaNs with 0
-    df.fillna(0)
+        if remove_corners:
+            # Remove any detections that are in any corner of the image
+            size_before = len(df)
+            df = df[~df.apply(within_1_percent_of_corners, axis=1)]
+            size_after = len(df)
+            info(f'Removed {size_before - size_after} detections that were in the corners of the image')
 
-    # Print the first 5 rows of the dataframe
-    info(df.head(5))
+        pattern_date1 = re.compile(r'(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z')  # 20161025T184500Z
+        pattern_date2 = re.compile(r'(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z\d*mF*')
+        pattern_date3 = re.compile(r'(\d{2})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z')  # 161025T184500Z
+        pattern_date4 = re.compile(r'(\d{2})-(\d{2})-(\d{2})T(\d{2})_(\d{2})_(\d{2})-')  # 16-06-06T16_04_54
+        pattern_number = re.compile(r'^DSC(\d+)\.JPG')
 
-    if len(df) > 0:
-        # Replace / with _ in the model name
-        model_machine_friendly = model.replace('/', '_')
+        # Grab any additional metadata from the image name, e.g. depth, yearday, number, day/night
+        depth = {}
+        yearday = {}
+        number = {}
+        day_flag = {}
+        observer = ephem.Observer()
+        observer.lat = latitude
+        observer.lon = longitude
 
-        # A prefix for the output files to make sure the output is unique for each execution
-        prefix = f'{model_machine_friendly}_{datetime.now().strftime("%Y%m%d_%H%M%S")}'
+        def is_day(utc_dt):
+            observer.date = utc_dt
+            sun = ephem.Sun(observer)
+            if sun.alt > 0:
+                return 1
+            return 0
 
-        # Cluster the detections
-        df_cluster = cluster_vits(prefix, model, df, save_dir, alpha, cluster_selection_epsilon, cluster_selection_method, algorithm,
-                                  min_similarity, min_cluster_size, min_samples, device, use_tsne=use_tsne,
-                                  skip_visualization=skip_visualization, roi=False, weighted_score=weighted_score, use_vits=use_vits,
-                                  remove_bad_images=remove_bad_images, batch_size=batch_size)
+        for index, row in sorted(df.iterrows()):
+            image_name = Path(row.image_path).name
+            for depth_str in ['50m', '100m', '200m', '300m', '400m', '500m', '299m', '250m', '150m', '199m']:
+                if depth_str in image_name:
+                    depth[index] = int(depth_str.split('m')[0])
+            if pattern_date1.search(image_name):
+                match = pattern_date1.search(image_name).groups()
+                year, month, day, hour, minute, second = map(int, match)
+                dt = datetime(year, month, day, hour, minute, second, tzinfo=pytz.utc)
+                yearday[index] = int(dt.strftime("%j")) - 1
+                day_flag[index] = is_day(dt)
+            if pattern_date2.search(image_name):
+                match = pattern_date2.search(image_name).groups()
+                year, month, day, hour, minute, second = map(int, match)
+                dt = datetime(year, month, day, hour, minute, second, tzinfo=pytz.utc)
+                yearday[index] = int(dt.strftime("%j")) - 1
+                day_flag[index] = is_day(dt)
+            if pattern_date3.search(image_name):
+                match = pattern_date3.search(image_name).groups()
+                year, month, day, hour, minute, second = map(int, match)
+                dt = datetime(year, month, day, hour, minute, second, tzinfo=pytz.utc)
+                yearday[index] = int(dt.strftime("%j")) - 1
+                day_flag[index] = is_day(dt)
+            if pattern_date4.search(image_name):
+                match = pattern_date4.search(image_name).groups()
+                year, month, day, hour, minute, second = map(int, match)
+                dt = datetime(year, month, day, hour, minute, second, tzinfo=pytz.utc)
+                yearday[index] = int(dt.strftime("%j")) - 1
+                day_flag[index] = is_day(dt)
+            if pattern_number.search(image_name):
+                match = pattern_number.match(image_name)
+                numeric = int(match.group(1))
+                number[index] = numeric
 
-        # Merge the results with the original DataFrame
-        df.update(df_cluster)
+        # Add the depth, yearday, day, and night columns to the dataframe if they exist
+        if len(depth) > 0:
+            df['depth'] = depth
+            df['depth'] = df['depth'].astype(int)
+        if len(yearday) > 0:
+            df['yearday'] = yearday
+            df['yearday'] = df['yearday'].astype(int)
+        if len(number) > 0:
+            df['frame'] = number
+        if len(day_flag) > 0:
+            df['day'] = day_flag
+            df['day'] = df['day'].astype(int)
 
-        # Save the clustered detections to a csv file and a copy of the config.ini file
-        df.to_csv(save_dir / f'{prefix}_cluster_detections.csv', index=False, header=True)
-        shutil.copy(Path(config_ini), save_dir / f'{prefix}_config.ini')
-    else:
-        warn(f'No detections found to cluster')
- 
+        # Filter by day/night
+        # size_before = len(df)
+        # df = df[df['day'] == 1]
+        # size_after = len(df)
+        # info(f'Removed {size_before - size_after} detections that were at night')
+
+        # Replace any NaNs with 0
+        df.fillna(0)
+
+        # Print the first 5 rows of the dataframe
+        info(df.head(5))
+
+        if len(df) > 0:
+            # Replace / with _ in the model name
+            model_machine_friendly = model.replace('/', '_')
+
+            # A prefix for the output files to make sure the output is unique for each execution
+            prefix = f'{model_machine_friendly}_{datetime.now().strftime("%Y%m%d_%H%M%S")}'
+
+            # Cluster the detections
+            df_cluster = cluster_vits(prefix, model, df, save_dir, alpha, cluster_selection_epsilon, cluster_selection_method, algorithm,
+                                      min_similarity, min_cluster_size, min_samples, device, use_tsne=use_tsne,
+                                      skip_visualization=skip_visualization, roi=False, weighted_score=weighted_score, use_vits=use_vits,
+                                      remove_bad_images=remove_bad_images, batch_size=batch_size)
+
+            # Merge the results with the original DataFrame
+            df.update(df_cluster)
+
+            # Save the clustered detections to a csv file and a copy of the config.ini file
+            df.to_csv(save_dir / f'{prefix}_cluster_detections.csv', index=False, header=True)
+            shutil.copy(Path(config_ini), save_dir / f'{prefix}_config.ini')
+        else:
+            warn(f'No detections found to cluster')
+
 @click.command('roi', help='Cluster roi. See cluster --config-ini to override cluster defaults.')
 @common_args.config_ini
 @common_args.use_tsne
