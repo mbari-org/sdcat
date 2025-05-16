@@ -90,10 +90,10 @@ def run_cluster_det(det_dir, save_dir, device, use_vits, weighted_score, config_
         temp_dir_path = Path(temp_dir)
         output_file = temp_dir_path / "combined.csv"
 
-        info(f'Combining detection files...')
+        info('Combining detection files...')
         with open(output_file, "w", encoding="utf-8") as outfile:
             first_file = True
-            for file in csv_files:
+            for file in tqdm(csv_files, desc='Combining detection files', unit='file'):
                 with open(file, "r", encoding="utf-8") as infile:
                     lines = infile.readlines()
                     if first_file:
@@ -102,7 +102,7 @@ def run_cluster_det(det_dir, save_dir, device, use_vits, weighted_score, config_
                     else:
                         outfile.writelines(lines[1:])  # skip header
 
-        info(f'Loading detections')
+        info('Loading detections')
         df = pd.read_csv(output_file, sep=',', quoting=3)
 
         # Remove any duplicate rows; duplicates have the same .x, .y, .xx, .xy,
