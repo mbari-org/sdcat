@@ -1,7 +1,6 @@
 # sdcat, Apache-2.0 license
 # Filename: sdcat/detect/commands.py
 # Description:  Command line interface for running detection on images using SAHI and saliency detection algorithms.
-import multiprocessing
 import os
 import shutil
 from pathlib import Path
@@ -143,7 +142,6 @@ def run_detect(show: bool, image_dir: str, save_dir: str, save_roi:bool, roi_siz
     if num_images == 0:
         return
 
-    num_processes = min(multiprocessing.cpu_count(), num_images)
     if not skip_saliency:
         # For development, run on a single image with
         # run_saliency_detect(spec_remove, scale_percent, images[0].as_posix(), (save_path_det_raw / f'{images[0].stem}.csv').as_posix(), clahe=clahe, show=True)
@@ -172,39 +170,38 @@ def run_detect(show: bool, image_dir: str, save_dir: str, save_roi:bool, roi_siz
         info(f"Running saliency detection on {num_images} images...")
         df_args.apply(run_saliency_wrapper, axis=1)
     if device == 'cpu':
-        with multiprocessing.Pool(num_processes) as pool:
-            if not skip_sahi:
-                df_args = pd.DataFrame([{
-                    "scale_percent": scale_percent,
-                    "slice_size_width": slice_size_width,
-                    "slice_size_height": slice_size_height,
-                    "images": [image],  # wrapped in list to match original structure
-                    "save_path_det_raw": save_path_det_raw,
-                    "detection_model": detection_model,
-                    "postprocess_match_metric": postprocess_match_metric,
-                    "overlap_width_ratio": overlap_width_ratio,
-                    "overlap_height_ratio": overlap_height_ratio,
-                    "allowable_classes": allowable_classes,
-                    "class_agnostic": class_agnostic
-                } for image in images])
+        if not skip_sahi:
+            df_args = pd.DataFrame([{
+                "scale_percent": scale_percent,
+                "slice_size_width": slice_size_width,
+                "slice_size_height": slice_size_height,
+                "images": [image],  # wrapped in list to match original structure
+                "save_path_det_raw": save_path_det_raw,
+                "detection_model": detection_model,
+                "postprocess_match_metric": postprocess_match_metric,
+                "overlap_width_ratio": overlap_width_ratio,
+                "overlap_height_ratio": overlap_height_ratio,
+                "allowable_classes": allowable_classes,
+                "class_agnostic": class_agnostic
+            } for image in images])
 
-                def run_sahi_wrapper(row):
-                    return run_sahi_detect_bulk(
-                        row.scale_percent,
-                        row.slice_size_width,
-                        row.slice_size_height,
-                        row.images,
-                        row.save_path_det_raw,
-                        row.detection_model,
-                        row.postprocess_match_metric,
-                        row.overlap_width_ratio,
-                        row.overlap_height_ratio,
-                        row.allowable_classes,
-                        row.class_agnostic
-                    )
+            def run_sahi_wrapper(row):
+                return run_sahi_detect_bulk(
+                    row.scale_percent,
+                    row.slice_size_width,
+                    row.slice_size_height,
+                    row.images,
+                    row.save_path_det_raw,
+                    row.detection_model,
+                    row.postprocess_match_metric,
+                    row.overlap_width_ratio,
+                    row.overlap_height_ratio,
+                    row.allowable_classes,
+                    row.class_agnostic
+                )
 
-                info(f"Running SAHI detection on {len(images)} images...")
-                df_args.apply(run_sahi_wrapper, axis=1)
+            info(f"Running SAHI detection on {len(images)} images...")
+            df_args.apply(run_sahi_wrapper, axis=1)
     else:
         for f in tqdm(images):
             if not skip_saliency:

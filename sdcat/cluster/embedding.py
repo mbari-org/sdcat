@@ -165,14 +165,21 @@ def compute_norm_embedding(model_name: str, images: list, device: str = "cpu", b
     if torch.cuda.is_available():
         compute_embedding_vits(vit_wrapper, images, batch_size)
     else:
-        # Use a pool of processes to speed up the embedding generation 20 images at a time on each process
-        num_processes = min(multiprocessing.cpu_count(), len(images) // 20)
-        num_processes = max(1, num_processes)
-        info(f'Using {num_processes} processes to compute {len(images)} embeddings 20 at a time ...')
-        with multiprocessing.Pool(num_processes) as pool:
-            args = [(vit_wrapper, images[i:i + 20], batch_size) for i in range(0, len(images), 20)]
-            pool.starmap(compute_embedding_vits, args)
+        import modin.pandas as pd
+        df_args = pd.DataFrame([{
+            "vit_wrapper": vit_wrapper,
+            "images_batch": batch,
+            "batch_size": batch_size
+        } for batch in images])
 
+        def compute_embedding_wrapper(row):
+            return compute_embedding_vits(
+                row.vit_wrapper,
+                row.images_batch,
+                row.batch_size
+            )
+        info(f"Compute embeddings for {len(images)} images...")
+        df_args.apply(compute_embedding_wrapper, axis=1)
 
 def calc_mean_std(image_files: list) -> tuple:
     """

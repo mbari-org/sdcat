@@ -1,13 +1,12 @@
 # sdcat, Apache-2.0 license
 # Filename: sdcat/ml/saliency.py
 # Description:  Miscellaneous saliency functions for detecting targets in images.
-import multiprocessing
 import tempfile
 
 import cv2
 import numpy as np
 import torch
-import pandas as pd
+import modin.pandas as pd
 from sahi.postprocess.combine import nms
 
 from sdcat.logger import debug, info
@@ -123,26 +122,32 @@ def extract_blobs(saliency_map: np.ndarray, img_gray: np.ndarray, img_color: np.
     min_blob_area = 10
     max_blob_area = int(img_gray.shape[0] * img_gray.shape[1] / 2)  # 50% of the image area for the largest blob
 
-    # Do the work in parallel to speed up the processing
-    num_processes = min(multiprocessing.cpu_count(), len(contours) // 100)
-    num_processes = max(1, num_processes)
-    info(f'Using {num_processes} processes to compute {len(contours)} 100 at a time ...')
-
     # Work in a temporary directory
     df = pd.DataFrame()
     with tempfile.TemporaryDirectory() as temp_path:
         temp_path = Path(temp_path)
         gray = img_gray
         # process_contour((temp_path / f'det.csv').as_posix(), contours, gray, min_blob_area, max_blob_area) # useful for debugging
-        with multiprocessing.Pool(num_processes) as pool:
-            args = [((temp_path / f'{i}_det.csv').as_posix(),
-                     contours[i:i + 100],
-                     gray,
-                     min_blob_area,
-                     max_blob_area)
-                    for i in range(0, len(contours), 100)]
-            pool.starmap(process_contour, args)
-            pool.close()
+        df_args = pd.DataFrame([{
+            "csv_path": (temp_path / f'{i}_det.csv').as_posix(),
+            "contours": contours[i],
+            "gray": gray,
+            "min_blob_area": min_blob_area,
+            "max_blob_area": max_blob_area
+        } for i in range(0, len(contours))])
+
+        # Wrapper function
+        def process_contour_wrapper(row):
+            return process_contour(
+                row.csv_path,
+                row.contours,
+                row.gray,
+                row.min_blob_area,
+                row.max_blob_area
+            )
+
+        info(f"Running process_contour on {len(df_args)}...")
+        df_args.apply(process_contour_wrapper, axis=1)
 
         # Combine the results
         info(f'Combining blob detection results')

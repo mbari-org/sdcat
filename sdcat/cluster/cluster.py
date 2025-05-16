@@ -1,7 +1,6 @@
 # sdcat, Apache-2.0 license
 # Filename: sdcat/cluster/cluster.py
 # Description: Clustering using vision transformer features and HDBSCAN density-based clustering
-import multiprocessing
 from importlib.util import find_spec
 
 import pandas as pd
@@ -44,13 +43,7 @@ def _visualize_clusters(df: pd.DataFrame, clusters: list, output_path: Path, pre
     Visualize the clusters using t-SNE or UMAP.
     """
     # For each cluster  let's create a grid of the images to check the quality of the clustering results
-    num_processes = min(multiprocessing.cpu_count(), len(clusters))
-    info(f'Using {num_processes} processes to visualize the {len(clusters)} clusters')
-
     images = df['crop_path'].tolist()
-    if num_processes == 0:
-        err(f'No processes available to visualize the clusters')
-        return None
 
     # Remove the noise clusters
     cluster_indices = {}
