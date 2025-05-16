@@ -18,7 +18,7 @@ import torch
 from PIL import Image
 from tqdm import tqdm
 
-from cluster.utils import filter_images
+from sdcat.cluster.utils import filter_images
 from sdcat import common_args
 from sdcat.config import config as cfg
 from sdcat.logger import info, err, warn
@@ -101,7 +101,7 @@ def run_cluster_det(det_dir, save_dir, device, use_vits, weighted_score, config_
                 with open(file, "r", encoding="utf-8") as infile:
                     lines = infile.readlines()
                     if first_file:
-                        header = lines[0].strip() + ',crop_path\n'
+                        header = lines[0].strip() + ',crop_root\n'
                         outfile.writelines(header)  # include header
                         first_file = False
                     else:
