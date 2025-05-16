@@ -87,7 +87,7 @@ def run_cluster_det(det_dir, save_dir, device, use_vits, weighted_score, config_
     crop_path.mkdir(parents=True, exist_ok=True)
 
     info(f'Found {len(detections)} detection files in {det_dir}')
-    for d in tqdm.tqdm(detections, desc='Loading detection files'):
+    for d in tqdm(detections, desc='Loading detection files'):
         df_new = pd.read_csv(d, sep=',')
 
         # concatenate to the df dataframe
