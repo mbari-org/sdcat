@@ -400,7 +400,7 @@ def cluster_vits(
                 pool.starmap(crop_square_image, args)
 
     if remove_bad_images:
-        # Remove any detections that are in any corner of the image
+        info(f'Removing bad images from {len(df_dets)} ')
         size_before = len(df_dets)
         df = clean_bad_images(df_dets)
         size_after = len(df)
@@ -408,7 +408,6 @@ def cluster_vits(
 
     # Drop any rows with crop_path that have files that don't exist - sometimes the crops fail
     df_dets = df_dets[df_dets['crop_path'].apply(lambda x: os.path.exists(x))]
-    df_dets = df_dets.copy()
 
     # Get the list of images to crop
     images = df_dets['crop_path'].tolist()
