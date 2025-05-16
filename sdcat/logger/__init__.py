@@ -10,6 +10,7 @@ from datetime import datetime as dt, timezone
 LOGGER_NAME = "sdcat"
 DEBUG = True
 
+logging.getLogger("modin").setLevel(logging.ERROR)
 
 class _Singleton(type):
     """A metaclass that creates a Singleton base class when called."""
@@ -67,22 +68,25 @@ def create_logger_file(prefix: str = "sdcat"):
     Create a logger file
     :param log_path: Path to the log file
     """
+    import tempfile
     ENVIRONMENT = str(os.getenv("ENVIRONMENT"))
     if ENVIRONMENT and ENVIRONMENT.upper() == "TESTING":
         log_path = Path("logs")
     else:
         log_path = Path.home() / "sdcat" / "logs"
-        # Check if can write to the log path, and if not revert to system temp
+        # Check if we can write to the log path, and if not revert to system temp
         try:
             log_path.mkdir(parents=True, exist_ok=True)
             test_file = log_path / "test.txt"
             test_file.touch()
             test_file.unlink()
         except PermissionError:
-            import tempfile
-
             temp_dir = tempfile.gettempdir()
             log_path = Path(temp_dir) / "sdcat" / "logs"
+        except FileNotFoundError:
+            # If the path doesn't exist, create it
+            log_path = Path.home() / "sdcat" / "logs"
+            log_path.mkdir(parents=True, exist_ok=True)
 
     # create the log directory if it doesn't exist
     log_path.mkdir(parents=True, exist_ok=True)

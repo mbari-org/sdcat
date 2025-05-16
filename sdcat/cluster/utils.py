@@ -25,7 +25,7 @@ def cluster_grid(prefix: str, cluster_sim: float, cluster_id: int, cluster_size:
     :param output_path: output path to save the visualization to
     :return:
     """
-    debug(f'Cluster number {cluster_id} size {len(cluster_size)} similarity {cluster_sim}\n')
+    debug(f'Cluster number {cluster_id} size {len(cluster_size)} similarity {cluster_sim}')
 
     # Plot a grid for each group of images nb_images_display at a time (e.g. 8x8)
     for i in range(0, len(images), nb_images_display * nb_images_display):

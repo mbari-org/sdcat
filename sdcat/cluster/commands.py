@@ -11,7 +11,7 @@ from pathlib import Path
 import click
 import ephem
 import os
-import pandas as pd
+import modin.pandas as pd
 import pytz
 import torch
 from PIL import Image
@@ -344,12 +344,10 @@ def run_cluster_roi(roi_dir, save_dir, device, use_vits, config_ini, alpha, clus
     df = df.sort_values(by='image_path')
 
     # Add the image_width and image_height columns to the dataframe
-    for index, row in df.iterrows():
-        im_size = Image.open(row['image_path']).size
-        df.at[index, 'image_width'] = im_size[0]
-        df.at[index, 'image_height'] = im_size[1]
-    df['image_width'] = df['image_width'].astype(int)
-    df['image_height'] = df['image_height'].astype(int)
+    # Assuming all images are the same size, we can just get the size of the first image and use that for all images
+    im_size = Image.open(df['image_path'].iloc[0]).size
+    df['image_height'] = im_size[1]
+    df['image_width'] = im_size[0]
 
     # Create a unique crop name for each detection with a unique id
     crop_path = save_dir / 'crops'

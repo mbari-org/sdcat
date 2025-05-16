@@ -1,9 +1,7 @@
 # sdcat, Apache-2.0 license
 # Filename: sdcat/cluster/cluster.py
 # Description: Clustering using vision transformer features and HDBSCAN density-based clustering
-import io
 import multiprocessing
-from collections import Counter
 from importlib.util import find_spec
 
 import pandas as pd
@@ -12,8 +10,8 @@ import os
 import json
 
 import seaborn as sns
+import modin.pandas as pd
 import numpy as np
-from numpy.ma.core import indices
 from umap import UMAP
 from hdbscan import HDBSCAN
 from scipy.cluster.hierarchy import linkage, fcluster
@@ -140,13 +138,16 @@ def _merge(
     """
     Merge clusters based on the linkage of the cosine similarity of their embeddings.
     """
-    # Add a cluster_reindex column to the dataframe with the reindexed cluster ids
+    # Add a cluster_reindex column to the dataframe with the reindexed cluster ids to be continuous
     df['cluster_reindex'] = pd.NA
-    valid_mask = df['cluster'] != -1 # mask all invalid clusters as NaN
-    df.loc[valid_mask, 'cluster_reindex'] = pd.factorize(
-        list(zip(df.loc[valid_mask, 'batch'], df.loc[valid_mask, 'cluster']))
-    )[0]
-    df['cluster_reindex'] = df['cluster_reindex'].astype('Int64')
+    valid_mask = df['cluster'] != -1  # exclude invalid clusters
+
+    # Assign continuous IDs to each (batch, cluster) pair
+    df.loc[valid_mask, 'cluster_reindex'] = (
+        df.loc[valid_mask]
+        .groupby(['batch', 'cluster'], sort=False)
+        .ngroup()
+    )
 
     # Get the exemplar embeddings
     exemplar_df = df[df['exemplar'] == 1]
@@ -533,10 +534,14 @@ def cluster_vits(
         "alpha": alpha,
         "cluster_selection_epsilon": cluster_selection_epsilon
     }
+    # Save the clustering parameters to a json file
+    with open(f'{output_path}/{prefix}_params.json', 'w') as f:
+        json.dump(hdbscan_params, f)
+    info(f"Saved {output_path}/{prefix}_params.json")
     exemplar_df.to_csv(output_path / f'{prefix}_exemplars.csv', index=False)
-    info(f'Wrote {output_path / f"{prefix}_exemplars.csv"}')
+    info(f'Saved {output_path / f"{prefix}_exemplars.csv"}')
     final_df.to_csv(output_path / f'{prefix}_clusters.csv', index=False)
-    info(f'Wrote {output_path / f"{prefix}_clusters.csv"}')
+    info(f'Saved {output_path / f"{prefix}_clusters.csv"}')
 
     return final_df
 
