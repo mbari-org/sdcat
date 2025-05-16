@@ -12,6 +12,7 @@ import cv2
 from transformers import AutoModelForImageClassification, AutoImageProcessor
 import torch.nn.functional as F
 
+from cluster.utils import compute_embedding_multi_gpu
 from sdcat.logger import info, err
 
 
@@ -160,10 +161,15 @@ def compute_norm_embedding(model_name: str, images: list, device: str = "cpu", b
     # and std to the compute_embedding function
     # mean, std = calc_mean_std(images)
     vit_wrapper = ViTWrapper(device=device, model_name=model_name)
+    compute_embedding_vits(vit_wrapper, images, batch_size)
 
     # If using a GPU, set then skip the parallel CPU processing
     if torch.cuda.is_available():
-        compute_embedding_vits(vit_wrapper, images, batch_size)
+        if torch.cuda.device_count() > 1 and device == "cpu" or device == "cuda":
+            torch.cuda.empty_cache()
+            compute_embedding_multi_gpu(model_name, images, batch_size)
+        else:
+            compute_embedding_vits(vit_wrapper, images, batch_size)
     else:
         import modin.pandas as pd
         df_args = pd.DataFrame([{

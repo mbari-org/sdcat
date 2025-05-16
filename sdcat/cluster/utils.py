@@ -11,6 +11,7 @@ from cleanvision import Imagelab
 from matplotlib import pyplot as plt
 from mpl_toolkits.axes_grid1 import ImageGrid
 from pathlib import Path
+
 from sdcat.logger import info, debug, warn, exception
 
 
@@ -256,3 +257,39 @@ def filter_images(min_area:int, max_area: int, min_saliency: int, min_score:floa
     info(f'Removed {size_before - size_after} detections outside of area, saliency, or too low scoring')
 
     return df
+
+
+def compute_embedding_multi_gpu(model_name: str, images: list, batch_size: int = 32):
+
+    from concurrent.futures import ThreadPoolExecutor
+    from cluster.embedding import ViTWrapper
+    from cluster.embedding import compute_embedding_vits
+    import torch
+    import math
+
+    # Detect all CUDA devices
+    devices = [f'cuda:{i}' for i in range(torch.cuda.device_count())]
+
+    # Split the images evenly across GPUs
+    def split_batches(images, num_splits):
+        batch_size = math.ceil(len(images) / num_splits)
+        return [images[i * batch_size:(i + 1) * batch_size] for i in range(num_splits)]
+
+
+    # Compute embeddings per GPU
+    def compute_on_device(device, model_name, images, batch_size):
+        vit_wrapper = ViTWrapper(device=device, model_name=model_name)
+        return compute_embedding_vits(vit_wrapper, images, batch_size)
+
+
+    def multi_gpu_compute(model_name, images, batch_size):
+        image_batches = split_batches(images, len(devices))
+        with ThreadPoolExecutor(max_workers=len(devices)) as executor:
+            futures = [
+                executor.submit(compute_on_device, device, model_name, batch, batch_size)
+                for device, batch in zip(devices, image_batches)
+            ]
+            results = [f.result() for f in futures]
+        return sum(results, [])
+
+    multi_gpu_compute(model_name, images, batch_size)
