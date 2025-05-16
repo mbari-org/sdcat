@@ -384,12 +384,14 @@ def cluster_vits(
         warn('No detections found in {detections} ')
         return pd.DataFrame()
 
-    num_processes = min(multiprocessing.cpu_count(), len(df_dets))
-    # Crop and squaring the images in parallel using multiprocessing to speed up the processing
-    info(f'Cropping {len(df_dets)} detections in parallel using {num_processes} processes...')
-    with multiprocessing.Pool(num_processes) as pool:
-        args = [(row, 224) for index, row in df_dets.iterrows()]
-        pool.starmap(crop_square_image, args)
+    # If the detections are not cropped, crop them to a square
+    if not roi:
+        num_processes = min(multiprocessing.cpu_count(), len(df_dets))
+        # Crop and squaring the images in parallel using multiprocessing to speed up the processing
+        info(f'Cropping {len(df_dets)} detections in parallel using {num_processes} processes...')
+        with multiprocessing.Pool(num_processes) as pool:
+            args = [(row, 224) for index, row in df_dets.iterrows()]
+            pool.starmap(crop_square_image, args)
 
     if remove_bad_images:
         info(f'Removing bad images from {len(df_dets)} ')

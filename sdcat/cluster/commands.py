@@ -94,13 +94,18 @@ def run_cluster_det(det_dir, save_dir, device, use_vits, weighted_score, config_
         with open(output_file, "w", encoding="utf-8") as outfile:
             first_file = True
             for file in tqdm(csv_files, desc='Combining detection files', unit='file'):
+                # Create a crop directory for each detection file
+                crop_root = crop_path / file.stem
+                crop_root.mkdir(parents=True, exist_ok=True)
                 with open(file, "r", encoding="utf-8") as infile:
                     lines = infile.readlines()
                     if first_file:
-                        outfile.writelines(lines)  # include header
+                        header = lines[0].strip() + ',crop_root\n'
+                        outfile.writelines(header)  # include header
                         first_file = False
                     else:
-                        outfile.writelines(lines[1:])  # skip header
+                        out_text = '\n'.join(lines[1:]) + crop_root
+                        outfile.writelines(out_text)  # skip header
 
         info('Loading detections')
         df = pd.read_csv(output_file, sep=',', quoting=3)
@@ -154,7 +159,7 @@ def run_cluster_det(det_dir, save_dir, device, use_vits, weighted_score, config_
         # Add in a column for the unique crop name for each detection with a unique id
         # create a unique uuid based on the md5 hash of the box in the row
         df['crop_path'] = df.apply(lambda
-                                       row: f"{crop_path}/{uuid.uuid5(uuid.NAMESPACE_DNS, str(row['x']) + str(row['y']) + str(row['xx']) + str(row['xy']))}.png",
+                                       row: f"{row['crop_root']}/{uuid.uuid5(uuid.NAMESPACE_DNS, str(row['x']) + str(row['y']) + str(row['xx']) + str(row['xy']))}.png",
                                    axis=1)
 
         # Add in a column for the unique crop name for each detection with a unique id
