@@ -5,7 +5,7 @@ import os
 
 import cv2
 import numpy as np
-import pandas as pd
+import modin.pandas as pd
 from PIL import Image
 from cleanvision import Imagelab
 from matplotlib import pyplot as plt
@@ -232,4 +232,27 @@ def clean_bad_images(df: pd.DataFrame) -> pd.DataFrame:
     # Remove the bad images from the dataframe
     df = df[~df['crop_path'].isin(bad_images)]
     info(f"Removed {num_removed} dark or blurry images in {crop_path}")
+    return df
+
+
+def filter_images(min_area:int, max_area: int, min_saliency: int, min_score:float, df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Filter the dataframe to remove images that are too small or have low saliency
+    :param min_area: Minimum area of the image
+    :param max_area: Maximum area of the image
+    :param min_saliency: Minimum saliency of the image
+    :param df: Dataframe to filter
+    :return: Filtered dataframe
+    """
+    # Filter by saliency, area, score or day/night
+    size_before = len(df)
+    if 'saliency' in df.columns:
+        df = df[(df['saliency'] > min_saliency) | (df['saliency'] == -1)]
+    if 'area' in df.columns:
+        df = df[(df['area'] > min_area) & (df['area'] < max_area)]
+    if 'score' in df.columns:
+        df = df[(df['score'] > min_score)]
+    size_after = len(df)
+    info(f'Removed {size_before - size_after} detections outside of area, saliency, or too low scoring')
+
     return df

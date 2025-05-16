@@ -18,6 +18,7 @@ import torch
 from PIL import Image
 from tqdm import tqdm
 
+from cluster.utils import filter_images
 from sdcat import common_args
 from sdcat.config import config as cfg
 from sdcat.logger import info, err, warn
@@ -90,7 +91,7 @@ def run_cluster_det(det_dir, save_dir, device, use_vits, weighted_score, config_
         temp_dir_path = Path(temp_dir)
         output_file = temp_dir_path / "combined.csv"
 
-        info('Combining detection files...')
+        info(f'Combining detection files to {output_file}...')
         with open(output_file, "w", encoding="utf-8") as outfile:
             first_file = True
             for file in tqdm(csv_files, desc='Combining detection files', unit='file'):
@@ -100,12 +101,12 @@ def run_cluster_det(det_dir, save_dir, device, use_vits, weighted_score, config_
                 with open(file, "r", encoding="utf-8") as infile:
                     lines = infile.readlines()
                     if first_file:
-                        header = lines[0].strip() + ',crop_root\n'
+                        header = lines[0].strip() + ',crop_path\n'
                         outfile.writelines(header)  # include header
                         first_file = False
                     else:
-                        out_text = '\n'.join(lines[1:]) + crop_root
-                        outfile.writelines(out_text)  # skip header
+                        out_text = [l.strip() + f',{crop_root}\n' for l in lines[1:]]
+                        outfile.writelines(out_text)
 
         info('Loading detections')
         df = pd.read_csv(output_file, sep=',', quoting=3)
@@ -145,16 +146,7 @@ def run_cluster_det(det_dir, save_dir, device, use_vits, weighted_score, config_
             else:
                 err(f'No detection csv files found for {end_image}')
 
-        # Filter by saliency, area, score or day/night
-        size_before = len(df)
-        if 'saliency' in df.columns:
-            df = df[(df['saliency'] > min_saliency) | (df['saliency'] == -1)]
-        if 'area' in df.columns:
-            df = df[(df['area'] > min_area) & (df['area'] < max_area)]
-        if 'score' in df.columns:
-            df = df[(df['score'] > min_score)]
-        size_after = len(df)
-        info(f'Removed {size_before - size_after} detections outside of area, saliency, or too low scoring')
+        df = filter_images(min_area, max_area, min_saliency, min_score, df)
 
         # Add in a column for the unique crop name for each detection with a unique id
         # create a unique uuid based on the md5 hash of the box in the row
@@ -238,15 +230,21 @@ def run_cluster_det(det_dir, save_dir, device, use_vits, weighted_score, config_
 @click.option('--use-vits', help='Set to using the predictions from the vits cluster model', is_flag=True)
 def run_cluster_roi(roi_dir, save_dir, device, use_vits, config_ini, alpha, cluster_selection_epsilon, cluster_selection_method, algorithm, min_cluster_size, min_sample_size, batch_size, use_tsne, skip_visualization):
     config = cfg.Config(config_ini)
+    max_area = int(config('cluster', 'max_area'))
+    min_area = int(config('cluster', 'min_area'))
+    min_saliency = int(config('cluster', 'min_saliency'))
     alpha = alpha if alpha else float(config('cluster', 'alpha'))
     min_cluster_size = min_cluster_size if min_cluster_size else int(config('cluster', 'min_cluster_size'))
-    cluster_selection_epsilon = cluster_selection_epsilon if cluster_selection_epsilon else float(config('cluster','cluster_selection_epsilon'))
-    cluster_selection_method = cluster_selection_method if cluster_selection_method else config('cluster', 'cluster_selection_method')
     min_samples = min_sample_size if min_sample_size else int(config('cluster', 'min_samples'))
+    cluster_selection_epsilon = cluster_selection_epsilon if cluster_selection_epsilon else float(
+        config('cluster', 'cluster_selection_epsilon'))
+    cluster_selection_method = cluster_selection_method if cluster_selection_method else config('cluster',
+                                                                                                'cluster_selection_method')
     algorithm = algorithm if algorithm else config('cluster', 'algorithm')
+    remove_bad_images = config('cluster', 'remove_bad_images') == 'True'
+    min_score = float(config('cluster', 'min_score'))
     min_similarity = float(config('cluster', 'min_similarity'))
     model = config('cluster', 'model')
-    remove_bad_images = config('cluster', 'remove_bad_images') == 'True'
 
     if device:
         num_devices = torch.cuda.device_count()
@@ -302,6 +300,8 @@ def run_cluster_roi(roi_dir, save_dir, device, use_vits, config_ini, alpha, clus
     # Copy the images to the crop path directory. Images may be cleaned so we want to duplicate them here.
     for index, row in df.iterrows():
         shutil.copy(row['image_path'], row['crop_path'])
+
+    df = filter_images(min_area, max_area, min_saliency, min_score, df)
 
     df['cluster'] = -1  # -1 is the default value and means that the image is not in a cluster
     df['class'] = 'Unknown'
