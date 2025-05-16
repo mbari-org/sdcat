@@ -73,7 +73,7 @@ def run_cluster_det(det_dir, save_dir, device, use_vits, weighted_score, config_
 
     csv_files = []
     for d in det_dir:
-        info(f'Searching in {d}')
+        info(f'Searching in {d} for detection csv files')
         d_path = Path(d)
         if not d_path.exists():
             err(f'Input path {d} does not exist.')
@@ -86,14 +86,11 @@ def run_cluster_det(det_dir, save_dir, device, use_vits, weighted_score, config_
     crop_path = save_dir / 'crops'
     crop_path.mkdir(parents=True, exist_ok=True)
 
-    # Combine all the detections into a single dataframe
-    df = pd.DataFrame()
-
-    info(f'Loading detection files')
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_dir_path = Path(temp_dir)
         output_file = temp_dir_path / "combined.csv"
 
+        info(f'Combining detection files...')
         with open(output_file, "w", encoding="utf-8") as outfile:
             first_file = True
             for file in csv_files:
@@ -105,6 +102,7 @@ def run_cluster_det(det_dir, save_dir, device, use_vits, weighted_score, config_
                     else:
                         outfile.writelines(lines[1:])  # skip header
 
+        info(f'Loading detections')
         df = pd.read_csv(output_file, sep=',', quoting=3)
 
         # Remove any duplicate rows; duplicates have the same .x, .y, .xx, .xy,
