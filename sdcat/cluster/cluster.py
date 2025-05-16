@@ -59,16 +59,32 @@ def _visualize_clusters(df: pd.DataFrame, clusters: list, output_path: Path, pre
             continue
         cluster_indices[int(c)] = list(df.loc[df['cluster_reindex'] == c].index)
 
-    # Use a pool of processes to speed up the visualization of the clusters
-    with multiprocessing.Pool(num_processes) as pool:
-        args = [(prefix,
-                 cluster_sim[c],
-                 c,
-                 cluster_indices[c],  # cluster indices
-                 4 if len(cluster_indices[c]) < 50 else 8,  # grid size; larger clusters get larger grids
-                 [images[i] for i in cluster_indices[c]],  # images in the cluster
-                 output_path / prefix) for c in cluster_indices.keys()]
-        pool.starmap(cluster_grid, args)
+    cluster_data = []
+    for c in cluster_indices.keys():
+        grid_size = 4 if len(cluster_indices[c]) < 50 else 8
+        cluster_data.append({
+            "prefix": prefix,
+            "sim": cluster_sim[c],
+            "cluster_id": c,
+            "indices": cluster_indices[c],
+            "grid_size": grid_size,
+            "images": [images[i] for i in cluster_indices[c]],
+            "output_path": output_path / prefix
+        })
+
+    df_clusters = pd.DataFrame(cluster_data)
+
+    def cluster_grid_wrapper(row):
+        return cluster_grid(row.prefix,
+                            row.sim,
+                            row.cluster_id,
+                            row.indices,
+                            row.grid_size,
+                            row.images,
+                            row.output_path)
+
+    info(f"Visualizing {len(df_clusters)} clusters in parallel using Modin...")
+    df_clusters.apply(cluster_grid_wrapper, axis=1)
 
     num_samples = df.shape[0]
     # Cannot use init='spectral' when n_components is >= num_samples - default to 'random' instead
