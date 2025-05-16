@@ -18,7 +18,7 @@ from scipy.cluster.hierarchy import linkage, fcluster
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.preprocessing import MinMaxScaler
 from sdcat.logger import info, warn, debug, err
-from sdcat.cluster.utils import cluster_grid, crop_square_image, square_image, clean_bad_images
+from sdcat.cluster.utils import cluster_grid, crop_square_image, clean_bad_images
 from sdcat.cluster.embedding import fetch_embedding, has_cached_embedding, compute_norm_embedding
 
 if find_spec("multicore_tsne"):
@@ -402,12 +402,12 @@ def cluster_vits(
 
     # If the detections are not cropped, crop them to a square
     if not roi:
-        num_processes = min(multiprocessing.cpu_count(), len(df_dets))
-        # Crop and squaring the images in parallel using multiprocessing to speed up the processing
-        info(f'Cropping {len(df_dets)} detections in parallel using {num_processes} processes...')
-        with multiprocessing.Pool(num_processes) as pool:
-            args = [(row, 224) for index, row in df_dets.iterrows()]
-            pool.starmap(crop_square_image, args)
+        # Wrapper for crop function
+        def crop_square_wrapper(row):
+            return crop_square_image(row, 224)
+
+        info(f'Cropping {len(df_dets)} detections...')
+        df_dets.apply(crop_square_wrapper, axis=1)
 
     if remove_bad_images:
         info(f'Removing bad images from {len(df_dets)} ')
