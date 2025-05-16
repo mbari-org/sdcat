@@ -15,6 +15,7 @@ import pandas as pd
 import pytz
 import torch
 from PIL import Image
+from tqdm import tqdm
 
 from sdcat import common_args
 from sdcat.config import config as cfg
@@ -85,7 +86,8 @@ def run_cluster_det(det_dir, save_dir, device, use_vits, weighted_score, config_
     crop_path = save_dir / 'crops'
     crop_path.mkdir(parents=True, exist_ok=True)
 
-    for d in detections:
+    info(f'Found {len(detections)} detection files in {det_dir}')
+    for d in tqdm.tqdm(detections, desc='Loading detection files'):
         df_new = pd.read_csv(d, sep=',')
 
         # concatenate to the df dataframe
