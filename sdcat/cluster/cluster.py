@@ -458,8 +458,9 @@ def cluster_vits(
                     ancillary_data = ancillary_data.iloc[0]
                 df_batch.loc[df_batch['crop_path'] == filename, ancillary_df.columns] = ancillary_data
 
-        # Drop any non-numeric columns
+        # Drop any non-numeric columns and other columns that are not needed
         df_batch = df_batch.select_dtypes(include=["float", "int"])
+        df_batch = df_batch.drop(columns=['image_width', 'image_height', 'score_s', 'score'], errors='ignore')
 
         df = _run_hdbscan_assign(df_batch,
                                  alpha,
