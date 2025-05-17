@@ -124,7 +124,7 @@ def _visualize_clusters(df: pd.DataFrame, clusters: list, output_path: Path, pre
         json.dump(params, f)
     info(f"Saved {output_path}/{prefix}_summary.json")
 
-def _merge(
+def _similarity_merge(
         df: pd.DataFrame,
         min_similarity: float,
         model: str
@@ -219,7 +219,7 @@ def _merge(
 
 
 def _run_hdbscan_assign(
-        df: pd.dataframe,
+        df: pd.DataFrame,
         alpha: float,
         cluster_selection_epsilon: float,
         cluster_selection_method: str,
@@ -251,9 +251,6 @@ def _run_hdbscan_assign(
         f'cluster_selection_method {cluster_selection_method} \n'
         f'use_tsne {use_tsne} ...')
 
-    # Add a batch and cluster column
-    df['batch_id'] = batch_id
-    df['cluster'] = -1
 
     # Get the number of samples which is the number of rows in the dataframe - this is used mostly for calculating coverage
     num_samples = df.shape[0]
@@ -296,6 +293,7 @@ def _run_hdbscan_assign(
 
     # Get the unique clusters and sort them; -1 are unassigned clusters
     cluster_df = pd.DataFrame(labels, columns=['cluster'])
+    cluster_df['batch'] = batch_id
     cluster_df['cluster'] = cluster_df['cluster'].astype('int') # Convert the cluster column to int
     unique_clusters = cluster_df['cluster'].unique().tolist()
     unique_clusters.sort()
@@ -434,6 +432,7 @@ def cluster_vits(
 
     batch_df = pd.DataFrame()
     batch_df['batch'] = -1
+    batch_df['cluster'] = -1
 
     # Remove any existing cluster images in the output_path
     for c in (output_path / prefix).parent.rglob(f'{prefix}_*cluster*.png'):
@@ -461,8 +460,7 @@ def cluster_vits(
         # Drop any non-numeric columns and other columns that are not needed
         df_batch = df_batch.select_dtypes(include=["float", "int"])
         df_batch = df_batch.drop(columns=['image_width', 'image_height', 'score_s', 'score'], errors='ignore')
-
-        df = _run_hdbscan_assign(df_batch,
+        df_assign = _run_hdbscan_assign(df_batch,
                                  alpha,
                                  cluster_selection_epsilon,
                                  cluster_selection_method,
@@ -471,11 +469,15 @@ def cluster_vits(
                                  min_samples,
                                  use_tsne,
                                  i)
-        df['crop_path'] = images[start:end]
-        batch_df = pd.concat([batch_df, df], ignore_index=True)
+        df_assign.index = range(start,end)
+        batch_df = pd.concat([batch_df, df_assign], axis=0)
 
-    # Merge
-    final_df, avg_sim_scores = _merge(batch_df, min_similarity, model)
+    # Merge the final dataframe with the original dataframe to get the original columns
+    merged_df = pd.concat([df_dets, batch_df], axis=1)
+    merged_df = merged_df.loc[:, ~merged_df.columns.duplicated()]
+
+    # Merge by similarity
+    final_df, avg_sim_scores = _similarity_merge(merged_df, min_similarity, model)
 
     # Get the average similarity across all clusters
     avg_similarity = np.mean(list(avg_sim_scores.values()))
