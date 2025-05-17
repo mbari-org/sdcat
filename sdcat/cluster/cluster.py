@@ -376,6 +376,12 @@ def cluster_vits(
 
     # Drop any rows with crop_path that have files that don't exist - sometimes the crops fail
     df_dets = df_dets[df_dets['crop_path'].apply(lambda x: os.path.exists(x))]
+    if df_dets.empty:
+        warn('No detections found in {detections} ')
+        return pd.DataFrame()
+
+    # Add index which is used later to merge the clusters back to the original dataframe
+    df_dets.index = range(len(df_dets))
 
     # Get the list of images to crop
     images = df_dets['crop_path'].tolist()
