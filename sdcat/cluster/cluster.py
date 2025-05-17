@@ -219,7 +219,7 @@ def _merge(
 
 
 def _run_hdbscan_assign(
-        image_emb: np.ndarray,
+        df: pd.dataframe,
         alpha: float,
         cluster_selection_epsilon: float,
         cluster_selection_method: str,
@@ -227,7 +227,6 @@ def _run_hdbscan_assign(
         min_cluster_size: int,
         min_samples: int,
         use_tsne: bool,
-        ancillary_df: pd.DataFrame,
         batch_id: int) -> tuple:
     """
     Cluster the embeddings using HDBSCAN
@@ -251,19 +250,6 @@ def _run_hdbscan_assign(
         f'min_cluster_size {min_cluster_size} \n'
         f'cluster_selection_method {cluster_selection_method} \n'
         f'use_tsne {use_tsne} ...')
-
-    # Add in any numerical ancillary data and replace NaNs with 0
-    numerical = ancillary_df.select_dtypes(include=["float", "int"])
-    if not numerical.empty:
-        numerical = numerical.fillna(0)
-
-        # Normalize the numerical data from 0 to 1 and add it to the dataframe
-        numerical = (numerical - numerical.min()) / (numerical.max() - numerical.min())
-
-        # Keep if the numerical data is not all NaN
-        if not np.all(np.isnan(numerical)):
-            df = numerical
-            df = df.fillna(0)
 
     # Add a batch and cluster column
     df['batch_id'] = batch_id
@@ -435,7 +421,14 @@ def cluster_vits(
                      'cluster', 'score', 'cluster_s', 'score_s',
                      'class', 'image_path', 'crop_path'])
     else:
-        ancillary_df = df_dets
+        ancillary_df = None
+
+    if ancillary_df:
+        # Add in any numerical ancillary data and replace NaNs with 0
+        numerical_df = ancillary_df.select_dtypes(include=["float", "int"])
+        numerical_df = numerical_df.fillna(0)
+        # Normalize the numerical data from 0 to 1
+        ancillary_df = (numerical_df - numerical_df.min()) / (numerical_df.max() - numerical_df.min())
 
     # Cluster
     # Compute in batches of 300K
@@ -454,15 +447,24 @@ def cluster_vits(
         end = min((i + 1) * batch_size, len(images))
         debug(f'Processing batch {i + 1} of {num_batches}...')
 
-        # Get the embeddings for the batch
-        image_emb = []
+        # Get the embeddings for the batch and put into dataframe with the index
+        df_batch = df_dets.iloc[start:end].copy()
         for filename in images[start:end]:
-            emb, label, score = fetch_embedding(model, filename)
-            image_emb.append(emb)
-        image_emb = np.array(image_emb)
+            emb, _, _ = fetch_embedding(model, filename)
+            df_batch.loc[df_batch['crop_path'] == filename, 'embedding'] = emb
+            if ancillary_df:
+                # Get the ancillary data for the image
+                ancillary_data = ancillary_df.loc[ancillary_df['crop_path'] == filename]
+                if ancillary_data.empty:
+                    ancillary_data = pd.Series([0] * len(ancillary_df.columns), index=ancillary_df.columns)
+                else:
+                    ancillary_data = ancillary_data.iloc[0]
+                df_batch.loc[df_batch['crop_path'] == filename, ancillary_df.columns] = ancillary_data
 
-        # Cluster the images
-        df = _run_hdbscan_assign(image_emb,
+        # Drop any non-numeric columns
+        df_batch = df_batch.select_dtypes(include=["float", "int"])
+
+        df = _run_hdbscan_assign(df_batch,
                                  alpha,
                                  cluster_selection_epsilon,
                                  cluster_selection_method,
@@ -470,9 +472,7 @@ def cluster_vits(
                                  min_cluster_size,
                                  min_samples,
                                  use_tsne,
-                                 ancillary_df,
                                  i)
-        df['batch'] = i
         df['crop_path'] = images[start:end]
         batch_df = pd.concat([batch_df, df], ignore_index=True)
 
