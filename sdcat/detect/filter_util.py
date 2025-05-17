@@ -2,7 +2,7 @@ import hashlib
 import uuid
 
 import cv2
-import pandas as pd
+import modin.pandas as pd
 import torch
 from sahi.postprocess.combine import nms
 

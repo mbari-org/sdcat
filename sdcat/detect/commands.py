@@ -175,7 +175,7 @@ def run_detect(show: bool, image_dir: str, save_dir: str, save_roi:bool, roi_siz
                 "scale_percent": scale_percent,
                 "slice_size_width": slice_size_width,
                 "slice_size_height": slice_size_height,
-                "images": [image],  # wrapped in list to match original structure
+                "images": [image],
                 "save_path_det_raw": save_path_det_raw,
                 "detection_model": detection_model,
                 "postprocess_match_metric": postprocess_match_metric,
