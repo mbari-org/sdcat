@@ -7,6 +7,7 @@ from pathlib import Path
 import os
 import json
 
+import pandas
 import seaborn as sns
 import tqdm
 import modin.pandas as pd
