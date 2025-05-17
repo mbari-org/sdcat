@@ -3,7 +3,6 @@
 # Description: Clustering using vision transformer features and HDBSCAN density-based clustering
 from importlib.util import find_spec
 
-import pandas as pd
 from pathlib import Path
 import os
 import json
@@ -44,40 +43,26 @@ def _visualize_clusters(df: pd.DataFrame, clusters: list, output_path: Path, pre
     Visualize the clusters using t-SNE or UMAP.
     """
     # For each cluster  let's create a grid of the images to check the quality of the clustering results
+    import multiprocessing
+    num_processes = min(multiprocessing.cpu_count(), len(clusters))
+    info(f'Using {num_processes} processes to visualize the {len(clusters)} clusters')
 
-    # Remove the noise clusters
-    cluster_indices = {}
+    image_paths = {}
     for c in clusters:
         if c == -1:
             continue
-        cluster_indices[int(c)] = list(df.loc[df['cluster_reindex'] == c].index)
+        image_paths[c] = list(df.loc[df['cluster_reindex'] == c]['crop_path'])
 
-    cluster_data = []
-    for c in cluster_indices.keys():
-        grid_size = 4 if len(cluster_indices[c]) < 50 else 8
-        cluster_data.append({
-            "prefix": prefix,
-            "sim": cluster_sim[c],
-            "cluster_id": c,
-            "cluster_size": len(cluster_indices[c]),
-            "grid_size": grid_size,
-            "images": df.loc[cluster_indices[c], 'crop_path'].tolist()[0:150], # Limit to 150 images
-            "output_path": output_path / prefix
-        })
-
-    df_clusters = pd.DataFrame(cluster_data)
-
-    def cluster_grid_wrapper(row):
-        return cluster_grid(row.prefix,
-                            row.sim,
-                            row.cluster_id,
-                            row.cluster_size,
-                            row.grid_size,
-                            row.images,
-                            row.output_path)
-
-    info(f"Visualizing {len(df_clusters)} clusters...")
-    df_clusters.apply(cluster_grid_wrapper, axis=1)
+    # Use a pool of processes to speed up the visualization of the clusters
+    # Skip modin here because it does not offer much speedup
+    with multiprocessing.Pool(num_processes) as pool:
+        args = [(prefix,
+                 cluster_sim[c],
+                 c,
+                 4 if len(image_paths[c]) < 50 else 8,  # grid size; larger clusters get larger grids
+                 image_paths[c],
+                 output_path / prefix) for c in image_paths.keys()]
+        pool.starmap(cluster_grid, args)
 
     num_samples = df.shape[0]
     # Cannot use init='spectral' when n_components is >= num_samples - default to 'random' instead
@@ -113,12 +98,11 @@ def _visualize_clusters(df: pd.DataFrame, clusters: list, output_path: Path, pre
             xx = UMAP(init=init,
                       n_components=2,
                       n_neighbors=n_neighbors,
-                      metric='cosine',
-                      low_memory=True).fit_transform(np_data)
+                      metric='cosine').fit_transform(np_data)
 
     clustered = sampled_df['cluster_reindex'].values >= 0
     labels = sampled_df['cluster_reindex'].values
-    df = pd.DataFrame({'x': xx[:,0], 'y': xx[:,1], 'labels': labels})
+    df = pandas.DataFrame({'x': xx[:,0], 'y': xx[:,1], 'labels': labels})
     p = sns.jointplot(data=df, x='x', y='y', hue='labels')
     p.savefig(f"{output_path}/{prefix}_summary.png")
     info(f"Saved {output_path}/{prefix}_summary.png")
@@ -268,7 +252,7 @@ def _run_hdbscan_assign(
         f'use_tsne {use_tsne} ...')
 
     # Add in any numerical ancillary data and replace NaNs with 0
-    df = pd.DataFrame(image_emb)
+    df = pandas.DataFrame(image_emb)
     numerical = ancillary_df.select_dtypes(include=["float", "int"])
     if not numerical.empty:
         numerical = numerical.fillna(0)

@@ -51,13 +51,8 @@ class CustomLogger(Singleton):
         handler.setLevel(logging.INFO)
         self.logger.addHandler(handler)
 
-        # also log to console
-        console = logging.StreamHandler()
-        console.setLevel(logging.DEBUG)
-        console.setFormatter(formatter)
-        self.logger.addHandler(console)
-
         self.logger.info(f"Logging to {self.log_filename}")
+        print(f"Logging to {self.log_filename}")
 
     def loggers(self) -> logging.Logger:
         return self.logger

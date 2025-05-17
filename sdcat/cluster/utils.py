@@ -14,7 +14,7 @@ from pathlib import Path
 from sdcat.logger import info, debug, warn, exception
 
 
-def cluster_grid(prefix: str, cluster_sim: float, cluster_id: int, cluster_size: int, nb_images_display: int,
+def cluster_grid(prefix: str, cluster_sim: float, cluster_id: int, nb_images_display: int,
                  images: list, output_path: Path):
     """
     Cluster visualization; create a grid of images
@@ -25,6 +25,7 @@ def cluster_grid(prefix: str, cluster_sim: float, cluster_id: int, cluster_size:
     :param output_path: output path to save the visualization to
     :return:
     """
+    cluster_size = len(images)
     debug(f'Cluster number {cluster_id} size {cluster_size} similarity {cluster_sim}')
 
     # Plot a grid for each group of images nb_images_display at a time (e.g. 8x8)
@@ -211,8 +212,8 @@ def rescale(img: np.ndarray, scale_percent: int = 75) -> np.ndarray:
 
 def clean_bad_images(df: pd.DataFrame) -> pd.DataFrame:
     """Remove dark or blurry images from the dataframe"""
-    crop_path = df['crop_path'].tolist()
-    data_path = Path(crop_path[0]).parent # just take the first image to get the data path
+    crop_path = Path(df.iloc[0]['crop_path'])
+    data_path = crop_path.parent.parent # crops are organized into directories per image, so the grandparent is the root
     imagelab = Imagelab(data_path=data_path)
     imagelab.find_issues()
     # Columns to check for issues
