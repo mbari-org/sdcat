@@ -8,7 +8,7 @@ from pathlib import Path
 from datetime import datetime as dt, timezone
 
 LOGGER_NAME = "sdcat"
-DEBUG = True
+DEBUG = False
 
 logging.getLogger("modin").setLevel(logging.ERROR)
 
@@ -36,7 +36,7 @@ class CustomLogger(Singleton):
         Initialize the logger
         """
         self.logger = logging.getLogger(LOGGER_NAME)
-        self.logger.setLevel(logging.DEBUG)
+        self.logger.setLevel(logging.INFO)
         self.output_path = output_path
         self.output_path.mkdir(parents=True, exist_ok=True)
         formatter = logging.Formatter("%(asctime)s %(levelname)s %(message)s")
