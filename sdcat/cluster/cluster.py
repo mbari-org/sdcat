@@ -253,7 +253,6 @@ def _run_hdbscan_assign(
         f'use_tsne {use_tsne} ...')
 
     # Add in any numerical ancillary data and replace NaNs with 0
-    df = pandas.DataFrame(image_emb)
     numerical = ancillary_df.select_dtypes(include=["float", "int"])
     if not numerical.empty:
         numerical = numerical.fillna(0)
@@ -261,9 +260,9 @@ def _run_hdbscan_assign(
         # Normalize the numerical data from 0 to 1 and add it to the dataframe
         numerical = (numerical - numerical.min()) / (numerical.max() - numerical.min())
 
-        # Skip of the numerical data is all NaN
+        # Keep if the numerical data is not all NaN
         if not np.all(np.isnan(numerical)):
-            df = pd.merge(df, numerical, left_index=True, right_index=True, how='left')
+            df = numerical
             df = df.fillna(0)
 
     # Add a batch and cluster column
