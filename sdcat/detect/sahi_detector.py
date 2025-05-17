@@ -5,7 +5,7 @@ import numpy as np
 from pathlib import Path
 
 import cv2
-import modin.pandas as pd
+import pandas as pd
 import torch
 from sahi.predict import get_sliced_prediction
 

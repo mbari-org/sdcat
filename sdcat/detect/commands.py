@@ -1,13 +1,14 @@
 # sdcat, Apache-2.0 license
 # Filename: sdcat/detect/commands.py
 # Description:  Command line interface for running detection on images using SAHI and saliency detection algorithms.
+import multiprocessing
 import os
 import shutil
 from pathlib import Path
 
 import click
 from tqdm import tqdm
-import modin.pandas as pd
+import pandas as pd
 import torch
 
 from sdcat import common_args
@@ -142,66 +143,43 @@ def run_detect(show: bool, image_dir: str, save_dir: str, save_roi:bool, roi_siz
     if num_images == 0:
         return
 
+    num_processes = min(multiprocessing.cpu_count(), num_images)
     if not skip_saliency:
         # For development, run on a single image with
         # run_saliency_detect(spec_remove, scale_percent, images[0].as_posix(), (save_path_det_raw / f'{images[0].stem}.csv').as_posix(), clahe=clahe, show=True)
-        df_args = pd.DataFrame([{
-            "spec_remove": spec_remove,
-            "scale_percent": scale_percent,
-            "images": images[i:i + 1],  # a list with one image, like original
-            "save_path_det_raw": save_path_det_raw,
-            "min_std": min_std,
-            "block_size": block_size,
-            "clahe": clahe,
-            "show": show
-        } for i in range(0, num_images)])
-
-        def run_saliency_wrapper(row):
-            return run_saliency_detect_bulk(
-                row.spec_remove,
-                row.scale_percent,
-                row.images,
-                row.save_path_det_raw,
-                row.min_std,
-                row.block_size,
-                row.clahe,
-                row.show
-            )
-        info(f"Running saliency detection on {num_images} images...")
-        df_args.apply(run_saliency_wrapper, axis=1)
+        # Do the work in parallel to speed up the processing on multicore machines
+        info(f'Using {num_processes} processes to compute {num_images} images 10 at a time ...')
+        # # Run multiple processes in parallel num_cpu images at a time
+        with multiprocessing.Pool(num_processes) as pool:
+            args = [(spec_remove,
+                     scale_percent,
+                     images[i:i + 1],
+                     save_path_det_raw,
+                     min_std,
+                     block_size,
+                     clahe,
+                     show)
+                    for i in range(0, num_images, 1)]
+            pool.starmap(run_saliency_detect_bulk, args)
+            pool.close()
     if device == 'cpu':
-        if not skip_sahi:
-            df_args = pd.DataFrame([{
-                "scale_percent": scale_percent,
-                "slice_size_width": slice_size_width,
-                "slice_size_height": slice_size_height,
-                "images": [image],
-                "save_path_det_raw": save_path_det_raw,
-                "detection_model": detection_model,
-                "postprocess_match_metric": postprocess_match_metric,
-                "overlap_width_ratio": overlap_width_ratio,
-                "overlap_height_ratio": overlap_height_ratio,
-                "allowable_classes": allowable_classes,
-                "class_agnostic": class_agnostic
-            } for image in images])
-
-            def run_sahi_wrapper(row):
-                return run_sahi_detect_bulk(
-                    row.scale_percent,
-                    row.slice_size_width,
-                    row.slice_size_height,
-                    row.images,
-                    row.save_path_det_raw,
-                    row.detection_model,
-                    row.postprocess_match_metric,
-                    row.overlap_width_ratio,
-                    row.overlap_height_ratio,
-                    row.allowable_classes,
-                    row.class_agnostic
-                )
-
-            info(f"Running SAHI detection on {len(images)} images...")
-            df_args.apply(run_sahi_wrapper, axis=1)
+        with multiprocessing.Pool(num_processes) as pool:
+            if not skip_sahi:
+                # Run sahi detection on each image
+                args = [(scale_percent,
+                         slice_size_width,
+                         slice_size_height,
+                         [image],
+                         save_path_det_raw,
+                         detection_model,
+                         postprocess_match_metric,
+                         overlap_width_ratio,
+                         overlap_height_ratio,
+                         allowable_classes,
+                         class_agnostic)
+                        for image in images]
+                pool.starmap(run_sahi_detect_bulk, args)
+                pool.close()
     else:
         for f in tqdm(images):
             if not skip_saliency:
@@ -231,39 +209,26 @@ def run_detect(show: bool, image_dir: str, save_dir: str, save_roi:bool, roi_siz
     total_detections = sum(pd.read_csv(f).shape[0] for f in save_path_det_raw.rglob('*.csv'))
     total_images = len(images)
 
-    df_args = pd.DataFrame([{
-        "image": image,
-        "save_path_base": save_path_base,
-        "save_path_det_raw": save_path_det_raw,
-        "save_path_det_filtered": save_path_det_filtered,
-        "save_path_det_roi": save_path_det_roi,
-        "save_path_viz": save_path_viz,
-        "min_area": min_area,
-        "max_area": max_area,
-        "min_saliency": min_saliency,
-        "class_agnostic": class_agnostic,
-        "save_roi": save_roi,
-        "roi_size": roi_size
-    } for image in images])
+    args = [(image,
+             save_path_base,
+             save_path_det_raw,
+             save_path_det_filtered,
+             save_path_det_roi,
+             save_path_viz,
+             min_area,
+             max_area,
+             min_saliency,
+             class_agnostic,
+             save_roi,
+             roi_size)
+            for image in images]
 
-    def process_image_wrapper(row):
-        return process_image(
-            row.image,
-            row.save_path_base,
-            row.save_path_det_raw,
-            row.save_path_det_filtered,
-            row.save_path_det_roi,
-            row.save_path_viz,
-            row.min_area,
-            row.max_area,
-            row.min_saliency,
-            row.class_agnostic,
-            row.save_roi,
-            row.roi_size
-        )
+    # Process images in parallel
+    num_processes = min(multiprocessing.cpu_count(), total_images)
+    with multiprocessing.Pool(num_processes) as pool:
+        results = pool.starmap(process_image, args)
+        pool.close()
 
-    info(f"Processing {len(images)} images")
-    results = df_args.apply(process_image_wrapper, axis=1)
     total_filtered = sum(results)
     info(f'Found {total_detections} total localizations in {total_images} with {total_filtered} after NMS')
     info('Done')

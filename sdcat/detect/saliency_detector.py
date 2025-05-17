@@ -4,7 +4,7 @@
 import tempfile
 import cv2
 import numpy as np
-import modin.pandas as pd
+import pandas as pd
 
 from sdcat.cluster.utils import rescale
 from sdcat.reflectance.cleaner import specularity_removal
