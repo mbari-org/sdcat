@@ -74,6 +74,7 @@ def run_detect(show: bool, image_dir: str, save_dir: str, save_roi:bool, roi_siz
 
     if not skip_sahi:
         if 'cuda' in device:
+            torch.cuda.empty_cache()
             num_devices = torch.cuda.device_count()
             info(f'{num_devices} cuda devices available')
             device_ = torch.device(device)
