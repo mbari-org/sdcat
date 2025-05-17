@@ -44,7 +44,6 @@ def _visualize_clusters(df: pd.DataFrame, clusters: list, output_path: Path, pre
     Visualize the clusters using t-SNE or UMAP.
     """
     # For each cluster  let's create a grid of the images to check the quality of the clustering results
-    images = df['crop_path'].tolist()
 
     # Remove the noise clusters
     cluster_indices = {}
@@ -60,9 +59,9 @@ def _visualize_clusters(df: pd.DataFrame, clusters: list, output_path: Path, pre
             "prefix": prefix,
             "sim": cluster_sim[c],
             "cluster_id": c,
-            "indices": cluster_indices[c],
+            "cluster_size": len(cluster_indices[c]),
             "grid_size": grid_size,
-            "images": [images[i] for i in cluster_indices[c]],
+            "images": df.loc[cluster_indices[c], 'crop_path'].tolist()[0:150], # Limit to 150 images
             "output_path": output_path / prefix
         })
 
@@ -72,12 +71,12 @@ def _visualize_clusters(df: pd.DataFrame, clusters: list, output_path: Path, pre
         return cluster_grid(row.prefix,
                             row.sim,
                             row.cluster_id,
-                            row.indices,
+                            row.cluster_size,
                             row.grid_size,
                             row.images,
                             row.output_path)
 
-    info(f"Visualizing {len(df_clusters)} clusters in parallel using Modin...")
+    info(f"Visualizing {len(df_clusters)} clusters...")
     df_clusters.apply(cluster_grid_wrapper, axis=1)
 
     num_samples = df.shape[0]
@@ -541,8 +540,7 @@ def cluster_vits(
     with open(f'{output_path}/{prefix}_params.json', 'w') as f:
         json.dump(hdbscan_params, f)
     info(f"Saved {output_path}/{prefix}_params.json")
-    exemplar_df.to_csv(output_path / f'{prefix}_exemplars.csv', index=False)
-    info(f'Saved {output_path / f"{prefix}_exemplars.csv"}')
+
     final_df.to_csv(output_path / f'{prefix}_clusters.csv', index=False)
     info(f'Saved {output_path / f"{prefix}_clusters.csv"}')
 

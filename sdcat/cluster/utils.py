@@ -11,7 +11,6 @@ from cleanvision import Imagelab
 from matplotlib import pyplot as plt
 from mpl_toolkits.axes_grid1 import ImageGrid
 from pathlib import Path
-
 from sdcat.logger import info, debug, warn, exception
 
 
@@ -26,7 +25,7 @@ def cluster_grid(prefix: str, cluster_sim: float, cluster_id: int, cluster_size:
     :param output_path: output path to save the visualization to
     :return:
     """
-    debug(f'Cluster number {cluster_id} size {len(cluster_size)} similarity {cluster_sim}')
+    debug(f'Cluster number {cluster_id} size {cluster_size} similarity {cluster_sim}')
 
     # Plot a grid for each group of images nb_images_display at a time (e.g. 8x8)
     for i in range(0, len(images), nb_images_display * nb_images_display):
@@ -56,22 +55,15 @@ def cluster_grid(prefix: str, cluster_sim: float, cluster_id: int, cluster_size:
                 continue
 
             grid[j].axis('off')
-            # If the verified is in the image name, then add a label to the image in the top center corner
-            if 'verified' in image:
-                n = Path(image)
-                title = f"{n.stem.split('_')[0]}"
-                grid[j].text(30, 10, title, fontsize=8, color='white', ha='center', va='center')
-            # clear the x and y-axis
             grid[j].set_xticklabels([])
 
         # Add a title to the figure
         if total_pages > 1:
-            fig.suptitle(
-                f"{prefix} Cluster {cluster_id}, Size: {len(cluster_size)}, Similarity: {cluster_sim:.2f}, Page: {page} of {total_pages}",
-                fontsize=16)
+            plt.title(f"{prefix} Cluster {cluster_id}, Page: {page} of {total_pages}", fontsize=20)
+            fig.suptitle(f"Similarity: {cluster_sim:.2f}, Size: {cluster_size},", fontsize=16)
         else:
-            fig.suptitle(f"{prefix} Cluster {cluster_id}, Size: {len(cluster_size)}, Similarity: {cluster_sim:.2f}",
-                         fontsize=16)
+            plt.title(f"{prefix} Cluster {cluster_id}", fontsize=20)
+            fig.suptitle(f"Similarity: {cluster_sim:.2f}, Size: {cluster_size},", fontsize=16)
 
         # Set the background color of the grid to white
         fig.set_facecolor('white')
