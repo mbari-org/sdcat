@@ -11,7 +11,7 @@ import cv2
 from transformers import AutoModelForImageClassification, AutoImageProcessor
 import torch.nn.functional as F
 
-from cluster.utils import compute_embedding_multi_gpu
+from sdcat.cluster.utils import compute_embedding_multi_gpu
 from sdcat.logger import info, err
 
 
