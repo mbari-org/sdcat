@@ -161,8 +161,8 @@ def compute_norm_embedding(model_name: str, images: list, device: str = "cpu", b
     # mean, std = calc_mean_std(images)
 
     # If using a GPU, set then skip the parallel CPU processing
-    if torch.cuda.is_available() and device == "cuda":
-        if torch.cuda.device_count() > 1:
+    if torch.cuda.is_available() and 'cuda' in device:
+        if torch.cuda.device_count() > 1 and device == "cuda":
             torch.cuda.empty_cache()
             compute_embedding_multi_gpu(model_name, images, batch_size)
         else:
@@ -173,7 +173,7 @@ def compute_norm_embedding(model_name: str, images: list, device: str = "cpu", b
         import modin.pandas as pd
         df_args = pd.DataFrame([{
             "vit_wrapper": vit_wrapper,
-            "images_batch": batch,
+            "images_batch": [batch],
             "batch_size": batch_size
         } for batch in images])
 
