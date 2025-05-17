@@ -262,8 +262,8 @@ def filter_images(min_area:int, max_area: int, min_saliency: int, min_score:floa
 def compute_embedding_multi_gpu(model_name: str, images: list, batch_size: int = 32):
 
     from concurrent.futures import ThreadPoolExecutor
-    from cluster.embedding import ViTWrapper
-    from cluster.embedding import compute_embedding_vits
+    from sdcat.cluster.embedding import ViTWrapper
+    from sdcat.cluster.embedding import compute_embedding_vits
     import torch
     import math
 
