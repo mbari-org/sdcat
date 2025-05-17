@@ -3,7 +3,6 @@
 # Description:  Miscellaneous functions for computing VIT embeddings and caching them.
 
 import os
-import multiprocessing
 from PIL import Image
 from numpy import save, load
 import numpy as np
@@ -160,17 +159,17 @@ def compute_norm_embedding(model_name: str, images: list, device: str = "cpu", b
     # This did not work well, but it might be worth revisiting, passing the mean
     # and std to the compute_embedding function
     # mean, std = calc_mean_std(images)
-    vit_wrapper = ViTWrapper(device=device, model_name=model_name)
-    compute_embedding_vits(vit_wrapper, images, batch_size)
 
     # If using a GPU, set then skip the parallel CPU processing
-    if torch.cuda.is_available():
-        if torch.cuda.device_count() > 1 and device == "cpu" or device == "cuda":
+    if torch.cuda.is_available() and 'cuda' in device:
+        if torch.cuda.device_count() > 1 and device == "cuda":
             torch.cuda.empty_cache()
             compute_embedding_multi_gpu(model_name, images, batch_size)
         else:
+            vit_wrapper = ViTWrapper(device=device, model_name=model_name)
             compute_embedding_vits(vit_wrapper, images, batch_size)
     else:
+        vit_wrapper = ViTWrapper(device='cpu', model_name=model_name)
         import modin.pandas as pd
         df_args = pd.DataFrame([{
             "vit_wrapper": vit_wrapper,
