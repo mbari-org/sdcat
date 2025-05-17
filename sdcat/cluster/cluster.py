@@ -270,32 +270,29 @@ def _run_hdbscan_assign(
     x = MinMaxScaler().fit_transform(embedding)  # scale the embedding to 0-1
 
     # Cluster the embeddings using HDBSCAN
-    if len(df) == 1:
-        labels = np.array([0])
+    if have_gpu:
+        scan = cuHDBSCAN(
+            metric='euclidean',  # 'precomputed' does not work with cuHDBSCAN
+            allow_single_cluster=True,
+            min_cluster_size=min_cluster_size,
+            min_samples=min_samples,
+            alpha=alpha,
+            algorithm=algorithm,
+            cluster_selection_epsilon=cluster_selection_epsilon,
+            cluster_selection_method=cluster_selection_method)
+        labels = scan.fit_predict(x)
     else:
-        if have_gpu:
-            scan = cuHDBSCAN(
-                metric='euclidean',  # 'precomputed' does not work with cuHDBSCAN
+        scan = HDBSCAN(
+                prediction_data=True,
+                metric='l2',
+                algorithm=algorithm,
                 allow_single_cluster=True,
                 min_cluster_size=min_cluster_size,
                 min_samples=min_samples,
                 alpha=alpha,
-                algorithm=algorithm,
                 cluster_selection_epsilon=cluster_selection_epsilon,
                 cluster_selection_method=cluster_selection_method)
-            labels = scan.fit_predict(x)
-        else:
-            scan = HDBSCAN(
-                    prediction_data=True,
-                    metric='l2',
-                    algorithm=algorithm,
-                    allow_single_cluster=True,
-                    min_cluster_size=min_cluster_size,
-                    min_samples=min_samples,
-                    alpha=alpha,
-                    cluster_selection_epsilon=cluster_selection_epsilon,
-                    cluster_selection_method=cluster_selection_method)
-            labels = scan.fit_predict(x)
+        labels = scan.fit_predict(x)
 
     # Get the unique clusters and sort them; -1 are unassigned clusters
     cluster_df = pd.DataFrame(labels, columns=['cluster'])
