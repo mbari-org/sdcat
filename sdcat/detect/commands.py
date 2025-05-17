@@ -149,18 +149,18 @@ def run_detect(show: bool, image_dir: str, save_dir: str, save_roi:bool, roi_siz
         # For development, run on a single image with
         # run_saliency_detect(spec_remove, scale_percent, images[0].as_posix(), (save_path_det_raw / f'{images[0].stem}.csv').as_posix(), clahe=clahe, show=True)
         # Do the work in parallel to speed up the processing on multicore machines
-        info(f'Using {num_processes} processes to compute {num_images} images 10 at a time ...')
+        info(f'Using {num_processes} processes to compute {num_images} images 2 at a time ...')
         # # Run multiple processes in parallel num_cpu images at a time
         with multiprocessing.Pool(num_processes) as pool:
             args = [(spec_remove,
                      scale_percent,
-                     images[i:i + 1],
+                     images[i:i + 2],
                      save_path_det_raw,
                      min_std,
                      block_size,
                      clahe,
                      show)
-                    for i in range(0, num_images, 1)]
+                    for i in range(0, num_images, 2)]
             pool.starmap(run_saliency_detect_bulk, args)
             pool.close()
     if device == 'cpu':
