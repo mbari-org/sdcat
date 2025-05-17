@@ -380,7 +380,7 @@ def cluster_vits(
     :param min_similarity: The minimum similarity score to use for -1 cluster reassignment
     :param min_cluster_size: The minimum number of samples in a cluster
     :param min_samples:The number of samples in a neighborhood for a point
-    :param device: The device to use for clustering, 'cpu' or 'cuda'
+    :param device: The device to use for clustering, 'cpu' or 'cuda' or 'cuda:0' or 'cuda:1'
     :param weighted_score: Whether to weight score for the prediction from vits model with detection weight
     :param use_vits: Set to using the predictions from the vits cluster model
     :param skip_visualization: Whether to skip the visualization of the clusters

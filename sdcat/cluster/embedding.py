@@ -161,8 +161,8 @@ def compute_norm_embedding(model_name: str, images: list, device: str = "cpu", b
     # mean, std = calc_mean_std(images)
 
     # If using a GPU, set then skip the parallel CPU processing
-    if torch.cuda.is_available() and 'cuda' in device:
-        if torch.cuda.device_count() > 1 and device == "cuda":
+    if torch.cuda.is_available() and device == "cuda":
+        if torch.cuda.device_count() > 1:
             torch.cuda.empty_cache()
             compute_embedding_multi_gpu(model_name, images, batch_size)
         else:
