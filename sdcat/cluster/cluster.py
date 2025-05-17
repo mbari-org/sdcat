@@ -9,6 +9,7 @@ import os
 import json
 
 import seaborn as sns
+import tqdm
 import modin.pandas as pd
 import numpy as np
 from umap import UMAP
@@ -171,14 +172,15 @@ def _merge(
     # Assign noise -1 cluster to the nearest exemplar
     labels = df['cluster_reindex'].values
     noise = np.where(labels == -1)[0]
-    for i in noise:
+    info(f'Assigning noise clusters to nearest exemplar ...')
+    for i in tqdm.tqdm(range(len(noise))):
         noise_emb, _, _ = fetch_embedding(model, df.iloc[i]['crop_path'])
         sim = cosine_similarity([noise_emb], exemplar_emb)
         cluster = np.argmax(sim)
         score = np.max(sim)
         if score > min_similarity:
             labels[i] = cluster
-            debug(f'Noise {i} is now {cluster} {score}')
+            # debug(f'Noise {i} is now {cluster} {score}')
     df['cluster_reindex'] = labels
 
     info(f'Merging clusters with similarity threshold {min_similarity:.2f} ...')
