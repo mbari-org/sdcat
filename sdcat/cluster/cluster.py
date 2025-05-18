@@ -141,6 +141,7 @@ def _similarity_merge(
         df.loc[valid_mask]
         .groupby(['batch', 'cluster'], sort=False)
         .ngroup()
+        .values
     )
 
     # Get the exemplar embeddings
@@ -164,15 +165,17 @@ def _similarity_merge(
         score = np.max(sim)
         if score > min_similarity:
             labels[i] = cluster
-            # debug(f'Noise {i} is now {cluster} {score}')
+            debug(f'Noise {i} is now {cluster} {score}')
     df['cluster_reindex'] = labels
+
+    unique_clusters_before = df['cluster_reindex'].unique()
 
     info(f'Merging clusters with similarity threshold {min_similarity:.2f} ...')
     linkage_matrix = linkage(exemplar_emb, method='complete', metric='cosine')
     cluster_labels = fcluster(linkage_matrix, 1 - min_similarity, criterion='distance')
 
     unique_clusters = np.unique(cluster_labels)
-    info(f'Unique clusters before merging: {len(unique_clusters)} clusters')
+    info(f'Unique clusters before merging: {len(unique_clusters_before)}')
     # If the cluster labels are all the same, then we have a single cluster and we can't merge
     if len(np.unique(cluster_labels)) == 1:
         info(f'No clusters to merge')
@@ -186,14 +189,14 @@ def _similarity_merge(
             labels[i] = cluster_labels[labels[i]]
         df['cluster_reindex'] = labels
 
-
         unique_clusters = df['cluster_reindex'].unique()
-        # Drop the -1 value which are the noise
         unique_clusters = unique_clusters.tolist()
-        unique_clusters.remove(-1)
+        # Drop the -1 value which are the noise
+        if -1 in unique_clusters:
+            unique_clusters.remove(-1)
         unique_clusters.sort()
 
-        info(f'Unique clusters after merging: {len(unique_clusters)} clusters')
+        info(f'Unique clusters after merging: {len(unique_clusters)}')
         for c in unique_clusters:
             rows = df[df['cluster_reindex'] == c]
             debug(f'Cluster {c} has {len(rows)} samples')
@@ -215,6 +218,8 @@ def _similarity_merge(
         sim = cosine_similarity(cluster_emb)
         avg_sim_scores[cluster] = np.mean(sim)
 
+    df.drop(columns=['cluster'], inplace=True)
+    df.rename(columns={'cluster_reindex': 'cluster'}, inplace=True)
     return df, avg_sim_scores
 
 
@@ -252,7 +257,7 @@ def _run_hdbscan_assign(
         f'use_tsne {use_tsne} ...')
 
 
-    # Get the number of samples which is the number of rows in the dataframe - this is used mostly for calculating coverage
+    # Get the number of samples which is the number of rows in the dataframe
     num_samples = df.shape[0]
 
     # Perplexity must be less than the number of samples
@@ -261,10 +266,10 @@ def _run_hdbscan_assign(
     # TSN-E does not work well when we have a few samples
     if num_samples > 100 and use_tsne:
         tsne = TSNE(n_components=2, perplexity=perplexity, metric="cosine", n_jobs=8, random_state=42, verbose=True)
-        embedding = tsne.fit_transform(df.values)
+        features = tsne.fit_transform(df.values)
     else:
-        embedding = df.values
-    x = MinMaxScaler().fit_transform(embedding)  # scale the embedding to 0-1
+        features = df.values
+    x = MinMaxScaler().fit_transform(features)  # scale the data to 0-1
 
     # Cluster the embeddings using HDBSCAN
     if have_gpu:
@@ -296,13 +301,12 @@ def _run_hdbscan_assign(
     cluster_df['batch'] = batch_id
     cluster_df['cluster'] = cluster_df['cluster'].astype('int') # Convert the cluster column to int
     unique_clusters = cluster_df['cluster'].unique().tolist()
-    unique_clusters.sort()
     info(f"Number of clusters including unassigned -1 cluster: {len(unique_clusters)}")
 
     # Get the index of the highest scores for each unique cluster sorted in increasing order
     # and use this as a representative image for the cluster
-    cluster_df['score'] = scan.probabilities_
-    max_scores = cluster_df.sort_values('cluster', ascending=True).groupby('cluster')['score'].idxmax()
+    cluster_df['HDBSCAN_score'] = scan.probabilities_
+    max_scores = cluster_df.sort_values('cluster', ascending=True).groupby('cluster')['HDBSCAN_score'].idxmax()
 
     # Remove the first element which is the -1 cluster
     max_scores = max_scores[1:]
@@ -463,7 +467,8 @@ def cluster_vits(
                     ancillary_data = ancillary_data.iloc[0]
                 df_batch.loc[df_batch['crop_path'] == filename, ancillary_df.columns] = ancillary_data
 
-        # Drop any non-numeric columns and other columns that are not needed
+        # Drop any non-numeric columns and other columns that are not needed. This should retain area saliency if present
+        # which may be useful for clustering
         df_batch = df_batch.select_dtypes(include=["float", "int"])
         df_batch = df_batch.drop(columns=['image_width', 'image_height', 'score_s', 'score'], errors='ignore')
         df_assign = _run_hdbscan_assign(df_batch,
@@ -478,22 +483,28 @@ def cluster_vits(
         df_assign.index = range(start,end)
         batch_df = pd.concat([batch_df, df_assign], axis=0)
 
-    # Merge the final dataframe with the original dataframe to get the original columns
-    merged_df = pd.concat([df_dets, batch_df], axis=1)
-    merged_df = merged_df.loc[:, ~merged_df.columns.duplicated()]
-
     # Merge by similarity
-    final_df, avg_sim_scores = _similarity_merge(merged_df, min_similarity, model)
+    # Only keep the columns we need for clustering as needed for grouping
+    df_to_merge = batch_df[['cluster', 'batch', 'exemplar']]
+    df_to_merge['crop_path'] = df_dets['crop_path']
+    similarity_df, avg_sim_scores = _similarity_merge(df_to_merge, min_similarity, model)
+
+    # Merge similarity_df with df_dets
+    # Drop duplicate columns to support the join
+    similarity_df.drop(columns=['crop_path'], inplace=True)
+    df_dets.drop(columns=['cluster'], inplace=True)
+    final_df = df_dets.join(similarity_df)
 
     # Get the average similarity across all clusters
     avg_similarity = np.mean(list(avg_sim_scores.values()))
 
     info(f'Average similarity: {avg_similarity:.2f} min {min_similarity:.2f}  ')
-    unique_clusters = final_df['cluster_reindex'].unique()
+    unique_clusters = final_df['cluster'].unique()
 
     # Drop the -1 value which are the noise
     unique_clusters = unique_clusters.tolist()
-    unique_clusters.remove(-1)
+    if -1 in unique_clusters:
+        unique_clusters.remove(-1)
     unique_clusters.sort()
 
     if len(unique_clusters) == 0:
@@ -501,19 +512,14 @@ def cluster_vits(
 
     info(f'Found {len(unique_clusters)} clusters with an average similarity of {avg_similarity:.2f} ')
 
-    # Save the exemplar embeddings to a dataframe with some metadata
+    # Save the exemplar embeddings to a dataframe with some metadata such as the model used
     exemplar_df = final_df[final_df['exemplar'] == 1].copy()
-    exemplar_df['model'] = model
-    # Add the embedding to the exemplar dataframe
     exemplar_df['embedding'] = [fetch_embedding(model, filename)[0] for filename in exemplar_df['crop_path']]
+    exemplar_df['model'] = str(model)
     exemplar_df.to_csv(output_path / f'{prefix}_exemplars.csv', index=False)
 
-    # Visualize the clusters
-    if not skip_visualization:
-        _visualize_clusters(final_df, unique_clusters, output_path, prefix, avg_sim_scores, model)
-
     num_samples = final_df.shape[0]
-    clustered = final_df['cluster'].values >= 0
+    clustered = final_df['cluster'].values != -1
     coverage = np.sum(clustered) / num_samples
     info(f'Coverage: {coverage:.2f} ({np.sum(clustered)}/{num_samples})')
 
@@ -533,6 +539,10 @@ def cluster_vits(
 
     final_df.to_csv(output_path / f'{prefix}_clusters.csv', index=False)
     info(f'Saved {output_path / f"{prefix}_clusters.csv"}')
+
+    # Visualize the clusters
+    # if not skip_visualization:
+    #     _visualize_clusters(final_df, unique_clusters, output_path, prefix, avg_sim_scores, model)
 
     return final_df
 
