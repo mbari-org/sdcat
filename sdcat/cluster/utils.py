@@ -6,6 +6,7 @@ import os
 import cv2
 import numpy as np
 import modin.pandas as pd
+from typing import List
 from PIL import Image
 from cleanvision import Imagelab
 from matplotlib import pyplot as plt
@@ -15,9 +16,10 @@ from sdcat.logger import info, debug, warn, exception
 
 
 def cluster_grid(prefix: str, cluster_sim: float, cluster_id: int, nb_images_display: int,
-                 images: list, output_path: Path):
+                 images: List[str], output_path: Path):
     """
     Cluster visualization; create a grid of images
+    :
     :param cluster_sim: Cluster similarity
     :param cluster_size: Size of the cluster
     :param cluster_id: Cluster ID
@@ -74,44 +76,6 @@ def cluster_grid(prefix: str, cluster_sim: float, cluster_id: int, nb_images_dis
         debug(f'Writing {out}')
         fig.savefig(out.as_posix())
         plt.close(fig)
-
-
-
-def square_image(row, square_dim: int):
-    """
-    Squares an image to the model dimension, filling it with black bars if necessary
-    :param row:
-    :param square_dim: dimension of the square image
-    :return:
-    """
-    try:
-        if not Path(row.image_path).exists():
-            warn(f'Skipping {row.crop_path} because the image {row.image_path} does not exist')
-            return
-
-        if Path(row.crop_path).exists():  # If the crop already exists, skip it
-            return
-
-        # Determine the size of the new square
-        max_side = max(row.image_width, row.image_height)
-
-        # Create a new square image with a black background
-        new_image = Image.new('RGB', (max_side, max_side), (0, 0, 0))
-
-        img = Image.open(row.image_path)
-
-        # Paste the original image onto the center of the new image
-        new_image.paste(img, ((max_side - row.image_width) // 2, (max_side - row.image_height) // 2))
-
-        # Resize the image to square_dim x square_dim
-        img = img.resize((square_dim, square_dim), Image.LANCZOS)
-
-        # Save the image
-        img.save(row.crop_path)
-        img.close()
-    except Exception as e:
-        exception(f'Error cropping {row.image_path} {e}')
-        raise e
 
 
 def crop_square_image(row, square_dim: int):
@@ -286,3 +250,34 @@ def compute_embedding_multi_gpu(model_name: str, images: list, batch_size: int =
         return sum(results, [])
 
     multi_gpu_compute(model_name, images, batch_size)
+
+
+def combine_csv(csv_files: List[Path], temp_path: Path, crop_path: str, start_image:str =None, end_image:str=None ) -> Path:
+    from tqdm import tqdm
+
+    output_file = temp_path / "combined.csv"
+
+    info(f'Combining detection files to {output_file}...')
+    with open(output_file, "w", encoding="utf-8") as outfile:
+        first_file = True
+        for file in tqdm(csv_files, desc='Combining detection files', unit='file'):
+            if start_image and start_image in file.stem:
+                continue
+            if end_image and end_image in file.stem:
+                continue
+            # Create a crop directory for each detection file
+            crop_root = crop_path / file.stem
+            crop_root.mkdir(parents=True, exist_ok=True)
+            with open(file, "r", encoding="utf-8") as infile:
+                lines = infile.readlines()
+                if first_file:
+                    header = lines[0].strip() + ',crop_root\n'
+                    outfile.writelines(header)  # include header
+                    out_text = [l.strip() + f',{crop_root}\n' for l in lines[1:]]
+                    outfile.writelines(out_text)
+                    first_file = False
+                else:
+                    out_text = [l.strip() + f',{crop_root}\n' for l in lines[1:]]
+                    outfile.writelines(out_text)
+    info(f'Combined detection files to {output_file}')
+    return str(output_file)

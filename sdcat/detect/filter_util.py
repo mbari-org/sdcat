@@ -41,7 +41,7 @@ def process_image(image_filename, save_path_base, save_path_det_raw, save_path_d
         df_final['saliency'] = df_combined['saliency'].iloc[nms_pred_idx].reset_index(drop=True)
         df_final['area'] = df_combined['area'].iloc[nms_pred_idx].reset_index(drop=True)
 
-        pred_list = df_final[['x', 'y', 'xx', 'xy', 'score', 'class']].values.tolist()
+        pred_list = df_final[['x', 'y', 'xx', 'xy', 'score', 'class']].values
         for p in pred_list:
             if class_agnostic:
                 img_color = cv2.rectangle(img_color, (int(p[0]), int(p[1])), (int(p[2]), int(p[3])), (81, 12, 51), 3)

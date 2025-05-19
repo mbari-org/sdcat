@@ -5,7 +5,6 @@ from importlib.util import find_spec
 
 from pathlib import Path
 import os
-import json
 
 import pandas
 import seaborn as sns
@@ -39,90 +38,102 @@ sns.set_style("darkgrid", {"axes.facecolor": ".9"})
 sns.set(rc={"figure.figsize": (12, 10)})
 
 
-def _visualize_clusters(df: pd.DataFrame, clusters: list, output_path: Path, prefix: str, cluster_sim: list, model: str) -> None:
+def _summarize_clusters(df: pd.DataFrame, clusters: list, output_path: Path, prefix: str,
+                            cluster_sim: list, model: str, skip_visualization: bool, hdbscan_params: dict[str]) -> dict:
     """
-    Visualize the clusters using t-SNE or UMAP.
+    Summarize and optionally visualize the clusters using t-SNE or UMAP in grids
     """
-    # For each cluster  let's create a grid of the images to check the quality of the clustering results
-    import multiprocessing
-    num_processes = min(multiprocessing.cpu_count(), len(clusters))
-    info(f'Using {num_processes} processes to visualize the {len(clusters)} clusters')
-
     image_paths = {}
+    clustered = df[df['cluster'] != -1]
+    labels = clustered['cluster'].values
+    num_samples = len(labels)
+    clusters = np.unique(labels)
+    num_clusters = len(clusters)
     for c in clusters:
-        if c == -1:
-            continue
-        image_paths[c] = list(df.loc[df['cluster_reindex'] == c]['crop_path'])
+        image_paths[c] = list(df.loc[df['cluster'] == c]['crop_path'])
 
-    # Use a pool of processes to speed up the visualization of the clusters
-    # Skip modin here because it does not offer much speedup
-    with multiprocessing.Pool(num_processes) as pool:
-        args = [(prefix,
-                 cluster_sim[c],
-                 c,
-                 4 if len(image_paths[c]) < 50 else 8,  # grid size; larger clusters get larger grids
-                 image_paths[c],
-                 output_path / prefix) for c in image_paths.keys()]
-        pool.starmap(cluster_grid, args)
+    if not skip_visualization:
+        # Create a grid of the images to check the quality of the clustering results
+        import multiprocessing
+        num_processes = min(multiprocessing.cpu_count(), num_clusters)
+        info(f'Using {num_processes} processes to visualize the {num_clusters} clusters')
 
-    num_samples = df.shape[0]
-    # Cannot use init='spectral' when n_components is >= num_samples - default to 'random' instead
-    n_components = min(2, num_samples)
-    if n_components >= num_samples:
-        init = 'random'
-    else:
-        init = 'spectral'
+        # Use a pool of processes to speed up the visualization of the clusters
+        # Skip modin here because it does not offer much speedup
+        with multiprocessing.Pool(num_processes) as pool:
+            args = [(prefix,
+                     cluster_sim[c],
+                     c,
+                     4 if len(image_paths[c]) < 50 else 8,  # grid size; larger clusters get larger grids
+                     image_paths[c],
+                     output_path / prefix) for c in image_paths.keys()]
+            pool.starmap(cluster_grid, args)
 
-    # Reduce the dimensionality of the embeddings using UMAP to 2 dimensions to visualize the clusters
-    # Only use the exemplars and a random sample of 5000 images to speed up the visualization
-    filtered_df = df[df["cluster_reindex"] != -1]
-    sampled_df = filtered_df.sample(n=min(num_samples, 5000), random_state=42, replace=True)
-    sampled_data = [fetch_embedding(model, filename)[0] for filename in sampled_df['crop_path']]
-    data = sampled_data
-    np_data = np.array(data)
-
-    n_neighbors = min(15, num_samples - 1)
-    info(f'Using {n_neighbors} neighbors for dimensional reduction')
-    if n_neighbors < 2:
-        warn('Using PCA instead of UMAP')
-        from sklearn.decomposition import PCA
-        pca = PCA(n_components=2)
-        xx = pca.fit_transform(np_data)
-    else:
-        if have_gpu:
-            xx = cuUMAP(init=init,
-                        n_components=2,
-                        n_neighbors=n_neighbors,
-                        min_dist=0.1,
-                        metric='euclidean').fit_transform(np_data)
+        # Cannot use init='spectral' when n_components is >= num_samples - default to 'random' instead
+        n_components = min(2, num_samples)
+        if n_components >= num_samples:
+            init = 'random'
         else:
-            xx = UMAP(init=init,
-                      n_components=2,
-                      n_neighbors=n_neighbors,
-                      metric='cosine').fit_transform(np_data)
+            init = 'spectral'
 
-    clustered = sampled_df['cluster_reindex'].values >= 0
-    labels = sampled_df['cluster_reindex'].values
-    df = pandas.DataFrame({'x': xx[:,0], 'y': xx[:,1], 'labels': labels})
-    p = sns.jointplot(data=df, x='x', y='y', hue='labels')
-    p.savefig(f"{output_path}/{prefix}_summary.png")
-    info(f"Saved {output_path}/{prefix}_summary.png")
+        # Reduce the dimensionality of the embeddings using UMAP to 2 dimensions to visualize the clusters
+        # Only use the exemplars and a random sample of 5000 images to speed up the visualization
+        sampled_df = clustered.sample(n=min(num_samples-1, 5000), random_state=42, replace=False)
+        sampled_emb = [fetch_embedding(model, filename)[0] for filename in sampled_df['crop_path']]
+        np_data = np.array(sampled_emb)
 
-    params = {
-        "clusters": int(len(clusters)),
-        "num_samples": int(num_samples),
-        "num_clusters": int(len(clusters)),
-        "clustered": int(np.sum(clustered)),
-        "coverage": float(np.sum(clustered) / num_samples),
-        "avg_similarity": float(np.mean(list(cluster_sim.values()))),
-        "min_similarity": float(min(cluster_sim.values())),
-        "max_similarity": float(max(cluster_sim.values())),
-        "cluster_sim": {k: float(v) for k, v in cluster_sim.items()},
+        n_neighbors = min(15, num_samples - 1)
+        info(f'Using {n_neighbors} neighbors for dimensional reduction')
+        if n_neighbors < 2:
+            warn('Using PCA instead of UMAP to reduce for cluster 2D plot')
+            from sklearn.decomposition import PCA
+            pca = PCA(n_components=2)
+            xx = pca.fit_transform(np_data)
+        else:
+            if have_gpu:
+                info('Using GPU to reduce for cluster 2D plot')
+                xx = cuUMAP(init=init,
+                            n_components=2,
+                            n_neighbors=n_neighbors,
+                            min_dist=0.1,
+                            metric='euclidean').fit_transform(np_data)
+            else:
+                info('Using UMAP to reduce for cluster 2D plot')
+                xx = UMAP(init=init,
+                          n_components=2,
+                          n_neighbors=n_neighbors,
+                          metric='cosine').fit_transform(np_data)
+
+        # No speed-up here with modin, so use pandas
+        df_joint = pandas.DataFrame({'x': xx[:,0], 'y': xx[:,1], 'labels': sampled_df['cluster'].values})
+        p = sns.jointplot(data=df_joint, x='x', y='y', hue='labels')
+        p.savefig(f"{output_path}/{prefix}_summary.png")
+        info(f"Saved {output_path}/{prefix}_summary.png")
+
+    # Get the top 20 predicted classes in percent
+    top20 = df['class'].value_counts(normalize=True).head(5) * 100
+    top20 = top20.sort_index().round(2)
+
+    summary = {
+        "dataset": {
+            "output": str(output_path),
+            "clustering_algorithm": "HDBSCAN",
+            "clustering_parameters":  hdbscan_params,
+            "feature_embedding_model": str(model),
+        },
+        "statistics": {
+            "total_clusters": num_clusters,
+            "cluster_coverage": f"{float(np.sum(labels) / num_samples):.2f} ({100*float(np.sum(labels) / num_samples):.2f}%)",
+        }
     }
 
-    with open(f'{output_path}/{prefix}_summary.json', 'w') as f:
-        json.dump(params, f)
-    info(f"Saved {output_path}/{prefix}_summary.json")
+    for name, total in top20.items():
+        summary["statistics"]["top_predictions"] = {
+            "class": name,
+            "percentage": f"{total:.2f}%",
+        }
+
+    return summary
 
 def _similarity_merge(
         df: pd.DataFrame,
@@ -132,17 +143,11 @@ def _similarity_merge(
     """
     Merge clusters based on the linkage of the cosine similarity of their embeddings.
     """
-    # Add a cluster_reindex column to the dataframe with the reindexed cluster ids to be continuous
-    df['cluster_reindex'] = pd.NA
-    valid_mask = df['cluster'] != -1  # exclude invalid clusters
+    # Replace NaN values with 0
+    df = df.fillna(0)
+    labels = df['cluster'].values
 
-    # Assign continuous IDs to each (batch, cluster) pair
-    df.loc[valid_mask, 'cluster_reindex'] = (
-        df.loc[valid_mask]
-        .groupby(['batch', 'cluster'], sort=False)
-        .ngroup()
-        .values
-    )
+    unique_clusters_before = df['cluster'].unique()
 
     # Get the exemplar embeddings
     exemplar_df = df[df['exemplar'] == 1]
@@ -151,24 +156,17 @@ def _similarity_merge(
         emb, _, _ = fetch_embedding(model, filename)
         exemplar_emb.append(emb)
 
-    # Replace pd.NA in cluster_reindex column with -1
-    df.fillna(-1, inplace=True)
-
     # Assign noise -1 cluster to the nearest exemplar
-    labels = df['cluster_reindex'].values
-    noise = np.where(labels == -1)[0]
+    noise_df = df[df['cluster'] == -1]
     info(f'Assigning noise clusters to nearest exemplar ...')
-    for i in tqdm.tqdm(range(len(noise))):
-        noise_emb, _, _ = fetch_embedding(model, df.iloc[i]['crop_path'])
+    for i in tqdm.tqdm(range(len(noise_df))):
+        noise_emb, _, _ = fetch_embedding(model, noise_df.iloc[i]['crop_path'])
         sim = cosine_similarity([noise_emb], exemplar_emb)
         cluster = np.argmax(sim)
         score = np.max(sim)
         if score > min_similarity:
             labels[i] = cluster
             debug(f'Noise {i} is now {cluster} {score}')
-    df['cluster_reindex'] = labels
-
-    unique_clusters_before = df['cluster_reindex'].unique()
 
     info(f'Merging clusters with similarity threshold {min_similarity:.2f} ...')
     linkage_matrix = linkage(exemplar_emb, method='complete', metric='cosine')
@@ -180,31 +178,28 @@ def _similarity_merge(
     if len(np.unique(cluster_labels)) == 1:
         info(f'No clusters to merge')
     else:
-        labels = df['cluster_reindex'].values
         # Assign the exemplar clusters to the original clusters based on the linkage matrix
         for i, j in enumerate(labels):
             if j == -1:
                 continue
-            # debug(f'Label {labels[i]} is now {cluster_labels[labels[i]]}')
+            debug(f'Label {labels[i]} is now {cluster_labels[labels[i]]}')
             labels[i] = cluster_labels[labels[i]]
-        df['cluster_reindex'] = labels
+        df['cluster'] = labels
 
-        unique_clusters = df['cluster_reindex'].unique()
-        unique_clusters = unique_clusters.tolist()
+        unique_clusters = df['cluster'].unique()
         # Drop the -1 value which are the noise
         if -1 in unique_clusters:
-            unique_clusters.remove(-1)
-        unique_clusters.sort()
+            unique_clusters = unique_clusters[unique_clusters != -1]
 
         info(f'Unique clusters after merging: {len(unique_clusters)}')
         for c in unique_clusters:
-            rows = df[df['cluster_reindex'] == c]
+            rows = df[df['cluster'] == c]
             debug(f'Cluster {c} has {len(rows)} samples')
 
     # Compute the average similarity score for each cluster
     avg_sim_scores = {}
     for cluster in unique_clusters:
-        cluster_df = df[df['cluster_reindex'] == cluster]
+        cluster_df = df[df['cluster'] == cluster]
         if len(cluster_df) == 0:
             continue
         # Get the embeddings for the cluster
@@ -218,8 +213,6 @@ def _similarity_merge(
         sim = cosine_similarity(cluster_emb)
         avg_sim_scores[cluster] = np.mean(sim)
 
-    df.drop(columns=['cluster'], inplace=True)
-    df.rename(columns={'cluster_reindex': 'cluster'}, inplace=True)
     return df, avg_sim_scores
 
 
@@ -232,7 +225,7 @@ def _run_hdbscan_assign(
         min_cluster_size: int,
         min_samples: int,
         use_tsne: bool,
-        batch_id: int) -> tuple:
+        cluster_offset: int) -> pandas.DataFrame:
     """
     Cluster the embeddings using HDBSCAN
     :param image_emb:  The embeddings to cluster from the model
@@ -243,11 +236,12 @@ def _run_hdbscan_assign(
     :param min_cluster_size:  The minimum number of samples in a cluster
     :param min_samples:   The number of samples in a neighborhood for a point
     :param use_tsne:  Whether to use t-SNE for dimensionality reduction
+    :param cluster_offset:  Offset to add to the cluster IDs
     :param ancillary_df:  (optional) Ancillary data to include in the clustering
-    :return: The average similarity score for each cluster, exemplar_df, cluster ids, cluster means, and coverage
+    :return: pandas.DataFrame with the cluster assignments
     """
     info(f'Clustering using HDBSCAN with: \n'
-        f'batch_id {batch_id} \n'
+        f'cluster_offset {cluster_offset} \n'
         f'alpha {alpha} \n'
         f'algorithm {algorithm} \n'
         f'cluster_selection_epsilon {cluster_selection_epsilon} \n'
@@ -296,11 +290,12 @@ def _run_hdbscan_assign(
                 cluster_selection_method=cluster_selection_method)
         labels = scan.fit_predict(x)
 
+    # Add the cluster offset to the labels
+    labels = labels + cluster_offset
+
     # Get the unique clusters and sort them; -1 are unassigned clusters
-    cluster_df = pd.DataFrame(labels, columns=['cluster'])
-    cluster_df['batch'] = batch_id
-    cluster_df['cluster'] = cluster_df['cluster'].astype('int') # Convert the cluster column to int
-    unique_clusters = cluster_df['cluster'].unique().tolist()
+    cluster_df = pandas.DataFrame({'cluster': pandas.Series(labels, dtype='int')})
+    unique_clusters = cluster_df['cluster'].unique()
     info(f"Number of clusters including unassigned -1 cluster: {len(unique_clusters)}")
 
     # Get the index of the highest scores for each unique cluster sorted in increasing order
@@ -308,8 +303,9 @@ def _run_hdbscan_assign(
     cluster_df['HDBSCAN_score'] = scan.probabilities_
     max_scores = cluster_df.sort_values('cluster', ascending=True).groupby('cluster')['HDBSCAN_score'].idxmax()
 
-    # Remove the first element which is the -1 cluster
-    max_scores = max_scores[1:]
+    # Remove the first element which may be the -1 cluster
+    if len(max_scores) > 0 and max_scores.keys()[0]:
+        max_scores = max_scores[1:]
 
     # Flag as an exemplar the max scoring exemplars for each cluster
     cluster_df['exemplar'] = 0
@@ -336,7 +332,7 @@ def cluster_vits(
         remove_bad_images: bool = False,
         roi: bool = False,
         batch_size: int = 32
-) -> pd.DataFrame:
+) -> dict or None:
     """  Cluster the crops using the VITS embeddings.
     :param prefix:  A unique prefix to save artifacts from clustering
     :param model: The model to use for clustering
@@ -356,12 +352,12 @@ def cluster_vits(
     :param skip_visualization: Whether to skip the visualization of the clusters
     :param remove_bad_images: Whether to remove bad images from the clustering
     :param use_tsne: Whether to use t-SNE for dimensionality reduction
-    :return:  a dataframe with the assigned cluster indexes, or -1 for non-assigned."""
+    :return:  a dictionary with a summary."""
 
     # If there are no detections, return an empty dataframe
     if df_dets.empty:
         warn('No detections found in {detections} ')
-        return pd.DataFrame()
+        return None
 
     # If the detections are not cropped, crop them to a square
     if not roi:
@@ -382,13 +378,13 @@ def cluster_vits(
     df_dets = df_dets[df_dets['crop_path'].apply(lambda x: os.path.exists(x))]
     if df_dets.empty:
         warn('No detections found in {detections} ')
-        return pd.DataFrame()
+        return None
 
     # Add index which is used later to merge the clusters back to the original dataframe
     df_dets.index = range(len(df_dets))
 
     # Get the list of images to crop
-    images = df_dets['crop_path'].tolist()
+    images = df_dets['crop_path'].values
 
     # Count how many files have the .npy extension
     num_cached = sum([has_cached_embedding(model, filename) for filename in images])
@@ -432,22 +428,21 @@ def cluster_vits(
         # Add in any numerical ancillary data and replace NaNs with 0
         numerical_df = ancillary_df.select_dtypes(include=["float", "int"])
         numerical_df = numerical_df.fillna(0)
-        # Normalize the numerical data from 0 to 1
+        # Normalize the numerical data from 0 to 1 - this is an important step!
         ancillary_df = (numerical_df - numerical_df.min()) / (numerical_df.max() - numerical_df.min())
 
     # Cluster
-    # Compute in batches of 300K
+    # Compute in batches of 300K; this works for the 8 block models on most GPUs
     batch_size = 300000
     num_batches = int(np.ceil(len(images) / batch_size))
 
-    batch_df = pd.DataFrame()
-    batch_df['batch'] = -1
-    batch_df['cluster'] = -1
+    batch_df = pd.DataFrame({'batch': [-1], 'cluster': [-1]})
 
     # Remove any existing cluster images in the output_path
     for c in (output_path / prefix).parent.rglob(f'{prefix}_*cluster*.png'):
         c.unlink()
 
+    cluster_offset = 0 # Start with 0 for the first batch
     for i in range(num_batches):
         start = i * batch_size
         end = min((i + 1) * batch_size, len(images))
@@ -479,32 +474,30 @@ def cluster_vits(
                                  min_cluster_size,
                                  min_samples,
                                  use_tsne,
-                                 i)
+                                 cluster_offset)
         df_assign.index = range(start,end)
         batch_df = pd.concat([batch_df, df_assign], axis=0)
+        cluster_offset = df_assign['cluster'].max() + 1
 
     # Merge by similarity
     # Only keep the columns we need for clustering as needed for grouping
-    df_to_merge = batch_df[['cluster', 'batch', 'exemplar']]
+    df_to_merge = batch_df[['cluster', 'exemplar']]
     df_to_merge['crop_path'] = df_dets['crop_path']
     similarity_df, avg_sim_scores = _similarity_merge(df_to_merge, min_similarity, model)
 
-    # Merge similarity_df with df_dets
-    # Drop duplicate columns to support the join
-    similarity_df.drop(columns=['crop_path'], inplace=True)
-    df_dets.drop(columns=['cluster'], inplace=True)
-    final_df = df_dets.join(similarity_df)
+    # Update the cluster assignments in the original dataframe
+    df_dets['cluster'] = similarity_df['cluster']
+    df_dets['exemplar'] = similarity_df['exemplar']
 
     # Get the average similarity across all clusters
     avg_similarity = np.mean(list(avg_sim_scores.values()))
 
     info(f'Average similarity: {avg_similarity:.2f} min {min_similarity:.2f}  ')
-    unique_clusters = final_df['cluster'].unique()
+    unique_clusters = df_dets['cluster'].unique()
 
     # Drop the -1 value which are the noise
-    unique_clusters = unique_clusters.tolist()
     if -1 in unique_clusters:
-        unique_clusters.remove(-1)
+        unique_clusters = unique_clusters[unique_clusters != -1]
     unique_clusters.sort()
 
     if len(unique_clusters) == 0:
@@ -513,13 +506,13 @@ def cluster_vits(
     info(f'Found {len(unique_clusters)} clusters with an average similarity of {avg_similarity:.2f} ')
 
     # Save the exemplar embeddings to a dataframe with some metadata such as the model used
-    exemplar_df = final_df[final_df['exemplar'] == 1].copy()
+    exemplar_df = df_dets[df_dets['exemplar'] == 1].copy()
     exemplar_df['embedding'] = [fetch_embedding(model, filename)[0] for filename in exemplar_df['crop_path']]
     exemplar_df['model'] = str(model)
     exemplar_df.to_csv(output_path / f'{prefix}_exemplars.csv', index=False)
 
-    num_samples = final_df.shape[0]
-    clustered = final_df['cluster'].values != -1
+    num_samples = df_dets.shape[0]
+    clustered = df_dets['cluster'].values != -1
     coverage = np.sum(clustered) / num_samples
     info(f'Coverage: {coverage:.2f} ({np.sum(clustered)}/{num_samples})')
 
@@ -532,17 +525,17 @@ def cluster_vits(
         "alpha": alpha,
         "cluster_selection_epsilon": cluster_selection_epsilon
     }
-    # Save the clustering parameters to a json file
-    with open(f'{output_path}/{prefix}_params.json', 'w') as f:
-        json.dump(hdbscan_params, f)
-    info(f"Saved {output_path}/{prefix}_params.json")
 
-    final_df.to_csv(output_path / f'{prefix}_clusters.csv', index=False)
-    info(f'Saved {output_path / f"{prefix}_clusters.csv"}')
+    df_dets.to_csv(output_path / f'{prefix}_cluster_detections.csv', index=False)
+    info(f'Saved {output_path / f"{prefix}_cluster_detections.csv"}')
 
-    # Visualize the clusters
-    # if not skip_visualization:
-    #     _visualize_clusters(final_df, unique_clusters, output_path, prefix, avg_sim_scores, model)
-
-    return final_df
+    # Return a summary of the clusters
+    return _summarize_clusters(df_dets,
+                               unique_clusters,
+                               output_path,
+                               prefix,
+                               avg_sim_scores,
+                               model,
+                               skip_visualization,
+                               hdbscan_params)
 

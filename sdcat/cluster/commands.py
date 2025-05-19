@@ -1,7 +1,7 @@
 # sdcat, Apache-2.0 license
 # Filename: cluster/commands.py
 # Description:  Clustering commands
-
+import json
 import re
 import shutil
 import tempfile
@@ -16,9 +16,9 @@ import modin.pandas as pd
 import pytz
 import torch
 from PIL import Image
-from tqdm import tqdm
 
-from sdcat.cluster.utils import filter_images
+from sdcat import __version__ as sdcat_version
+from sdcat.cluster.utils import filter_images, combine_csv
 from sdcat import common_args
 from sdcat.config import config as cfg
 from sdcat.logger import info, err, warn
@@ -81,31 +81,10 @@ def run_cluster_det(det_dir, save_dir, device, use_vits, weighted_score, config_
     crop_path.mkdir(parents=True, exist_ok=True)
 
     with tempfile.TemporaryDirectory() as temp_dir:
-        temp_dir_path = Path(temp_dir)
-        output_file = temp_dir_path / "combined.csv"
-
-        info(f'Combining detection files to {output_file}...')
-        with open(output_file, "w", encoding="utf-8") as outfile:
-            first_file = True
-            for file in tqdm(csv_files, desc='Combining detection files', unit='file'):
-                # Create a crop directory for each detection file
-                crop_root = crop_path / file.stem
-                crop_root.mkdir(parents=True, exist_ok=True)
-                with open(file, "r", encoding="utf-8") as infile:
-                    lines = infile.readlines()
-                    if first_file:
-                        header = lines[0].strip() + ',crop_root\n'
-                        outfile.writelines(header)  # include header
-                        first_file = False
-                    else:
-                        out_text = [l.strip() + f',{crop_root}\n' for l in lines[1:]]
-                        outfile.writelines(out_text)
+        output_file = combine_csv(csv_files, Path(temp_dir), crop_path, start_image, end_image)
 
         info('Loading detections')
-        df = pd.read_csv(output_file, sep=',', quoting=3)
-
-        # Remove any duplicate rows; duplicates have the same .x, .y, .xx, .xy,
-        df = df.drop_duplicates(subset=['x', 'y', 'xx', 'xy'])
+        df = pd.read_csv(output_file, sep=',')
 
         info(f'Found {len(df)} detections in {det_dir}')
 
@@ -121,24 +100,7 @@ def run_cluster_det(det_dir, save_dir, device, use_vits, weighted_score, config_
         # Sort the dataframe by image_path to make sure the images are in order for start_image and end_image filtering
         df = df.sort_values(by='image_path')
 
-        # If start_image is set, find the index of the start_image in the list of images
-        if start_image:
-            start_image = Path(start_image)
-            start_image_index = df[df['image_path'].str.contains(start_image.name)]
-            if len(start_image_index) > 0:
-                df = df.iloc[start_image_index.index[0]:]
-            else:
-                err(f'No detection csv files found for {start_image}')
-
-        # If end_image is set, find the index of the end_image in the list of images
-        if end_image:
-            end_image = Path(end_image)
-            end_image_index = df[df['image_path'].str.contains(end_image.name)]
-            if len(end_image_index) > 0:
-                df = df.iloc[:end_image_index.index[-1]]
-            else:
-                err(f'No detection csv files found for {end_image}')
-
+        # Filter the dataframe to only include images in the start_image and end_image range
         df = filter_images(min_area, max_area, min_saliency, min_score, df)
 
         # Add in a column for the unique crop name for each detection with a unique id
@@ -191,17 +153,28 @@ def run_cluster_det(det_dir, save_dir, device, use_vits, weighted_score, config_
             prefix = f'{model_machine_friendly}_{datetime.now().strftime("%Y%m%d_%H%M%S")}'
 
             # Cluster the detections
-            df_cluster = cluster_vits(prefix, model, df, save_dir, alpha, cluster_selection_epsilon, cluster_selection_method, algorithm,
+            summary = cluster_vits(prefix, model, df, save_dir, alpha, cluster_selection_epsilon, cluster_selection_method, algorithm,
                                       min_similarity, min_cluster_size, min_samples, device, use_tsne=use_tsne,
                                       skip_visualization=skip_visualization, roi=False, weighted_score=weighted_score, use_vits=use_vits,
                                       remove_bad_images=remove_bad_images, batch_size=batch_size)
 
-            # Merge the results with the original DataFrame
-            df.update(df_cluster)
+            if summary is None:
+                err(f'No summary returned from clustering')
+                return
 
-            # Save the clustered detections to a csv file and a copy of the config.ini file
-            df.to_csv(save_dir / f'{prefix}_cluster_detections.csv', index=False, header=True)
+            # Add more detail to the summary specific to detections
+            summary['sdcat']['version'] = sdcat_version
+            summary['dataset']['input'] = det_dir
+            summary['dataset']['image_resolution'] = f"{df['image_width'].iloc[0]}x{df['image_height'].iloc[0]} pixels"
+            summary['dataset']['image_count'] = len(df)
+
+            with open(save_dir / f'{prefix}_summary.json', 'w') as f:
+                json.dump(summary, f, indent=4)
+            info(f"Summary saved to {save_dir / f'{prefix}_summary.json'}")
+
+            # Save a copy of the config.ini file
             shutil.copy(Path(config_ini), save_dir / f'{prefix}_config.ini')
+            info(f'Config saved to {save_dir / f"{prefix}_config.ini"}')
         else:
             warn(f'No detections found to cluster')
 
@@ -261,11 +234,7 @@ def run_cluster_roi(roi_dir, save_dir, device, use_vits, config_ini, alpha, clus
             images.extend(list(roi_path.rglob(f'*{ext}')))
 
     # Create a dataframe to store the combined data in an image_path column in sorted order
-    df = pd.DataFrame()
-    df['image_path'] = images
-
-    # Convert the image_path column to a string
-    df['image_path'] = df['image_path'].astype(str)
+    df = pd.DataFrame({'image_path': [str(p) for p in images]})
 
     info(f'Found {len(df)} detections in {roi_dir}')
 
@@ -314,17 +283,24 @@ def run_cluster_roi(roi_dir, save_dir, device, use_vits, config_ini, alpha, clus
         prefix = f'{model_machine_friendly}_{datetime.now().strftime("%Y%m%d_%H%M%S")}'
 
         # Cluster the detections
-        df_cluster = cluster_vits(prefix, model, df, save_dir, alpha, cluster_selection_epsilon, cluster_selection_method, algorithm,
+        summary = cluster_vits(prefix, model, df, save_dir, alpha, cluster_selection_epsilon, cluster_selection_method, algorithm,
                                   min_similarity, min_cluster_size, min_samples, device,
                                   use_tsne=use_tsne, weighted_score=False, use_vits=use_vits,
                                   skip_visualization=skip_visualization,  roi=True,
                                   remove_bad_images=remove_bad_images, batch_size=batch_size)
 
-        # Merge the results with the original DataFrame
-        df.update(df_cluster)
+        # Add more detail to the summary specific to ROIs
+        summary['sdcat']['version'] = sdcat_version
+        summary['dataset']['roi'] = True
+        summary['dataset']['input'] = roi_dir
+        summary['dataset']['image_count'] = len(df)
 
-        # Save the clustered detections to a csv file and a copy of the config.ini file
-        df.to_csv(save_dir / f'{prefix}_cluster_detections.csv', index=False, header=True)
+        with open(save_dir / f'{prefix}_summary.json', 'w') as f:
+            json.dump(summary, f, indent=4)
+        info(f'Summary saved to {save_dir / f"{prefix}_summary.json"}')
+
+        # Save a copy of the config.ini file
         shutil.copy(Path(config_ini), save_dir / f'{prefix}_config.ini')
+        info(f'Config saved to {save_dir / f"{prefix}_config.ini"}')
     else:
         warn(f'No detections found to cluster')

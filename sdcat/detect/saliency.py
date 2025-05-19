@@ -10,6 +10,7 @@ import torch
 import pandas as pd
 from sahi.postprocess.combine import nms
 
+from sdcat.cluster.utils import combine_csv
 from sdcat.logger import debug, info
 from pathlib import Path
 
@@ -129,7 +130,6 @@ def extract_blobs(saliency_map: np.ndarray, img_gray: np.ndarray, img_color: np.
     info(f'Using {num_processes} processes to compute {len(contours)} 100 at a time ...')
 
     # Work in a temporary directory
-    df = pd.DataFrame()
     with tempfile.TemporaryDirectory() as temp_path:
         temp_path = Path(temp_path)
         gray = img_gray
@@ -146,9 +146,12 @@ def extract_blobs(saliency_map: np.ndarray, img_gray: np.ndarray, img_color: np.
 
         # Combine the results
         info(f'Combining blob detection results')
-        for csv in temp_path.glob('*.csv'):
-            df = pd.concat([df, pd.read_csv(csv)])
-            csv.unlink()
+        csv_files = list(temp_path.glob('*.csv'))
+        csv_file = combine_csv(csv_files, temp_path / 'det.csv')
+        df = pd.read_csv(csv_file, sep=',')
+        # Remove the temporary files
+        for f in csv_files:
+            f.unlink()
 
     if show:
         result_image = img_color.copy()
