@@ -361,11 +361,18 @@ def cluster_vits(
 
     # If the detections are not cropped, crop them to a square
     if not roi:
-        def crop_square_wrapper(row):
-            return crop_square_image(row, 224)
 
-        info(f'Cropping {len(df_dets)} detections...')
-        df_dets.apply(crop_square_wrapper, axis=1)
+        # Count how many crops are already square
+        num_square = df_dets['crop_path'].apply(lambda x: os.path.exists(x)).sum()
+
+        if num_square == len(df_dets):
+            info(f'All {len(df_dets)} detections are already cropped to square')
+        else:
+            def crop_square_wrapper(row):
+                return crop_square_image(row, 224)
+
+            info(f'Cropping {len(df_dets)} detections...')
+            df_dets.apply(crop_square_wrapper, axis=1)
 
     if remove_bad_images:
         info(f'Removing bad images from {len(df_dets)} ')
@@ -433,7 +440,7 @@ def cluster_vits(
 
     # Cluster
     # Compute in batches of 300K; this works for the 8 block models on most GPUs
-    batch_size = 300000
+    batch_size = 100
     num_batches = int(np.ceil(len(images) / batch_size))
 
     batch_df = pd.DataFrame({'batch': [-1], 'cluster': [-1]})
