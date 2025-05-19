@@ -480,6 +480,9 @@ def cluster_vits(
             df_batch = df_batch[~df_batch['crop_path'].isin(bad_images)]
             size_after = len(df_batch)
             info(f'Removed {size_before - size_after} detections using cleanvision in batch {i + 1} of {num_batches}...')
+            if size_after == 0:
+                warn(f'No detections left in batch {i + 1} of {num_batches} after cleaning bad images')
+                continue
 
         # Only keep the columns needed for clustering
         keep_columns = ['area', 'saliency', 'w', 'h', 'embedding', 'crop_path']
