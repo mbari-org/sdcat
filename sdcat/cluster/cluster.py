@@ -440,8 +440,8 @@ def cluster_vits(
         ancillary_df = (numerical_df - numerical_df.min()) / (numerical_df.max() - numerical_df.min())
 
     # Cluster
-    # Compute in batches of 300K; this works for the 8 block models on most GPUs
-    batch_size = 100
+    # Compute in batches of 100K; this works for the 8 block models on any GPU
+    batch_size = 100000
     num_batches = int(np.ceil(len(images) / batch_size))
 
     batch_df = pd.DataFrame({'batch': [-1], 'cluster': [-1]})
@@ -495,6 +495,7 @@ def cluster_vits(
     # Only keep the columns we need for clustering as needed for grouping
     df_to_merge = batch_df[['cluster', 'exemplar']]
     df_to_merge['crop_path'] = df_dets['crop_path']
+    info(f'Merging clusters with similarity threshold {min_similarity:.2f} ...')
     similarity_df, avg_sim_scores = _similarity_merge(df_to_merge, min_similarity, model)
 
     # Update the cluster assignments in the original dataframe
