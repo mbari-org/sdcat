@@ -231,5 +231,5 @@ def run_detect(show: bool, image_dir: str, save_dir: str, save_roi:bool, roi_siz
         pool.close()
 
     total_filtered = sum(results)
-    info(f'Found {total_detections} total localizations in {total_images} with {total_filtered} after NMS')
+    info(f'Found {total_detections} total localizations in {total_images} images with {total_filtered} after NMS')
     info('Done')
