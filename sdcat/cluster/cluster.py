@@ -411,7 +411,7 @@ def cluster_vits(
                 weight = df_dets.loc[df_dets['crop_path'] == filename, 'score'].values[0]
                 # Weight cannot be zero or negative
                 if weight <= 0:
-                    weight = 1
+                    weight = .0001
             df_dets.loc[df_dets['crop_path'] == filename, 'class'] = label[0]
             df_dets.loc[df_dets['crop_path'] == filename, 'score'] =(score[0]+weight)/2.
             df_dets.loc[df_dets['crop_path'] == filename, 'class_s'] = label[1]
@@ -459,16 +459,20 @@ def cluster_vits(
         # Get the embeddings for the batch and put into dataframe with the index
         df_batch = df_dets.iloc[start:end].copy()
         for filename in images[start:end]:
-            emb, _, _ = fetch_embedding(model, filename)
-            df_batch.loc[df_batch['crop_path'] == filename, 'embedding'] = emb
-            if ancillary_df:
-                # Get the ancillary data for the image
-                ancillary_data = ancillary_df.loc[ancillary_df['crop_path'] == filename]
-                if ancillary_data.empty:
-                    ancillary_data = pd.Series([0] * len(ancillary_df.columns), index=ancillary_df.columns)
-                else:
-                    ancillary_data = ancillary_data.iloc[0]
-                df_batch.loc[df_batch['crop_path'] == filename, ancillary_df.columns] = ancillary_data
+            try:
+                emb, _, _ = fetch_embedding(model, filename)
+                df_batch.loc[df_batch['crop_path'] == filename, 'embedding'] = emb
+                if ancillary_df:
+                    # Get the ancillary data for the image
+                    ancillary_data = ancillary_df.loc[ancillary_df['crop_path'] == filename]
+                    if ancillary_data.empty:
+                        ancillary_data = pd.Series([0] * len(ancillary_df.columns), index=ancillary_df.columns)
+                    else:
+                        ancillary_data = ancillary_data.iloc[0]
+                    df_batch.loc[df_batch['crop_path'] == filename, ancillary_df.columns] = ancillary_data
+            except Exception as e:
+                err(f'Error fetching embedding for {filename}: {e}')
+                raise e
 
         # Drop any non-numeric columns and other columns that are not needed. This should retain area saliency if present
         # which may be useful for clustering
