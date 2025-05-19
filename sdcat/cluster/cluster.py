@@ -5,7 +5,6 @@ from importlib.util import find_spec
 
 from pathlib import Path
 import os
-
 import pandas
 import seaborn as sns
 import tqdm
@@ -15,8 +14,7 @@ from umap import UMAP
 from hdbscan import HDBSCAN
 from scipy.cluster.hierarchy import linkage, fcluster
 from sklearn.metrics.pairwise import cosine_similarity
-from sklearn.preprocessing import MinMaxScaler
-from sdcat.logger import info, warn, debug, err
+from sdcat.logger import info, warn, debug
 from sdcat.cluster.utils import cluster_grid, crop_square_image, clean_bad_images
 from sdcat.cluster.embedding import fetch_embedding, has_cached_embedding, compute_norm_embedding
 
@@ -38,7 +36,7 @@ sns.set_style("darkgrid", {"axes.facecolor": ".9"})
 sns.set(rc={"figure.figsize": (12, 10)})
 
 
-def _summarize_clusters(df: pd.DataFrame, clusters: list, output_path: Path, prefix: str,
+def _summarize_clusters(df: pd.DataFrame, output_path: Path, prefix: str,
                             cluster_sim: list, model: str, skip_visualization: bool, hdbscan_params: dict[str]) -> dict:
     """
     Summarize and optionally visualize the clusters using t-SNE or UMAP in grids
@@ -54,20 +52,29 @@ def _summarize_clusters(df: pd.DataFrame, clusters: list, output_path: Path, pre
 
     if not skip_visualization:
         # Create a grid of the images to check the quality of the clustering results
-        import multiprocessing
-        num_processes = min(multiprocessing.cpu_count(), num_clusters)
+        from concurrent.futures import ProcessPoolExecutor
+        num_processes = min(os.cpu_count(), num_clusters)
         info(f'Using {num_processes} processes to visualize the {num_clusters} clusters')
 
         # Use a pool of processes to speed up the visualization of the clusters
         # Skip modin here because it does not offer much speedup
-        with multiprocessing.Pool(num_processes) as pool:
-            args = [(prefix,
-                     cluster_sim[c],
-                     c,
-                     4 if len(image_paths[c]) < 50 else 8,  # grid size; larger clusters get larger grids
-                     image_paths[c],
-                     output_path / prefix) for c in image_paths.keys()]
-            pool.starmap(cluster_grid, args)
+        with ProcessPoolExecutor(max_workers=num_processes) as executor:
+            futures = []
+            for c in image_paths:
+                grid_size = 4 if len(image_paths[c]) < 50 else 8  # grid size; larger clusters get larger grids
+                futures.append(
+                    executor.submit(
+                        cluster_grid,
+                        prefix,
+                        cluster_sim[c],
+                        c,
+                        grid_size,
+                        image_paths[c],
+                        output_path / prefix
+                    )
+                )
+            for future in futures:
+                future.result()
 
         # Cannot use init='spectral' when n_components is >= num_samples - default to 'random' instead
         n_components = min(2, num_samples)
@@ -571,7 +578,6 @@ def cluster_vits(
 
     # Return a summary of the clusters
     return _summarize_clusters(df_dets,
-                               unique_clusters,
                                output_path,
                                prefix,
                                avg_sim_scores,

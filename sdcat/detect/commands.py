@@ -1,7 +1,7 @@
 # sdcat, Apache-2.0 license
 # Filename: sdcat/detect/commands.py
 # Description:  Command line interface for running detection on images using SAHI and saliency detection algorithms.
-import multiprocessing
+from concurrent.futures import ProcessPoolExecutor
 import os
 import shutil
 from pathlib import Path
@@ -144,43 +144,49 @@ def run_detect(show: bool, image_dir: str, save_dir: str, save_roi:bool, roi_siz
     if num_images == 0:
         return
 
-    num_processes = min(multiprocessing.cpu_count(), num_images)
+    num_processes = min(os.cpu_count(), num_images)
     if not skip_saliency:
-        # For development, run on a single image with
-        # run_saliency_detect(spec_remove, scale_percent, images[0].as_posix(), (save_path_det_raw / f'{images[0].stem}.csv').as_posix(), clahe=clahe, show=True)
-        # Do the work in parallel to speed up the processing on multicore machines
         info(f'Using {num_processes} processes to compute {num_images} images 2 at a time ...')
-        # # Run multiple processes in parallel num_cpu images at a time
-        with multiprocessing.Pool(num_processes) as pool:
-            args = [(spec_remove,
-                     scale_percent,
-                     images[i:i + 2],
-                     save_path_det_raw,
-                     min_std,
-                     block_size,
-                     clahe,
-                     show)
-                    for i in range(0, num_images, 2)]
-            pool.starmap(run_saliency_detect_bulk, args)
-            pool.close()
+        args = [
+            (
+                spec_remove,
+                scale_percent,
+                images[i:i + 2],
+                save_path_det_raw,
+                min_std,
+                block_size,
+                clahe,
+                show
+            )
+            for i in range(0, num_images, 2)
+        ]
+        with ProcessPoolExecutor(max_workers=num_processes) as executor:
+            futures = [executor.submit(run_saliency_detect_bulk, *arg) for arg in args]
+            for future in futures:
+                future.result()  # Ensure any exceptions are raised
+
     if device == 'cpu':
-        with multiprocessing.Pool(num_processes) as pool:
-            if not skip_sahi:
-                # Run sahi detection on each image
-                args = [(scale_percent,
-                         slice_size_width,
-                         slice_size_height,
-                         [image],
-                         save_path_det_raw,
-                         detection_model,
-                         postprocess_match_metric,
-                         overlap_width_ratio,
-                         overlap_height_ratio,
-                         allowable_classes,
-                         class_agnostic)
-                        for image in images]
-                pool.starmap(run_sahi_detect_bulk, args)
-                pool.close()
+        if not skip_sahi:
+            args = [
+                (
+                    scale_percent,
+                    slice_size_width,
+                    slice_size_height,
+                    [image],
+                    save_path_det_raw,
+                    detection_model,
+                    postprocess_match_metric,
+                    overlap_width_ratio,
+                    overlap_height_ratio,
+                    allowable_classes,
+                    class_agnostic
+                )
+                for image in images
+            ]
+            with ProcessPoolExecutor(max_workers=num_processes) as executor:
+                futures = [executor.submit(run_sahi_detect_bulk, *arg) for arg in args]
+                for future in futures:
+                    future.result()
     else:
         for f in tqdm(images):
             if not skip_saliency:
@@ -225,10 +231,10 @@ def run_detect(show: bool, image_dir: str, save_dir: str, save_roi:bool, roi_siz
             for image in images]
 
     # Process images in parallel
-    num_processes = min(multiprocessing.cpu_count(), total_images)
-    with multiprocessing.Pool(num_processes) as pool:
-        results = pool.starmap(process_image, args)
-        pool.close()
+    num_processes = min(os.cpu_count(), total_images)
+    with ProcessPoolExecutor(max_workers=num_processes) as executor:
+        futures = [executor.submit(process_image, *arg) for arg in args]
+        results = [future.result() for future in futures]  # raises exceptions if any
 
     total_filtered = sum(results)
     info(f'Found {total_detections} total localizations in {total_images} images with {total_filtered} after NMS')
