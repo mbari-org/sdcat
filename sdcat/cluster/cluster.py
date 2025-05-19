@@ -465,7 +465,11 @@ def cluster_vits(
         # Drop any non-numeric columns and other columns that are not needed. This should retain area saliency if present
         # which may be useful for clustering
         df_batch = df_batch.select_dtypes(include=["float", "int"])
-        df_batch = df_batch.drop(columns=['image_width', 'image_height', 'score_s', 'score'], errors='ignore')
+        keep_columns = ['area', 'saliency', 'w', 'h']
+        # Drop any columns that are not in the keep_columns list
+        for col in df_batch.columns:
+            if col not in keep_columns and col not in df_batch.columns:
+                df_batch = df_batch.drop(columns=[col], errors='ignore')
         df_assign = _run_hdbscan_assign(df_batch,
                                  alpha,
                                  cluster_selection_epsilon,

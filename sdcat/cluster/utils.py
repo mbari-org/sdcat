@@ -252,7 +252,7 @@ def compute_embedding_multi_gpu(model_name: str, images: list, batch_size: int =
     multi_gpu_compute(model_name, images, batch_size)
 
 
-def combine_csv(csv_files: List[Path], temp_path: Path, crop_path: str, start_image:str =None, end_image:str=None ) -> Path:
+def combine_csv(csv_files: List[Path], temp_path: Path, crop_path: str) -> Path:
     from tqdm import tqdm
 
     output_file = temp_path / "combined.csv"
@@ -261,10 +261,6 @@ def combine_csv(csv_files: List[Path], temp_path: Path, crop_path: str, start_im
     with open(output_file, "w", encoding="utf-8") as outfile:
         first_file = True
         for file in tqdm(csv_files, desc='Combining detection files', unit='file'):
-            if start_image and start_image in file.stem:
-                continue
-            if end_image and end_image in file.stem:
-                continue
             # Create a crop directory for each detection file
             crop_root = crop_path / file.stem
             crop_root.mkdir(parents=True, exist_ok=True)

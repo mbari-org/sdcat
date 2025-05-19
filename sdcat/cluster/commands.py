@@ -81,10 +81,10 @@ def run_cluster_det(det_dir, save_dir, device, use_vits, weighted_score, config_
     crop_path.mkdir(parents=True, exist_ok=True)
 
     with tempfile.TemporaryDirectory() as temp_dir:
-        output_file = combine_csv(csv_files, Path(temp_dir), crop_path, start_image, end_image)
+        csv_file = combine_csv(csv_files, Path(temp_dir), crop_path)
 
         info('Loading detections')
-        df = pd.read_csv(output_file, sep=',')
+        df = pd.read_csv(csv_file, sep=',')
 
         info(f'Found {len(df)} detections in {det_dir}')
 
@@ -99,6 +99,22 @@ def run_cluster_det(det_dir, save_dir, device, use_vits, weighted_score, config_
 
         # Sort the dataframe by image_path to make sure the images are in order for start_image and end_image filtering
         df = df.sort_values(by='image_path')
+
+        # If start_image is set, find the index of the start_image in the list of images
+        if start_image:
+            start_image = Path(start_image)
+            start_image = start_image.resolve()
+            start_image = start_image.stem
+            start_image_index = df[df['image_path'].str.contains(start_image)].index[0]
+            df = df.iloc[start_image_index:]
+
+        # If end_image is set, find the index of the end_image in the list of images
+        if end_image:
+            end_image = Path(end_image)
+            end_image = end_image.resolve()
+            end_image = end_image.stem
+            end_image_index = df[df['image_path'].str.contains(end_image)].index[-1]
+            df = df.iloc[:end_image_index]
 
         # Filter the dataframe to only include images in the start_image and end_image range
         df = filter_images(min_area, max_area, min_saliency, min_score, df)
@@ -163,7 +179,7 @@ def run_cluster_det(det_dir, save_dir, device, use_vits, weighted_score, config_
                 return
 
             # Add more detail to the summary specific to detections
-            summary['sdcat']['version'] = sdcat_version
+            summary['sdcat_version'] = sdcat_version
             summary['dataset']['input'] = det_dir
             summary['dataset']['image_resolution'] = f"{df['image_width'].iloc[0]}x{df['image_height'].iloc[0]} pixels"
             summary['dataset']['image_count'] = len(df)
@@ -290,7 +306,7 @@ def run_cluster_roi(roi_dir, save_dir, device, use_vits, config_ini, alpha, clus
                                   remove_bad_images=remove_bad_images, batch_size=batch_size)
 
         # Add more detail to the summary specific to ROIs
-        summary['sdcat']['version'] = sdcat_version
+        summary['sdcat_version'] = sdcat_version
         summary['dataset']['roi'] = True
         summary['dataset']['input'] = roi_dir
         summary['dataset']['image_count'] = len(df)
