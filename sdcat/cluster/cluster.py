@@ -395,6 +395,7 @@ def cluster_vits(
 
     # Count how many files have the .npy extension
     num_cached = sum([has_cached_embedding(model, filename) for filename in images])
+    info(f'Found {num_cached} cached embeddings for {len(images)} images')
 
     # Skip the embedding extraction if all the embeddings are cached
     if num_cached != len(images):
