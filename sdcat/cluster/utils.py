@@ -177,15 +177,13 @@ def rescale(img: np.ndarray, scale_percent: int = 75) -> np.ndarray:
     return img_rescaled
 
 
-def clean_bad_images(data_path: str) -> List[str]:
+def clean_bad_images(filepaths: List[str]) -> List[str]:
     """Remove dark or blurry images from the dataframe"""
-    imagelab = Imagelab(data_path=data_path)
-    imagelab.find_issues()
-    # Columns to check for issues
-    issue_columns = ["is_dark_issue", "is_blurry_issue"]
-    bad_images  = imagelab.issues[imagelab.issues[issue_columns].any(axis=1)].index
+    imagelab = Imagelab(filepaths=filepaths)
+    imagelab.find_issues(issue_types=['dark', 'blurry'])
+    bad_images  = imagelab.issues.index
     num_removed = len(bad_images)
-    debug(f"Removing {num_removed} dark, blurry or duplicate images in {data_path}")
+    debug(f"Removing {num_removed} dark or blurry images in {len(filepaths)} files")
     for img in bad_images:
         os.remove(img)
     return bad_images

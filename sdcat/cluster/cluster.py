@@ -390,16 +390,6 @@ def cluster_vits(
             info(f'Cropping {len(df_dets)} detections...')
             df_dets.apply(crop_square_wrapper, axis=1)
 
-    if remove_bad_images:
-        info(f'Cleaning bad images from {len(df_dets)} ')
-        size_before = len(df_dets)
-        crop_path = Path(df_dets.iloc[0]['crop_path'])
-        data_path = crop_path.parent.parent  # crops are organized into directories per image, so the grandparent is the root
-        bad_images = clean_bad_images(data_path)
-        df_dets = df_dets[~df_dets['crop_path'].isin(bad_images)]
-        size_after = len(df_dets)
-        info(f'Removed {size_before - size_after} detections using cleanvision')
-
     # Drop any rows with crop_path that have files that don't exist - sometimes the crops fail
     df_dets = df_dets[df_dets['crop_path'].apply(lambda x: os.path.exists(x))]
     if df_dets.empty:
@@ -465,7 +455,7 @@ def cluster_vits(
     batch_size = 100000
     num_batches = int(np.ceil(len(crop_path) / batch_size))
 
-    batch_df = pd.DataFrame()#{'batch': None, 'cluster': None, 'embedding': None} )
+    batch_df = pd.DataFrame()#{'batch': None, 'cluster': None, 'embedding': None, 'crop_path': None})
 
     # Remove any existing cluster images in the output_path
     for c in (output_path / prefix).parent.rglob(f'{prefix}_*cluster*.png'):
@@ -481,6 +471,15 @@ def cluster_vits(
         # Get the embeddings for the batch
         df_batch = df_dets.iloc[start:end].copy()
         df_batch["embedding"] = [fetch_embedding(model, filename)[0] for filename in crop_path[start:end]]
+
+        if remove_bad_images:
+            info(f'Cleaning bad images from {len(df_batch)} ')
+            size_before = len(df_batch)
+            filepaths = df_batch['crop_path'].values.tolist()
+            bad_images = clean_bad_images(filepaths)
+            df_batch = df_batch[~df_batch['crop_path'].isin(bad_images)]
+            size_after = len(df_batch)
+            info(f'Removed {size_before - size_after} detections using cleanvision in batch {i + 1} of {num_batches}...')
 
         # Only keep the columns needed for clustering
         keep_columns = ['area', 'saliency', 'w', 'h', 'embedding', 'crop_path']
