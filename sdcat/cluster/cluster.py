@@ -454,7 +454,7 @@ def cluster_vits(
     for i in range(num_batches):
         start = i * batch_size
         end = min((i + 1) * batch_size, len(images))
-        debug(f'Processing batch {i + 1} of {num_batches}...')
+        info(f'Processing batch {i + 1} of {num_batches}...')
 
         # Get the embeddings for the batch and put into dataframe with the index
         df_batch = df_dets.iloc[start:end].copy()
