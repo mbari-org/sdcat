@@ -181,7 +181,7 @@ def clean_bad_images(filepaths: List[str]) -> List[str]:
     """Remove dark or blurry images from the dataframe"""
     imagelab = Imagelab(filepaths=filepaths)
     imagelab.find_issues(issue_types=['dark', 'blurry'])
-    bad_images  = imagelab.issues.index
+    bad_images  = imagelab.issues
     num_removed = len(bad_images)
     debug(f"Removing {num_removed} dark or blurry images in {len(filepaths)} files")
     for img in bad_images:
