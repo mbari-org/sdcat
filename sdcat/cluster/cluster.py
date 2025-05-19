@@ -510,7 +510,7 @@ def cluster_vits(
                     ancillary_data = ancillary_data.iloc[0]
                 df_batch.loc[df_batch['crop_path'] == filename, ancillary_df.columns] = ancillary_data
 
-        df_batch = df_batch.fillna(0) # clean up any NaNs from the ancillary data
+        df_batch = df_batch.dropna(subset=['cluster'])
         df_batch = df_batch.drop(columns=['crop_path'], errors='ignore') # drop the crop_path column as only floats and ints are needed
 
         df_assign = _run_hdbscan_assign(df_batch,

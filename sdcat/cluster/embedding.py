@@ -80,10 +80,11 @@ def fetch_embedding(model_name: str, filename: str):
     emb = []
     label = []
     score = []
-    if os.path.exists(f'{filename}_{model_machine_friendly_name}.npy'):
-        emb = load(f'{filename}_{model_machine_friendly_name}.npy')
+    emb_filename = f'{filename}_{model_machine_friendly_name}.npy'
+    if os.path.exists(emb_filename):
+        emb = load(emb_filename)
     else:
-        info(f'No embedding found for {filename}')
+        info(f'No embedding found for {os.path.basename(emb_filename)}')
     if os.path.exists(f'{filename}_{model_machine_friendly_name}_pred.txt'):
         with open(f'{filename}_{model_machine_friendly_name}_pred.txt', 'r') as f:
             lines = f.readlines()
