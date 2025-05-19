@@ -23,59 +23,62 @@ def cluster_grid(prefix: str, cluster_sim: float, cluster_id: int, nb_images_dis
     :param cluster_sim: Cluster similarity
     :param cluster_size: Size of the cluster
     :param cluster_id: Cluster ID
+    :param nb_images_display : Number of images to display in the grid
     :param images: list of images
     :param output_path: output path to save the visualization to
     :return:
     """
     cluster_size = len(images)
     debug(f'Cluster number {cluster_id} size {cluster_size} similarity {cluster_sim}')
+    try:
 
-    # Plot a grid for each group of images nb_images_display at a time (e.g. 8x8)
-    for i in range(0, len(images), nb_images_display * nb_images_display):
-        fig = plt.figure(figsize=(10., 10.))
-        grid = ImageGrid(fig, 111,  # similar to subplot(111)
-                         nrows_ncols=(nb_images_display, nb_images_display),
-                         # creates nb_images_display x nb_images_display grid of axes
-                         axes_pad=0.025,
-                         share_all=True,
-                         cbar_pad=0.025)
-        images_display = images[i:i + nb_images_display * nb_images_display]
-        page = i // (nb_images_display * nb_images_display)
+        # Plot a grid for each group of images nb_images_display at a time (e.g. 8x8)
+        for i in range(0, len(images), nb_images_display * nb_images_display):
+            fig = plt.figure(figsize=(10., 10.))
+            grid = ImageGrid(fig, 111,  # similar to subplot(111)
+                             nrows_ncols=(nb_images_display, nb_images_display),
+                             # creates nb_images_display x nb_images_display grid of axes
+                             axes_pad=0.025,
+                             share_all=True,
+                             cbar_pad=0.025)
+            images_display = images[i:i + nb_images_display * nb_images_display]
+            page = i // (nb_images_display * nb_images_display)
 
-        # If we have more than 3 pages, then only display the first 3 pages
-        # There can be a large number of pages for detections in common classes
-        if page > 3:
-            break
+            # If we have more than 3 pages, then only display the first 3 pages
+            # There can be a large number of pages for detections in common classes
+            if page > 3:
+                break
 
-        total_pages = len(images) // (nb_images_display * nb_images_display)
-        # debug(f"{i} Image filename:", images[j])
-        for j, image in enumerate(images_display):
-            try:
-                image_square = Image.open(image)
-                grid[j].imshow(image_square)
-            except Exception as e:
-                exception(f'Error opening {image} {e}')
-                continue
+            total_pages = len(images) // (nb_images_display * nb_images_display)
+            for j, image in enumerate(images_display):
+                try:
+                    image_square = Image.open(image)
+                    grid[j].imshow(image_square)
+                except Exception as e:
+                    exception(f'Error opening {image} {e}')
+                    continue
 
-            grid[j].axis('off')
-            grid[j].set_xticklabels([])
+                grid[j].axis('off')
+                grid[j].set_xticklabels([])
 
-        # Add a title to the figure
-        if total_pages > 1:
-            plt.title(f"{prefix} Cluster {cluster_id}, Page: {page} of {total_pages}", fontsize=20)
-            fig.suptitle(f"Similarity: {cluster_sim:.2f}, Size: {cluster_size},", fontsize=16)
-        else:
-            plt.title(f"{prefix} Cluster {cluster_id}", fontsize=20)
-            fig.suptitle(f"Similarity: {cluster_sim:.2f}, Size: {cluster_size},", fontsize=16)
+            # Add a title to the figure
+            if total_pages > 1:
+                plt.title(f"{prefix} Cluster {cluster_id}, Page: {page} of {total_pages}", fontsize=20)
+                fig.suptitle(f"Similarity: {cluster_sim:.2f}, Size: {cluster_size},", fontsize=16)
+            else:
+                plt.title(f"{prefix} Cluster {cluster_id}", fontsize=20)
+                fig.suptitle(f"Similarity: {cluster_sim:.2f}, Size: {cluster_size},", fontsize=16)
 
-        # Set the background color of the grid to white
-        fig.set_facecolor('white')
+            # Set the background color of the grid to white
+            fig.set_facecolor('white')
 
-        # Write the figure to a file
-        out = output_path / f'{prefix}_cluster_{cluster_id}_p{page}.png'
-        debug(f'Writing {out}')
-        fig.savefig(out.as_posix())
-        plt.close(fig)
+            # Write the figure to a file
+            out = output_path / f'{prefix}_cluster_{cluster_id}_p{page}.png'
+            debug(f'Writing {out}')
+            fig.savefig(out.as_posix())
+            plt.close(fig)
+    except Exception as e:
+        exception(f'Error creating cluster grid {e}')
 
 
 def crop_square_image(row, square_dim: int):
