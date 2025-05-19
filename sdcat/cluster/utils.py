@@ -177,23 +177,18 @@ def rescale(img: np.ndarray, scale_percent: int = 75) -> np.ndarray:
     return img_rescaled
 
 
-def clean_bad_images(df: pd.DataFrame) -> pd.DataFrame:
+def clean_bad_images(data_path: str) -> List[str]:
     """Remove dark or blurry images from the dataframe"""
-    crop_path = Path(df.iloc[0]['crop_path'])
-    data_path = crop_path.parent.parent # crops are organized into directories per image, so the grandparent is the root
     imagelab = Imagelab(data_path=data_path)
     imagelab.find_issues()
     # Columns to check for issues
     issue_columns = ["is_dark_issue", "is_blurry_issue"]
     bad_images  = imagelab.issues[imagelab.issues[issue_columns].any(axis=1)].index
     num_removed = len(bad_images)
-    debug(f"Removing {num_removed} dark, blurry or duplicate images in {crop_path}")
+    debug(f"Removing {num_removed} dark, blurry or duplicate images in {data_path}")
     for img in bad_images:
         os.remove(img)
-    # Remove the bad images from the dataframe
-    df = df[~df['crop_path'].isin(bad_images)]
-    info(f"Removed {num_removed} dark or blurry images in {crop_path}")
-    return df
+    return bad_images
 
 
 def filter_images(min_area:int, max_area: int, min_saliency: int, min_score:float, df: pd.DataFrame) -> pd.DataFrame:

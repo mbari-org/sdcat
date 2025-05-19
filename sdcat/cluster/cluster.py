@@ -391,11 +391,14 @@ def cluster_vits(
             df_dets.apply(crop_square_wrapper, axis=1)
 
     if remove_bad_images:
-        info(f'Removing bad images from {len(df_dets)} ')
+        info(f'Cleaning bad images from {len(df_dets)} ')
         size_before = len(df_dets)
-        df = clean_bad_images(df_dets)
-        size_after = len(df)
-        info(f'Removed {size_before - size_after} detections that were dark or blurry')
+        crop_path = Path(df_dets.iloc[0]['crop_path'])
+        data_path = crop_path.parent.parent  # crops are organized into directories per image, so the grandparent is the root
+        bad_images = clean_bad_images(data_path)
+        df_dets = df_dets[~df_dets['crop_path'].isin(bad_images)]
+        size_after = len(df_dets)
+        info(f'Removed {size_before - size_after} detections using cleanvision')
 
     # Drop any rows with crop_path that have files that don't exist - sometimes the crops fail
     df_dets = df_dets[df_dets['crop_path'].apply(lambda x: os.path.exists(x))]
