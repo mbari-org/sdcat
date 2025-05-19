@@ -227,8 +227,7 @@ def _run_hdbscan_assign(
         use_tsne: bool,
         cluster_offset: int) -> pandas.DataFrame:
     """
-    Cluster the embeddings using HDBSCAN
-    :param image_emb:  The embeddings to cluster from the model
+    Cluster the features using HDBSCAN
     :param alpha:  The alpha parameter for HDBSCAN
     :param cluster_selection_epsilon:  The epsilon parameter for HDBSCAN
     :param algorithm:  The algorithm to use for clustering, 'best' or 'generic' or 'prims_kdtree' or 'boruvka_kdtree'
@@ -237,7 +236,6 @@ def _run_hdbscan_assign(
     :param min_samples:   The number of samples in a neighborhood for a point
     :param use_tsne:  Whether to use t-SNE for dimensionality reduction
     :param cluster_offset:  Offset to add to the cluster IDs
-    :param ancillary_df:  (optional) Ancillary data to include in the clustering
     :return: pandas.DataFrame with the cluster assignments
     """
     info(f'Clustering using HDBSCAN with: \n'
@@ -451,37 +449,42 @@ def cluster_vits(
         c.unlink()
 
     cluster_offset = 0 # Start with 0 for the first batch
+    info(f'Processing images in batches of {batch_size} ...')
     for i in range(num_batches):
         start = i * batch_size
         end = min((i + 1) * batch_size, len(images))
         info(f'Processing batch {i + 1} of {num_batches}...')
 
-        # Get the embeddings for the batch and put into dataframe with the index
+        # Get the embeddings for the batch and put into dataframe with the ancillary data if present
         df_batch = df_dets.iloc[start:end].copy()
-        for filename in images[start:end]:
+        for idx, filename in enumerate(images[start:end]):
             try:
                 emb, _, _ = fetch_embedding(model, filename)
-                df_batch.loc[df_batch['crop_path'] == filename, 'embedding'] = emb
-                if ancillary_df:
-                    # Get the ancillary data for the image
-                    ancillary_data = ancillary_df.loc[ancillary_df['crop_path'] == filename]
-                    if ancillary_data.empty:
-                        ancillary_data = pd.Series([0] * len(ancillary_df.columns), index=ancillary_df.columns)
-                    else:
-                        ancillary_data = ancillary_data.iloc[0]
-                    df_batch.loc[df_batch['crop_path'] == filename, ancillary_df.columns] = ancillary_data
+                df_batch.iloc[idx]["embedding"] = emb
             except Exception as e:
                 err(f'Error fetching embedding for {filename}: {e}')
                 raise e
 
-        # Drop any non-numeric columns and other columns that are not needed. This should retain area saliency if present
-        # which may be useful for clustering
+        # Only keep the columns we need for clustering
         df_batch = df_batch.select_dtypes(include=["float", "int"])
-        keep_columns = ['area', 'saliency', 'w', 'h']
+        keep_columns = ['area', 'saliency', 'w', 'h','embedding', 'crop_path']
         # Drop any columns that are not in the keep_columns list
         for col in df_batch.columns:
             if col not in keep_columns and col not in df_batch.columns:
                 df_batch = df_batch.drop(columns=[col], errors='ignore')
+
+        # Add in the ancillary data if present. Assume keyed by crop_path
+        if ancillary_df:
+            for filename in images[start:end]:
+                # Get the ancillary data for the image
+                ancillary_data = ancillary_df.loc[ancillary_df['crop_path'] == filename]
+                if ancillary_data.empty:
+                    ancillary_data = pd.Series([0] * len(ancillary_df.columns), index=ancillary_df.columns)
+                else:
+                    ancillary_data = ancillary_data.iloc[0]
+                df_batch.loc[df_batch['crop_path'] == filename, ancillary_df.columns] = ancillary_data
+            df_batch = df_batch.select_dtypes(include=["float", "int"])
+
         df_assign = _run_hdbscan_assign(df_batch,
                                  alpha,
                                  cluster_selection_epsilon,
