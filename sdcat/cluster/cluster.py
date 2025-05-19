@@ -172,7 +172,6 @@ def _similarity_merge(
     linkage_matrix = linkage(exemplar_emb, method='complete', metric='cosine')
     cluster_labels = fcluster(linkage_matrix, 1 - min_similarity, criterion='distance')
 
-    unique_clusters = np.unique(cluster_labels)
     info(f'Unique clusters before merging: {len(unique_clusters_before)}')
     # If the cluster labels are all the same, then we have a single cluster and we can't merge
     if len(np.unique(cluster_labels)) == 1:
@@ -197,22 +196,24 @@ def _similarity_merge(
             debug(f'Cluster {c} has {len(rows)} samples')
 
     # Compute the average similarity score for each cluster
-    avg_sim_scores = {}
-    for cluster in unique_clusters:
-        cluster_df = df[df['cluster'] == cluster]
+    info('Computing average similarity scores for each cluster ...')
+    def compute_cluster_avg_similarity(cluster_df):
         if len(cluster_df) == 0:
-            continue
-        # Get the embeddings for the cluster
+            return None
+
         cluster_emb = []
         for filename in cluster_df['crop_path']:
             emb, _, _ = fetch_embedding(model, filename)
             cluster_emb.append(emb)
         cluster_emb = np.array(cluster_emb)
 
-        # Compute the average similarity score for the cluster
         sim = cosine_similarity(cluster_emb)
-        avg_sim_scores[cluster] = np.mean(sim)
+        return np.mean(sim)
 
+    # Group by cluster and apply the function in parallel
+    info("Computing average similarity scores for each cluster ...")
+    cluster_scores = df.groupby("cluster").apply(compute_cluster_avg_similarity)
+    avg_sim_scores = cluster_scores.dropna().to_dict()
     return df, avg_sim_scores
 
 
