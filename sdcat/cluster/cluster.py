@@ -232,6 +232,7 @@ def _similarity_merge(
     info("Computing average similarity scores for each cluster ...")
     cluster_scores = df.groupby("cluster").apply(compute_cluster_avg_similarity)
     avg_sim_scores = cluster_scores.dropna().to_dict()
+    df = df.fillna(0)
     return df, avg_sim_scores
 
 
@@ -535,6 +536,9 @@ def cluster_vits(
     df_dets['cluster'] = similarity_df['cluster']
     df_dets['exemplar'] = similarity_df['exemplar']
     df_dets['HDBSCAN_probability'] = similarity_df['HDBSCAN_probability']
+
+    # Drop any rows with NaN values in the cluster column
+    df_dets = df_dets.dropna(subset=['cluster'])
 
     # Get the average similarity across all clusters
     avg_similarity = np.mean(list(avg_sim_scores.values()))
