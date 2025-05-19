@@ -455,15 +455,9 @@ def cluster_vits(
         end = min((i + 1) * batch_size, len(images))
         info(f'Processing batch {i + 1} of {num_batches}...')
 
-        # Get the embeddings for the batch and put into dataframe with the ancillary data if present
+        # Get the embeddings for the batch
         df_batch = df_dets.iloc[start:end].copy()
-        for idx, filename in enumerate(images[start:end]):
-            try:
-                emb, _, _ = fetch_embedding(model, filename)
-                df_batch.iloc[idx]["embedding"] = emb
-            except Exception as e:
-                err(f'Error fetching embedding for {filename}: {e}')
-                raise e
+        df_batch["embedding"] = [fetch_embedding(model, filename)[0] for filename in images]
 
         # Only keep the columns we need for clustering
         df_batch = df_batch.select_dtypes(include=["float", "int"])
