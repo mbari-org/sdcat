@@ -298,8 +298,8 @@ def _run_hdbscan_assign(
 
     # Get the index of the highest scores for each unique cluster sorted in increasing order
     # and use this as a representative image for the cluster
-    cluster_df['HDBSCAN_score'] = scan.probabilities_
-    max_scores = cluster_df.sort_values('cluster', ascending=True).groupby('cluster')['HDBSCAN_score'].idxmax()
+    cluster_df['HDBSCAN_probability'] = scan.probabilities_
+    max_scores = cluster_df.sort_values('cluster', ascending=True).groupby('cluster')['HDBSCAN_probability'].idxmax()
 
     # Remove the first element which may be the -1 cluster
     if len(max_scores) > 0 and max_scores.keys()[0]:
