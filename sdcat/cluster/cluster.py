@@ -150,8 +150,6 @@ def _similarity_merge(
     """
     Merge clusters based on the linkage of the cosine similarity of their embeddings.
     """
-    df = df.fillna(0)
-
     unique_clusters_before = df['cluster'].unique()
 
     # Get the index of the highest scores for each unique cluster sorted in increasing order
@@ -169,7 +167,7 @@ def _similarity_merge(
     noise_indices = df[df['cluster'] == -1].index
     info('Assigning noise clusters to nearest exemplar ...')
     for i in tqdm.tqdm(noise_indices):
-        noise_emb, _, _ = fetch_embedding(model, df.at[i, 'crop_path'])
+        noise_emb, _, _ = fetch_embedding(model, df.iloc[i]['crop_path'])
         sim = cosine_similarity([noise_emb], exemplar_emb)
         cluster = np.argmax(sim)
         score = np.max(sim)
@@ -466,7 +464,8 @@ def cluster_vits(
     batch_df = pd.DataFrame()#{'batch': None, 'cluster': None, 'embedding': None, 'crop_path': None})
 
     # Remove any existing cluster images in the output_path
-    for c in (output_path / prefix).parent.rglob(f'{prefix}_*cluster*.png'):
+    cluster_grids = (output_path / prefix).rglob(f'{prefix}_*cluster*.png')
+    for c in cluster_grids:
         c.unlink()
 
     cluster_offset = 0 # Start with 0 for the first batch
@@ -510,7 +509,6 @@ def cluster_vits(
                     ancillary_data = ancillary_data.iloc[0]
                 df_batch.loc[df_batch['crop_path'] == filename, ancillary_df.columns] = ancillary_data
 
-        df_batch = df_batch.dropna(subset=['cluster'])
         df_batch = df_batch.drop(columns=['crop_path'], errors='ignore') # drop the crop_path column as only floats and ints are needed
 
         df_assign = _run_hdbscan_assign(df_batch,
