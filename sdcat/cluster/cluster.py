@@ -210,8 +210,6 @@ def _similarity_merge(
             rows = df[df['cluster'] == c]
             debug(f'Cluster {c} has {len(rows)} samples')
 
-    # Compute the average similarity score for each cluster
-    info('Computing average similarity scores for each cluster ...')
     def compute_cluster_avg_similarity(cluster_df):
         if len(cluster_df) == 0:
             return None
