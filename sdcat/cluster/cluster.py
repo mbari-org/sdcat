@@ -17,7 +17,7 @@ from hdbscan import HDBSCAN
 from scipy.cluster.hierarchy import linkage, fcluster
 from sklearn.metrics.pairwise import cosine_similarity
 from sdcat.logger import info, warn, debug
-from sdcat.cluster.utils import cluster_grid, crop_square_image, clean_bad_images
+from sdcat.cluster.utils import cluster_grid, crop_square_image, clean_bad_images, get_batches
 from sdcat.cluster.embedding import fetch_embedding, has_cached_embedding, compute_norm_embedding
 
 if find_spec("multicore_tsne"):
@@ -153,26 +153,17 @@ def _similarity_merge(
     """
     unique_clusters_before = df['cluster'].unique()
 
-    # # Assign noise -1 cluster to the nearest exemplar
-    # noise_indices = df[df['cluster'] == -1].index
-    # info('Assigning noise clusters to nearest exemplar ...')
-    # for i in tqdm.tqdm(noise_indices):
-    #     noise_emb, _, _ = fetch_embedding(model, df.iloc[i]['crop_path'])
-    #     sim = cosine_similarity([noise_emb], exemplar_emb)
-    #     cluster = np.argmax(sim)
-    #     score = np.max(sim)
-    #     if score > min_similarity:
-    #         df.iloc[i]['cluster'] = cluster
-    #         debug(f'Noise {i} is now {cluster} {score:.2f}')
-
-    # Recompute the exemplar embeddings
-    # max_scores = df.sort_values('cluster', ascending=True).groupby('cluster')['HDBSCAN_probability'].idxmax()
-    # # Remove the first element which is the -1 cluster
-    # max_scores = max_scores[1:]
-
-    # # Get the representative embeddings for the max scoring exemplars for each cluster and store them in a numpy array
-    # exemplar_emb = [fetch_embedding(model, filename)[0] for filename in df.loc[max_scores]['crop_path']]
-    # exemplar_emb = np.array(exemplar_emb)
+    # Assign noise -1 cluster to the nearest exemplar
+    noise_indices = df[df['cluster'] == -1].index
+    info('Assigning noise clusters to nearest exemplar ...')
+    for i in tqdm.tqdm(noise_indices):
+        noise_emb, _, _ = fetch_embedding(model, df.iloc[i]['crop_path'])
+        sim = cosine_similarity([noise_emb], exemplar_emb)
+        cluster = np.argmax(sim)
+        score = np.max(sim)
+        if score > min_similarity:
+            df.iloc[i]['cluster'] = cluster
+            debug(f'Noise {i} is now {cluster} {score:.2f}')
 
     info('Length of exemplar_emb: {}'.format(len(exemplar_emb)))
 
@@ -431,8 +422,8 @@ def cluster_vits(
         ancillary_df = (numerical_df - numerical_df.min()) / (numerical_df.max() - numerical_df.min())
 
     # Cluster
-    # Compute in batches of 100K; this works for the 8 block models on any GPU
-    batch_size = 100
+    # Compute in batches of 50K; this works for the 8 block models on any GPU
+    batch_size = 50000
     num_batches = int(np.ceil(len(crop_paths) / batch_size))
 
     info(f'Remove any existing cluster grid images in the output_path in {(output_path / prefix)}')
