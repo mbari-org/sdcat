@@ -157,6 +157,7 @@ def run_cluster_det(det_dir, save_dir, device, use_vits, weighted_score, config_
             size_after = len(df)
             info(f'Removed {size_before - size_after} detections that were in the corners of the image')
 
+        # TODO: refactor this block for modin optimization
         if extract_metadata:
             pattern_date1 = re.compile(r'(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z')  # 20161025T184500Z
             pattern_date2 = re.compile(r'(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z\d*mF*')
