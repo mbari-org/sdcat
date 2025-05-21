@@ -54,7 +54,7 @@ def run_cluster_det(det_dir, save_dir, device, use_vits, weighted_score, config_
     cluster_selection_epsilon = cluster_selection_epsilon if cluster_selection_epsilon else float(config('cluster','cluster_selection_epsilon'))
     cluster_selection_method = cluster_selection_method if cluster_selection_method else config('cluster', 'cluster_selection_method')
     algorithm = algorithm if algorithm else config('cluster', 'algorithm')
-    add_metadata = config('cluster', 'add_metadata') == 'False'
+    extract_metadata = config('cluster', 'extract_metadata') == 'False'
     remove_corners = config('cluster', 'remove_corners') == 'True'
     remove_bad_images = config('cluster', 'remove_bad_images') == 'True'
     latitude = float(config('cluster', 'latitude'))
@@ -120,6 +120,10 @@ def run_cluster_det(det_dir, save_dir, device, use_vits, weighted_score, config_
         # Filter the dataframe to only include images in the start_image and end_image range
         df = filter_images(min_area, max_area, min_saliency, min_score, df)
 
+        if df.empty:
+            info(f'No detections found after filtering')
+            return
+
         # Add in a column for the unique crop name for each detection with a unique id
         # create a unique uuid based on the md5 hash of the box in the row
         df['crop_path'] = df.apply(lambda
@@ -128,6 +132,10 @@ def run_cluster_det(det_dir, save_dir, device, use_vits, weighted_score, config_
 
         # Add in a column for the unique crop name for each detection with a unique id
         df['cluster'] = -1  # -1 is the default value and means that the image is not in a cluster
+        df['class'] = 'Unknown'
+        df['class_s'] = 'Unknown'
+        df['score'] = 0.
+        df['score_s'] = 0.
 
         # Remove small or large detections before clustering
         size_before = len(df)
@@ -156,7 +164,7 @@ def run_cluster_det(det_dir, save_dir, device, use_vits, weighted_score, config_
             size_after = len(df)
             info(f'Removed {size_before - size_after} detections that were in the corners of the image')
 
-        if add_metadata:
+        if extract_metadata:
             pattern_date1 = re.compile(r'(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z')  # 20161025T184500Z
             pattern_date2 = re.compile(r'(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z\d*mF*')
             pattern_date3 = re.compile(r'(\d{2})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z')  # 161025T184500Z
@@ -242,10 +250,12 @@ def run_cluster_det(det_dir, save_dir, device, use_vits, weighted_score, config_
             prefix = f'{model_machine_friendly}_{datetime.now().strftime("%Y%m%d_%H%M%S")}'
 
             # Cluster the detections
-            summary = cluster_vits(prefix, model, df, save_dir, alpha, cluster_selection_epsilon, cluster_selection_method, algorithm,
-                                      min_similarity, min_cluster_size, min_samples, device, use_tsne=use_tsne,
-                                      skip_visualization=skip_visualization, roi=False, weighted_score=weighted_score, use_vits=use_vits,
-                                      remove_bad_images=remove_bad_images, batch_size=batch_size)
+            summary = cluster_vits(prefix, model, df, save_dir, alpha, cluster_selection_epsilon,
+                                   cluster_selection_method, algorithm,
+                                   min_similarity, min_cluster_size, min_samples, device,
+                                   use_tsne=use_tsne, weighted_score=False, use_vits=use_vits,
+                                   skip_visualization=skip_visualization, roi=False,
+                                   remove_bad_images=remove_bad_images, batch_size=batch_size)
 
             if summary is None:
                 err(f'No summary returned from clustering')
@@ -327,7 +337,7 @@ def run_cluster_roi(roi_dir, save_dir, device, use_vits, config_ini, alpha, clus
 
     info(f'Found {len(df)} detections in {roi_dir}')
 
-    if len(df) == 0:
+    if df.empty:
         info(f'No detections found in {roi_dir}')
         return
 
@@ -352,6 +362,9 @@ def run_cluster_roi(roi_dir, save_dir, device, use_vits, config_ini, alpha, clus
         shutil.copy(row['image_path'], row['crop_path'])
 
     df = filter_images(min_area, max_area, min_saliency, min_score, df)
+    if df.empty:
+        info(f'No detections found after filtering')
+        return
 
     df['cluster'] = -1  # -1 is the default value and means that the image is not in a cluster
     df['class'] = 'Unknown'
@@ -371,7 +384,7 @@ def run_cluster_roi(roi_dir, save_dir, device, use_vits, config_ini, alpha, clus
         # A prefix for the output files to make sure the output is unique for each execution
         prefix = f'{model_machine_friendly}_{datetime.now().strftime("%Y%m%d_%H%M%S")}'
 
-        # Cluster the detections
+        # Cluster the ROIs
         summary = cluster_vits(prefix, model, df, save_dir, alpha, cluster_selection_epsilon, cluster_selection_method, algorithm,
                                   min_similarity, min_cluster_size, min_samples, device,
                                   use_tsne=use_tsne, weighted_score=False, use_vits=use_vits,
