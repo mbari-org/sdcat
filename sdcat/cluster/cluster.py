@@ -155,18 +155,16 @@ def _similarity_merge(
     """
     unique_clusters_before = df['cluster'].unique()
 
-    # Assign noise -1 cluster to the nearest exemplar
-    noise_indices = df[df['cluster'] == -1].index
-    info('Assigning noise clusters to nearest exemplar ...')
-    for i in tqdm.tqdm(noise_indices):
-        noise_emb, _, _ = fetch_embedding(model, df.iloc[i]['crop_path'])
-        sim = cosine_similarity([noise_emb], exemplar_emb)
-        cluster = np.argmax(sim)
-        score = np.max(sim)
-        if score > min_similarity:
-            df.iloc[i]['cluster'] = cluster
-            debug(f'Noise {i} is now {cluster} {score:.2f}')
-
+    # Reassign the -1 cluster to the nearest exemplar cluster
+    noise_df = df[df["cluster"] == -1].copy()
+    noise_embeddings = np.array([fetch_embedding(model, path)[0] for path in noise_df["crop_path"]])
+    similarities = cosine_similarity(noise_embeddings, exemplar_emb)
+    max_scores = similarities.max(axis=1)
+    best_clusters = similarities.argmax(axis=1)
+    valid = max_scores > min_similarity
+    df.loc[noise_df.index[valid], "cluster"] = best_clusters[valid]
+    for idx, cluster, score in zip(noise_df.index[valid], best_clusters[valid], max_scores[valid]):
+        debug(f"Noise {idx} is now {cluster} {score:.2f}")
 
     # Get the exemplar embeddings for the clusters again with noise clusters assigned to the nearest exemplar
     max_scores = df.sort_values('cluster', ascending=True).groupby('cluster')['HDBSCAN_probability'].idxmax()
@@ -188,17 +186,16 @@ def _similarity_merge(
     if len(np.unique(linkage_clusters)) == 1:
         info(f'No clusters to merge')
     else:
-        # Assign the exemplar clusters to the original clusters based on the linkage matrix
-        for i, old_cluster in enumerate(df['cluster'].values):
+        def map_to_new_cluster(old_cluster):
             if old_cluster == -1:
-                continue
-            if old_cluster > len(linkage_clusters) - 1 :
+                return -1  # Keep noise unchanged
+            if old_cluster > len(linkage_clusters) - 1:
                 warn(f'Cluster {old_cluster} is not in the linkage matrix')
-                continue
+                return old_cluster  # Leave unchanged
             new_cluster = linkage_clusters[old_cluster]
             debug(f'Assigning cluster {old_cluster} to {new_cluster}')
-            df.iloc[i]['cluster'] = new_cluster
-
+            return new_cluster
+        df['cluster'] = df['cluster'].map(map_to_new_cluster)
         unique_clusters_after = df['cluster'].unique()
         info(f'Unique clusters after merging: {len(unique_clusters_after)}')
 
