@@ -17,7 +17,7 @@ from hdbscan import HDBSCAN
 from scipy.cluster.hierarchy import linkage, fcluster
 from sklearn.metrics.pairwise import cosine_similarity
 from sdcat.logger import info, warn, debug
-from sdcat.cluster.utils import cluster_grid, crop_square_image, clean_bad_images, get_batches
+from sdcat.cluster.utils import cluster_grid, crop_square_image, clean_bad_images
 from sdcat.cluster.embedding import fetch_embedding, has_cached_embedding, compute_norm_embedding
 
 if find_spec("multicore_tsne"):
@@ -165,7 +165,14 @@ def _similarity_merge(
             df.iloc[i]['cluster'] = cluster
             debug(f'Noise {i} is now {cluster} {score:.2f}')
 
-    info('Length of exemplar_emb: {}'.format(len(exemplar_emb)))
+
+    # Get the exemplar embeddings for the clusters again with noise clusters assigned to the nearest exemplar
+    max_scores = df.sort_values('cluster', ascending=True).groupby('cluster')['HDBSCAN_probability'].idxmax()
+    # Remove the first element which is the -1 cluster
+    if -1 in max_scores.index:
+        max_scores = max_scores.drop(-1)
+    exemplar_emb = [fetch_embedding(model, filename)[0] for filename in df.loc[max_scores]['crop_path']]
+    df.loc[max_scores, 'exemplar'] = 1
 
     info(f'Merging clusters with similarity threshold {min_similarity:.2f} ...')
     info(f"Maximum cluster id: {df['cluster'].values.max()} minimum cluster id: {df['cluster'].values.min()} unique clusters: {len(unique_clusters_before)}")
@@ -491,7 +498,8 @@ def cluster_vits(
 
     max_scores = df_dets.sort_values('cluster', ascending=True).groupby('cluster')['HDBSCAN_probability'].idxmax()
     # Remove the first element which is the -1 cluster
-    max_scores = max_scores[1:]
+    if -1 in max_scores.index:
+        max_scores = max_scores.drop(-1)
 
     # Get the representative embeddings for the max scoring exemplars for each cluster and store them in a numpy array
     exemplar_emb = [fetch_embedding(model, filename)[0] for filename in df_dets.loc[max_scores]['crop_path']]
@@ -518,12 +526,6 @@ def cluster_vits(
         warn('No clusters found')
 
     info(f'Found {len(unique_clusters)} clusters with an average similarity of {avg_similarity:.2f} ')
-
-    # Save the exemplar embeddings to a dataframe with some metadata such as the model used
-    exemplar_df = df_dets_final[df_dets_final['exemplar'] == 1].copy()
-    exemplar_df['embedding'] = [fetch_embedding(model, filename)[0] for filename in exemplar_df['crop_path']]
-    exemplar_df['model'] = str(model)
-    exemplar_df.to_csv(output_path / f'{prefix}_exemplars.csv', index=False)
 
     num_samples = df_dets.shape[0]
     clustered = df_dets['cluster'].values != -1
