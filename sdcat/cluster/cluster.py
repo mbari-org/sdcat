@@ -352,7 +352,7 @@ def cluster_vits(
     warnings.filterwarnings('ignore')
     # If there are no detections, return an empty dataframe
     if df_dets.empty:
-        warn(f'No detections found in {detections} ')
+        warn(f'No detections found')
         return None
 
     # If the detections are not cropped, crop them to a square
@@ -373,7 +373,7 @@ def cluster_vits(
     # Drop any rows with crop_path that have files that don't exist - sometimes the crops fail
     df_dets = df_dets[df_dets['crop_path'].apply(lambda x: os.path.exists(x))]
     if df_dets.empty:
-        warn(f'No detections found in {detections} ')
+        warn('No detections found')
         return None
 
     df_dets = df_dets.sort_index()
