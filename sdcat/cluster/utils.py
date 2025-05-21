@@ -64,9 +64,9 @@ def cluster_grid(prefix: str, cluster_sim: float, cluster_id: int, nb_images_dis
 
             # Add a title to the figure
             if total_pages > 1:
-                fig.suptitle(f"{prefix}\nv{sdcat_version}\nCluster {cluster_id}, Page: {page} of {total_pages}\nSimilarity: {cluster_sim:.2f}, Size: {cluster_size}", fontsize=14)
+                fig.suptitle(f"{prefix}\nsdcat_version {sdcat_version}\nCluster {cluster_id}, Page: {page} of {total_pages}\nSimilarity: {cluster_sim:.2f}, Size: {cluster_size}", fontsize=14)
             else:
-                fig.suptitle(f"{prefix}\nv{sdcat_version}\nCluster {cluster_id}\nSimilarity: {cluster_sim:.2f}, Size: {cluster_size}", fontsize=14)
+                fig.suptitle(f"{prefix}\nsdcat_version {sdcat_version}\nCluster {cluster_id}\nSimilarity: {cluster_sim:.2f}, Size: {cluster_size}", fontsize=14)
 
             # Set the background color of the grid to white
             fig.set_facecolor('white')

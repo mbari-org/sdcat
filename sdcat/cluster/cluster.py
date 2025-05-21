@@ -19,6 +19,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 from sdcat.logger import info, warn, debug
 from sdcat.cluster.utils import cluster_grid, crop_square_image, clean_bad_images
 from sdcat.cluster.embedding import fetch_embedding, has_cached_embedding, compute_norm_embedding
+from sdcat import __version__ as sdcat_version
 
 if find_spec("multicore_tsne"):
     from multicore_tsne import MulticoreTSNE as TSNE
@@ -137,6 +138,8 @@ def _summarize_clusters(df: pd.DataFrame, output_path: Path, prefix: str,
         # No speed-up here with modin, so use pandas
         df_joint = pd.DataFrame({'x': xx[:,0], 'y': xx[:,1], 'labels': sampled_df['cluster'].values})
         p = sns.jointplot(data=df_joint, x='x', y='y', hue='labels')
+        # Add a title to the plot
+        p.fig.suptitle(f"{prefix}\nsdcat_version {sdcat_version}\nClusters {num_clusters} with {num_samples} samples", fontsize=16)
         p.savefig(f"{output_path}/{prefix}_summary.png")
         info(f"Saved {output_path}/{prefix}_summary.png")
 
@@ -542,8 +545,10 @@ def cluster_vits(
         "cluster_selection_epsilon": cluster_selection_epsilon
     }
 
-    df_dets_final.to_csv(output_path / f'{prefix}_cluster_detections.csv', index=False)
+    df_dets_final.to_csv(output_path / f'{prefix}_cluster_detections.csv')
     info(f'Saved {output_path / f"{prefix}_cluster_detections.csv"}')
+    df_dets_final.to_parquet(output_path / f'{prefix}_cluster_detections.parquet')
+    info(f'Saved {output_path / f"{prefix}_cluster_detections.parquet"}')
 
     # Return a summary of the clusters
     return _summarize_clusters(df_dets_final,
