@@ -1,6 +1,6 @@
 # sdcat, Apache-2.0 license
 # Filename: cluster/commands.py
-# Description:  Clustering commands
+# Description:  Clustering commands to cluster both detections and ROIs
 import json
 import re
 import shutil
@@ -54,6 +54,7 @@ def run_cluster_det(det_dir, save_dir, device, use_vits, weighted_score, config_
     cluster_selection_epsilon = cluster_selection_epsilon if cluster_selection_epsilon else float(config('cluster','cluster_selection_epsilon'))
     cluster_selection_method = cluster_selection_method if cluster_selection_method else config('cluster', 'cluster_selection_method')
     algorithm = algorithm if algorithm else config('cluster', 'algorithm')
+    add_metadata = config('cluster', 'add_metadata') == 'False'
     remove_corners = config('cluster', 'remove_corners') == 'True'
     remove_bad_images = config('cluster', 'remove_bad_images') == 'True'
     latitude = float(config('cluster', 'latitude'))
@@ -154,6 +155,78 @@ def run_cluster_det(det_dir, save_dir, device, use_vits, weighted_score, config_
             df = df[~df.apply(within_1_percent_of_corners, axis=1)]
             size_after = len(df)
             info(f'Removed {size_before - size_after} detections that were in the corners of the image')
+
+        if add_metadata:
+            pattern_date1 = re.compile(r'(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z')  # 20161025T184500Z
+            pattern_date2 = re.compile(r'(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z\d*mF*')
+            pattern_date3 = re.compile(r'(\d{2})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z')  # 161025T184500Z
+            pattern_date4 = re.compile(r'(\d{2})-(\d{2})-(\d{2})T(\d{2})_(\d{2})_(\d{2})-')  # 16-06-06T16_04_54
+            pattern_depth = re.compile(r'_(\d+(?:\.\d+)?)m_') # 50m_100m_200m_ or _100.0m
+
+            # Grab any additional metadata from the image name, e.g. depth, yearday, number, day/night
+            depth = {}
+            yearday = {}
+            number = {}
+            day_flag = {}
+            observer = ephem.Observer()
+            observer.lat = latitude
+            observer.lon = longitude
+
+            def is_day(utc_dt):
+                observer.date = utc_dt
+                sun = ephem.Sun(observer)
+                if sun.alt > 0:
+                    return 1
+                return 0
+
+            for index, row in sorted(df.iterrows()):
+                image_name = Path(row.image_path).name
+                if pattern_date1.search(image_name):
+                    match = pattern_date1.search(image_name).groups()
+                    year, month, day, hour, minute, second = map(int, match)
+                    dt = datetime(year, month, day, hour, minute, second, tzinfo=pytz.utc)
+                    yearday[index] = int(dt.strftime("%j")) - 1
+                    day_flag[index] = is_day(dt)
+                if pattern_date2.search(image_name):
+                    match = pattern_date2.search(image_name).groups()
+                    year, month, day, hour, minute, second = map(int, match)
+                    dt = datetime(year, month, day, hour, minute, second, tzinfo=pytz.utc)
+                    yearday[index] = int(dt.strftime("%j")) - 1
+                    day_flag[index] = is_day(dt)
+                if pattern_date3.search(image_name):
+                    match = pattern_date3.search(image_name).groups()
+                    year, month, day, hour, minute, second = map(int, match)
+                    dt = datetime(year, month, day, hour, minute, second, tzinfo=pytz.utc)
+                    yearday[index] = int(dt.strftime("%j")) - 1
+                    day_flag[index] = is_day(dt)
+                if pattern_date4.search(image_name):
+                    match = pattern_date4.search(image_name).groups()
+                    year, month, day, hour, minute, second = map(int, match)
+                    dt = datetime(year, month, day, hour, minute, second, tzinfo=pytz.utc)
+                    yearday[index] = int(dt.strftime("%j")) - 1
+                    day_flag[index] = is_day(dt)
+                if pattern_depth.search(image_name):
+                    match = pattern_depth.match(image_name)
+                    depth[index] = float(match.group(1))
+
+            # Add the depth, yearday, day, and night columns to the dataframe if they exist
+            if len(depth) > 0:
+                df['depth'] = depth
+                df['depth'] = df['depth'].astype(int)
+            if len(yearday) > 0:
+                df['yearday'] = yearday
+                df['yearday'] = df['yearday'].astype(int)
+            if len(number) > 0:
+                df['frame'] = number
+            if len(day_flag) > 0:
+                df['day'] = day_flag
+                df['day'] = df['day'].astype(int)
+
+            # Filter by day/night
+            # size_before = len(df)
+            # df = df[df['day'] == 1]
+            # size_after = len(df)
+            # info(f'Removed {size_before - size_after} detections that were at night')
 
         # Replace any NaNs with 0
         df.fillna(0)

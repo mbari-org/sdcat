@@ -13,6 +13,7 @@ from matplotlib import pyplot as plt
 from mpl_toolkits.axes_grid1 import ImageGrid
 from pathlib import Path
 from sdcat.logger import info, debug, warn, exception
+from sdcat import __version__ as sdcat_version
 
 
 def cluster_grid(prefix: str, cluster_sim: float, cluster_id: int, nb_images_display: int,
@@ -63,11 +64,9 @@ def cluster_grid(prefix: str, cluster_sim: float, cluster_id: int, nb_images_dis
 
             # Add a title to the figure
             if total_pages > 1:
-                plt.title(f"{prefix} Cluster {cluster_id}, Page: {page} of {total_pages}", fontsize=20)
-                fig.suptitle(f"Similarity: {cluster_sim:.2f}, Size: {cluster_size},", fontsize=16)
+                fig.suptitle(f"{prefix}\nv{sdcat_version}\nCluster {cluster_id}, Page: {page} of {total_pages}\nSimilarity: {cluster_sim:.2f}, Size: {cluster_size}", fontsize=14)
             else:
-                plt.title(f"{prefix} Cluster {cluster_id}", fontsize=20)
-                fig.suptitle(f"Similarity: {cluster_sim:.2f}, Size: {cluster_size},", fontsize=16)
+                fig.suptitle(f"{prefix}\nv{sdcat_version}\nCluster {cluster_id}\nSimilarity: {cluster_sim:.2f}, Size: {cluster_size}", fontsize=14)
 
             # Set the background color of the grid to white
             fig.set_facecolor('white')
@@ -180,7 +179,7 @@ def rescale(img: np.ndarray, scale_percent: int = 75) -> np.ndarray:
 def clean_bad_images(filepaths: List[str]) -> List[str]:
     """Remove dark or blurry images from the dataframe"""
     imagelab = Imagelab(filepaths=filepaths)
-    issue_types = { "dark": {}, "blurry": {} }
+    issue_types = { "dark": {}, "blurry": { "threshold": 0.52} }
     imagelab.find_issues(issue_types)
     issue_columns = ["is_dark_issue", "is_blurry_issue"]
     bad_images = imagelab.issues[imagelab.issues[issue_columns].any(axis=1)].index
