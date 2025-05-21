@@ -54,7 +54,7 @@ def run_cluster_det(det_dir, save_dir, device, use_vits, weighted_score, config_
     cluster_selection_epsilon = cluster_selection_epsilon if cluster_selection_epsilon else float(config('cluster','cluster_selection_epsilon'))
     cluster_selection_method = cluster_selection_method if cluster_selection_method else config('cluster', 'cluster_selection_method')
     algorithm = algorithm if algorithm else config('cluster', 'algorithm')
-    extract_metadata = config('cluster', 'extract_metadata') == 'False'
+    extract_metadata = config('cluster', 'extract_metadata') == 'True'
     remove_corners = config('cluster', 'remove_corners') == 'True'
     remove_bad_images = config('cluster', 'remove_bad_images') == 'True'
     latitude = float(config('cluster', 'latitude'))
