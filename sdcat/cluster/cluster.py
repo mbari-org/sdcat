@@ -135,11 +135,10 @@ def _summarize_clusters(df: pd.DataFrame, output_path: Path, prefix: str,
                           n_neighbors=n_neighbors,
                           metric='cosine').fit_transform(np_data)
 
-        # No speed-up here with modin, so use pandas
         df_joint = pd.DataFrame({'x': xx[:,0], 'y': xx[:,1], 'labels': sampled_df['cluster'].values})
         p = sns.jointplot(data=df_joint, x='x', y='y', hue='labels')
-        # Add a title to the plot
-        p.fig.suptitle(f"{prefix}\nsdcat_version {sdcat_version}\nClusters {num_clusters} with {num_samples} samples", fontsize=16)
+        p.fig.suptitle(f"{prefix}\nsdcat_version {sdcat_version}\nClusters {num_clusters} with {num_samples} samples", fontsize=14)
+        p.fig.subplots_adjust(top=0.80)
         p.savefig(f"{output_path}/{prefix}_summary.png")
         info(f"Saved {output_path}/{prefix}_summary.png")
 
