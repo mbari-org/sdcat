@@ -9,7 +9,6 @@ from concurrent.futures import ProcessPoolExecutor,as_completed
 import os
 import pandas
 import seaborn as sns
-import tqdm
 import modin.pandas as pd
 import numpy as np
 from umap import UMAP

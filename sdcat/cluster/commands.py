@@ -159,6 +159,8 @@ def run_cluster_det(det_dir, save_dir, device, use_vits, weighted_score, config_
 
         # TODO: refactor this block for modin optimization
         if extract_metadata:
+            import tqdm
+            info('Extracting metadata ...')
             pattern_date1 = re.compile(r'(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z')  # 20161025T184500Z
             pattern_date2 = re.compile(r'(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z\d*mF*')
             pattern_date3 = re.compile(r'(\d{2})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z')  # 161025T184500Z
@@ -181,7 +183,7 @@ def run_cluster_det(det_dir, save_dir, device, use_vits, weighted_score, config_
                     return 1
                 return 0
 
-            for index, row in sorted(df.iterrows()):
+            for index, row in tqdm.tqdm(df.iterrows(), total=len(df), desc="Extracting metadata", unit="image"):
                 image_name = Path(row.image_path).name
                 if pattern_date1.search(image_name):
                     match = pattern_date1.search(image_name).groups()
