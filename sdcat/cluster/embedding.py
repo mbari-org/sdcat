@@ -62,9 +62,9 @@ class ViTWrapper:
             images = [Image.open(p).convert("RGB") for p in batch_paths]
             inputs = self.processor(images=images, return_tensors="pt")
 
-            # Send tensors to device
+            # Send tensors to device and convert to the same dtype as the model
             for k in inputs:
-                inputs[k] = inputs[k].to(self.device)
+                inputs[k] = inputs[k].to(device=self.device, dtype=next(self.model.parameters()).dtype)
 
             with torch.no_grad():
                 outputs = self.model(**inputs)
