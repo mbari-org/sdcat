@@ -27,14 +27,12 @@ class ViTWrapper:
             info(f"Using GPU device {device_num}")
             self.device = torch.device(f"cuda:{device_num}")
             torch.cuda.set_device(device_num)
-            torch_dtype = torch.float16  # could also try int8 if supported
         else:
             self.device = torch.device("cpu")
-            torch_dtype = torch.float32
 
         # Load model & processor
         self.processor = AutoImageProcessor.from_pretrained(model_name)
-        self.model = AutoModelForImageClassification.from_pretrained(model_name, torch_dtype=torch_dtype).to(self.device)
+        self.model = AutoModelForImageClassification.from_pretrained(model_name).to(self.device)
 
     @property
     def model_name(self) -> str:
@@ -53,7 +51,7 @@ class ViTWrapper:
 
         # Send tensors to device for speed-up
         for k in inputs:
-            inputs[k] = inputs[k].to(device=self.device, dtype=next(self.model.parameters()).dtype)
+            inputs[k] = inputs[k].to(device=self.device)
 
         with torch.no_grad():
             outputs = self.model(**inputs)

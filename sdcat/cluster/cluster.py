@@ -353,18 +353,28 @@ def cluster_vits(
 
     # If the detections are not cropped, crop them to a square
     if not roi:
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+        from tqdm import tqdm
 
-        # Count how many crops are already square
-        num_square = df_dets['crop_path'].apply(lambda x: os.path.exists(x)).sum()
+        # Only crop if needed
+        existing = df_dets['crop_path'].apply(lambda x: os.path.exists(x))
+        num_square = existing.sum()
 
         if num_square == len(df_dets):
             info(f'All {len(df_dets)} detections are already cropped to square')
         else:
-            def crop_square_wrapper(row):
-                return crop_square_image(row, 224)
-
             info(f'Cropping {len(df_dets)} detections...')
-            df_dets.apply(crop_square_wrapper, axis=1)
+            # Filter rows that need cropping
+            rows_to_crop = df_dets[~existing]
+
+            def crop_square_wrapper(row):
+                crop_square_image(row, 224)
+                return row.name
+
+            with ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
+                futures = [executor.submit(crop_square_wrapper, row) for _, row in rows_to_crop.iterrows()]
+                for _ in tqdm(as_completed(futures), total=len(futures)):
+                    pass
 
     # Drop any rows with crop_path that have files that don't exist - sometimes the crops fail
     df_dets = df_dets[df_dets['crop_path'].apply(lambda x: os.path.exists(x))]

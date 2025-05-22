@@ -216,8 +216,7 @@ def filter_images(min_area:int, max_area: int, min_saliency: int, min_score:floa
 def compute_embedding_multi_gpu(model_name: str, images: list, batch_size: int = 32):
 
     from concurrent.futures import ThreadPoolExecutor
-    from sdcat.cluster.embedding import ViTWrapper
-    from sdcat.cluster.embedding import compute_embedding_vits
+    from sdcat.cluster.embedding import ViTWrapper, compute_embedding_vits
     import torch
     import math
 
@@ -229,22 +228,29 @@ def compute_embedding_multi_gpu(model_name: str, images: list, batch_size: int =
         batch_size = math.ceil(len(images) / num_splits)
         return [images[i * batch_size:(i + 1) * batch_size] for i in range(num_splits)]
 
-
-    # Compute embeddings per GPU
     def compute_on_device(device, model_name, images, batch_size):
         vit_wrapper = ViTWrapper(device=device, model_name=model_name)
-        return compute_embedding_vits(vit_wrapper, images, batch_size)
-
+        compute_embedding_vits(vit_wrapper, images, batch_size)
 
     def multi_gpu_compute(model_name, images, batch_size):
         image_batches = split_batches(images, len(devices))
         with ThreadPoolExecutor(max_workers=len(devices)) as executor:
-            futures = [
-                executor.submit(compute_on_device, device, model_name, batch, batch_size)
-                for device, batch in zip(devices, image_batches)
-            ]
-            results = [f.result() for f in futures]
-        return sum(results, [])
+            futures = [ executor.submit(compute_on_device, device, model_name, batch, batch_size)
+                    for device, batch in zip(devices, image_batches) ] 
+            # Wait for all tasks to complete
+            for f in futures:
+                f.result()
+
+    # Compute embeddings per GPU
+    def compute_on_device(device, model_name, images, batch_size):
+        vit_wrapper = ViTWrapper(device=device, model_name=model_name)
+        compute_embedding_vits(vit_wrapper, images, batch_size)
+
+    def multi_gpu_compute(model_name, images, batch_size):
+        image_batches = split_batches(images, len(devices))
+        with ThreadPoolExecutor(max_workers=len(devices)) as executor:
+            for device, batch in zip(devices, image_batches):
+                executor.submit(compute_on_device, device, model_name, batch, batch_size) 
 
     multi_gpu_compute(model_name, images, batch_size)
 

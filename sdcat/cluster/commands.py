@@ -87,11 +87,11 @@ def run_cluster_det(det_dir, save_dir, device, use_vits, weighted_score, config_
         info('Loading detections')
         df = pd.read_csv(csv_file, sep=',')
 
-        info(f'Found {len(df)} detections in {det_dir}')
-
-        if len(df) == 0:
+        if df.empty:
             info(f'No detections found in {det_dir}')
             return
+
+        info(f'Found {len(df)} detections in {det_dir}')
 
         # Check if the image_path column is empty
         if df['image_path'].isnull().values.any():
