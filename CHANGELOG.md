@@ -1,6 +1,15 @@
 # CHANGELOG
 
 
+## v1.21.1 (2025-05-22)
+
+### Performance Improvements
+
+- Improved cluster cropping performance by moving from modin to pandas and grouping by frame and
+  more logging
+  ([`3713e7e`](https://github.com/mbari-org/sdcat/commit/3713e7e1ed15f750c90480d1f25c57a0910f5700))
+
+
 ## v1.21.0 (2025-05-22)
 
 ### Documentation
