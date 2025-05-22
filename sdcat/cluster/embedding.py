@@ -3,7 +3,6 @@
 # Description:  Miscellaneous functions for computing VIT embeddings and caching them.
 
 import os
-import multiprocessing
 from PIL import Image
 from numpy import save, load
 import numpy as np
@@ -12,8 +11,8 @@ import cv2
 from transformers import AutoModelForImageClassification, AutoImageProcessor
 import torch.nn.functional as F
 
+from sdcat.cluster.utils import compute_embedding_multi_gpu
 from sdcat.logger import info, err
-
 
 class ViTWrapper:
     DEFAULT_MODEL_NAME = "google/vit-base-patch16-224"
@@ -21,18 +20,19 @@ class ViTWrapper:
     def __init__(self, device: str = "cpu", batch_size: int = 32, model_name: str = DEFAULT_MODEL_NAME):
         self.batch_size = batch_size
         self.name = model_name
-        self.model = AutoModelForImageClassification.from_pretrained(model_name)
-        self.processor = AutoImageProcessor.from_pretrained(model_name)
 
-        # Load the model and processor
-        if 'cuda' in device and torch.cuda.is_available():
+        # Initialize device
+        if "cuda" in device and torch.cuda.is_available():
             device_num = int(device.split(":")[-1])
             info(f"Using GPU device {device_num}")
+            self.device = torch.device(f"cuda:{device_num}")
             torch.cuda.set_device(device_num)
-            self.device = "cuda"
-            self.model.to("cuda")
         else:
-            self.device = "cpu"
+            self.device = torch.device("cpu")
+
+        # Load model & processor
+        self.processor = AutoImageProcessor.from_pretrained(model_name)
+        self.model = AutoModelForImageClassification.from_pretrained(model_name).to(self.device)
 
     @property
     def model_name(self) -> str:
@@ -42,24 +42,31 @@ class ViTWrapper:
     def vector_dimensions(self) -> int:
         return self.model.config.hidden_size
 
-    def process_images(self, image_paths: list):
+    def process_images(self, image_paths: list[str]):
         info(f"Processing {len(image_paths)} images with {self.model_name}")
 
-        images = [Image.open(image_path).convert("RGB") for image_path in image_paths]
-        inputs = self.processor(images=images, return_tensors="pt").to(self.device)
+        # Load and preprocess images
+        images = [Image.open(p).convert("RGB") for p in image_paths]
+        inputs = self.processor(images=images, return_tensors="pt")
+
+        # Send tensors to device for speed-up
+        for k in inputs:
+            inputs[k] = inputs[k].to(device=self.device)
 
         with torch.no_grad():
             outputs = self.model(**inputs)
             logits = outputs.logits
             embeddings = self.model.base_model(**inputs)
             batch_embeddings = embeddings.last_hidden_state[:, 0, :].cpu().numpy()
-            # Get up to the top two classes and scores
+
             top_n = min(logits.shape[1], 2)
             top_scores, top_classes = torch.topk(logits, top_n)
             top_scores = F.softmax(top_scores, dim=-1).cpu().numpy()
             top_classes = top_classes.cpu().numpy()
-            predicted_classes = [",".join([self.model.config.id2label[class_idx] for class_idx in class_list]) for class_list in top_classes]
-            predicted_scores = [",".join([str(score) for score in score_list]) for score_list in top_scores]
+
+            id2label = self.model.config.id2label
+            predicted_classes = [",".join([id2label[idx] for idx in class_list]) for class_list in top_classes]
+            predicted_scores = [",".join([f"{score:.4f}" for score in score_list]) for score_list in top_scores]
 
         return batch_embeddings, predicted_classes, predicted_scores
 
@@ -80,10 +87,11 @@ def fetch_embedding(model_name: str, filename: str):
     emb = []
     label = []
     score = []
-    if os.path.exists(f'{filename}_{model_machine_friendly_name}.npy'):
-        emb = load(f'{filename}_{model_machine_friendly_name}.npy')
+    emb_filename = f'{filename}_{model_machine_friendly_name}.npy'
+    if os.path.exists(emb_filename):
+        emb = load(emb_filename)
     else:
-        info(f'No embedding found for {filename}')
+        info(f'No embedding found for {os.path.basename(emb_filename)}')
     if os.path.exists(f'{filename}_{model_machine_friendly_name}_pred.txt'):
         with open(f'{filename}_{model_machine_friendly_name}_pred.txt', 'r') as f:
             lines = f.readlines()
@@ -159,20 +167,32 @@ def compute_norm_embedding(model_name: str, images: list, device: str = "cpu", b
     # This did not work well, but it might be worth revisiting, passing the mean
     # and std to the compute_embedding function
     # mean, std = calc_mean_std(images)
-    vit_wrapper = ViTWrapper(device=device, model_name=model_name)
 
     # If using a GPU, set then skip the parallel CPU processing
-    if torch.cuda.is_available():
-        compute_embedding_vits(vit_wrapper, images, batch_size)
+    if torch.cuda.is_available() and 'cuda' in device:
+        if torch.cuda.device_count() > 1 and device == "cuda":
+            torch.cuda.empty_cache()
+            compute_embedding_multi_gpu(model_name, images, batch_size)
+        else:
+            vit_wrapper = ViTWrapper(device=device, model_name=model_name)
+            compute_embedding_vits(vit_wrapper, images, batch_size)
     else:
-        # Use a pool of processes to speed up the embedding generation 20 images at a time on each process
-        num_processes = min(multiprocessing.cpu_count(), len(images) // 20)
-        num_processes = max(1, num_processes)
-        info(f'Using {num_processes} processes to compute {len(images)} embeddings 20 at a time ...')
-        with multiprocessing.Pool(num_processes) as pool:
-            args = [(vit_wrapper, images[i:i + 20], batch_size) for i in range(0, len(images), 20)]
-            pool.starmap(compute_embedding_vits, args)
+        vit_wrapper = ViTWrapper(device='cpu', model_name=model_name)
+        import modin.pandas as pd
+        df_args = pd.DataFrame([{
+            "vit_wrapper": vit_wrapper,
+            "images_batch": [batch],
+            "batch_size": batch_size
+        } for batch in images])
 
+        def compute_embedding_wrapper(row):
+            return compute_embedding_vits(
+                row.vit_wrapper,
+                row.images_batch,
+                row.batch_size
+            )
+        info(f"Compute embeddings for {len(images)} images...")
+        df_args.apply(compute_embedding_wrapper, axis=1)
 
 def calc_mean_std(image_files: list) -> tuple:
     """

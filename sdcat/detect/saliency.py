@@ -1,8 +1,9 @@
 # sdcat, Apache-2.0 license
 # Filename: sdcat/ml/saliency.py
 # Description:  Miscellaneous saliency functions for detecting targets in images.
-import multiprocessing
+import os
 import tempfile
+from concurrent.futures import ProcessPoolExecutor
 
 import cv2
 import numpy as np
@@ -10,6 +11,7 @@ import torch
 import pandas as pd
 from sahi.postprocess.combine import nms
 
+from sdcat.cluster.utils import combine_csv
 from sdcat.logger import debug, info
 from pathlib import Path
 
@@ -123,32 +125,43 @@ def extract_blobs(saliency_map: np.ndarray, img_gray: np.ndarray, img_color: np.
     min_blob_area = 10
     max_blob_area = int(img_gray.shape[0] * img_gray.shape[1] / 2)  # 50% of the image area for the largest blob
 
-    # Do the work in parallel to speed up the processing
-    num_processes = min(multiprocessing.cpu_count(), len(contours) // 100)
+    # Determine number of processes
+    num_processes = min(os.cpu_count(), len(contours) // 100)
     num_processes = max(1, num_processes)
     info(f'Using {num_processes} processes to compute {len(contours)} 100 at a time ...')
 
     # Work in a temporary directory
-    df = pd.DataFrame()
     with tempfile.TemporaryDirectory() as temp_path:
         temp_path = Path(temp_path)
         gray = img_gray
-        # process_contour((temp_path / f'det.csv').as_posix(), contours, gray, min_blob_area, max_blob_area) # useful for debugging
-        with multiprocessing.Pool(num_processes) as pool:
-            args = [((temp_path / f'{i}_det.csv').as_posix(),
-                     contours[i:i + 100],
-                     gray,
-                     min_blob_area,
-                     max_blob_area)
-                    for i in range(0, len(contours), 100)]
-            pool.starmap(process_contour, args)
-            pool.close()
+
+        # Prepare arguments
+        args = [
+            (
+                (temp_path / f'{i}_det.csv').as_posix(),
+                contours[i:i + 100],
+                gray,
+                min_blob_area,
+                max_blob_area
+            )
+            for i in range(0, len(contours), 100)
+        ]
+
+        # Run in parallel
+        with ProcessPoolExecutor(max_workers=num_processes) as executor:
+            futures = [executor.submit(process_contour, *arg) for arg in args]
+            for future in futures:
+                future.result()  # Re-raises any exception that occurred
 
         # Combine the results
         info(f'Combining blob detection results')
-        for csv in temp_path.glob('*.csv'):
-            df = pd.concat([df, pd.read_csv(csv)])
-            csv.unlink()
+        csv_files = list(temp_path.glob('*.csv'))
+        csv_file = combine_csv(csv_files, temp_path / 'det.csv')
+        df = pd.read_csv(csv_file, sep=',')
+
+        # Remove the temporary files
+        for f in csv_files:
+            f.unlink()
 
     if show:
         result_image = img_color.copy()

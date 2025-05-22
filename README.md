@@ -12,7 +12,10 @@ This repository processes images using a sliced detection and clustering workflo
 If your images look something like the image below, and you want to detect objects in the images, 
 and optionally cluster the detections, then this repository may be useful to you.
 The repository is designed to be run from the command line, and can be run in a Docker container,
-without or with a GPU (recommended).
+without or with a GPU (recommended). 
+
+To use with a multiple gpus, use the --device cuda option   
+To use with single gpus, use the --device cuda:0,1 option
 
 --- 
 ![](https://raw.githubusercontent.com/mbari-org/sdcat/main/docs/imgs/example_images.jpg)
@@ -150,7 +153,9 @@ Commands:
 
 ## File organization
 
-The sdcat toolkit generates data in the following folders. Here, we assume both detection and clustering is stored in the same root folder:
+The sdcat toolkit generates data in the following folders. 
+
+For detections, the output is organized in a folder with the following structure:
  
 ```
 /data/20230504-MBARI/
@@ -166,7 +171,6 @@ The sdcat toolkit generates data in the following folders. Here, we assume both 
             ├── det_filtered                    # The filtered detections from the model
                 ├── crops                       # Crops of the detections 
                 ├── dino_vits8...date           # The clustering results - one folder per each run of the clustering algorithm
-                ├── dino_vits8..exemplars.csv   # Exemplar embeddings - examples with the highest cosine similarity within a cluster
                 ├── dino_vits8..detections.csv  # The detections with the cluster id
             ├── stats.txt                       # Statistics of the detections
             └── vizresults                      # Visualizations of the detections (boxes overlaid on images)
@@ -177,6 +181,19 @@ The sdcat toolkit generates data in the following folders. Here, we assume both 
 
 ```
 
+For clustering, the output is organized in a folder with the following structure:
+
+```
+/data/20230504-MBARI/
+└── clusters
+    └── crops                                   # The detection crops/rois, embeddings and predictions
+    └── dino_vit_134412_cluster_detections.parquet  # The detections with the cluster id and predictions in parquet format
+    └── dino_vit_134412_cluster_detections.csv  # The detections with the cluster id and predictions
+    └── dino_vit_134412_cluster_config.ini      # Copy of the config file used to run the clustering
+    └── dino_vit_134412_cluster_summary.json    # Summary of the clustering results
+    └── dino_vit_134412_cluster_summary.png     # 2D plot of the clustering results    
+```
+ 
 ## Process images creating bounding box detections with the YOLOv8s model.
 The YOLOv8s model is not as accurate as other models, but is fast and good for detecting larger objects in images,
 and good for experiments and quick results. 

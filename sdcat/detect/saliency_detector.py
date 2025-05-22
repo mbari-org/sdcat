@@ -179,6 +179,8 @@ def extract_blobs(min_std: float, block_size: int, saliency_map: np.ndarray, img
 
     # Get the luminance to use in saliency calculation
     img_lum = cv2.cvtColor(img_color, cv2.COLOR_BGR2LAB)[:, :, 0]
+
+    info(f'Found {len(contours)} contours. Processing contours...')
     df = process_contour(contours, min_std, saliency_map_thres_c.astype(np.uint8), img_lum)
 
     if show:
