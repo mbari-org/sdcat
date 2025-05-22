@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v1.21.2 (2025-05-22)
+
+### Performance Improvements
+
+- Improved cluster batch performance for GPU acceleration
+  ([`5a90dd9`](https://github.com/mbari-org/sdcat/commit/5a90dd98b330950f0cc2a42664b85d55044d06d4))
+
+
 ## v1.21.1 (2025-05-22)
 
 ### Performance Improvements
