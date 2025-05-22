@@ -1,23 +1,29 @@
 # CHANGELOG
 
 
-## v1.20.4 (2025-05-07)
+## v1.21.0 (2025-05-22)
 
 ### Documentation
 
 - More detail on SAHI
   ([`04eee46`](https://github.com/mbari-org/sdcat/commit/04eee46c43454e82b1ba8b780cb2341dd7cd85d4))
 
-### Performance Improvements
+### Features
 
-- Speed-up detection processing of raw to filtered using multiprocessing
-  ([`fa66969`](https://github.com/mbari-org/sdcat/commit/fa669699b7654f5aeb5ffe17b3fe6407043df632))
+- Fast batch clustering ([#25](https://github.com/mbari-org/sdcat/pull/25),
+  [`38cc5b5`](https://github.com/mbari-org/sdcat/commit/38cc5b5ca0dce187114feca7cd01cf12cbe4bcd1))
 
-* perf: speed-up processing of raw to filtered using multiprocessing
+Optimized batch clustering with improved reporting. New features include:
 
-* fix: correct import path for utils
-
-* fix: correct export of multiproc detections with image height and width
+* Clustering large archives. Tested on 1.5 million ROIs * Clustered results saved to parquet format
+  to facilitate better downstream processing * Better aggregation and reporting on cluster summary
+  in human readable JSON format, e.g. { "dataset": { "output": "/data/output",
+  "clustering_algorithm": "HDBSCAN", "clustering_parameters": { "min_cluster_size": 2,
+  "min_samples": 1, "cluster_selection_method": "leaf", "metric": "precomputed", "algorithm":
+  "best", "alpha": 1.3, "cluster_selection_epsilon": 0.0 }, "feature_embedding_model":
+  "MBARI-org/mbari-uav-vit-b-16", "roi": true, "input": [ "/data/input ], "image_count": 328 },
+  "statistics": { "total_clusters": 4, "cluster_coverage": "1.23 (122.94%)", "top_predictions": {
+  "class": "Shark", "percentage": "3.35%" } }, "sdcat_version": "1.20.4" }
 
 
 ## v1.20.3 (2025-03-19)
