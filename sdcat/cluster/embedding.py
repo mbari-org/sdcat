@@ -3,8 +3,6 @@
 # Description:  Miscellaneous functions for computing VIT embeddings and caching them.
 
 import os
-from itertools import islice
-
 from PIL import Image
 from numpy import save, load
 import numpy as np
@@ -47,47 +45,32 @@ class ViTWrapper:
         return self.model.config.hidden_size
 
     def process_images(self, image_paths: list[str]):
-        info(f"Processing {len(image_paths)} images with {self.model_name} in batches of {self.batch_size}")
+        info(f"Processing {len(image_paths)} images with {self.model_name}")
 
-        def batch_iterator(iterable, size):
-            it = iter(iterable)
-            while batch := list(islice(it, size)):
-                yield batch
+        # Load and preprocess images
+        images = [Image.open(p).convert("RGB") for p in image_paths]
+        inputs = self.processor(images=images, return_tensors="pt")
 
-        all_embeddings = []
-        all_classes = []
-        all_scores = []
+        # Send tensors to device for speed-up
+        for k in inputs:
+            inputs[k] = inputs[k].to(device=self.device, dtype=next(self.model.parameters()).dtype)
 
-        for batch_paths in batch_iterator(image_paths, self.batch_size):
-            images = [Image.open(p).convert("RGB") for p in batch_paths]
-            inputs = self.processor(images=images, return_tensors="pt")
+        with torch.no_grad():
+            outputs = self.model(**inputs)
+            logits = outputs.logits
+            embeddings = self.model.base_model(**inputs)
+            batch_embeddings = embeddings.last_hidden_state[:, 0, :].cpu().numpy()
 
-            # Send tensors to device and convert to the same dtype as the model
-            for k in inputs:
-                inputs[k] = inputs[k].to(device=self.device, dtype=next(self.model.parameters()).dtype)
+            top_n = min(logits.shape[1], 2)
+            top_scores, top_classes = torch.topk(logits, top_n)
+            top_scores = F.softmax(top_scores, dim=-1).cpu().numpy()
+            top_classes = top_classes.cpu().numpy()
 
-            with torch.no_grad():
-                outputs = self.model(**inputs)
-                logits = outputs.logits
-                embeddings = self.model.base_model(**inputs)
-                batch_embeddings = embeddings.last_hidden_state[:, 0, :].cpu().numpy()
+            id2label = self.model.config.id2label
+            predicted_classes = [",".join([id2label[idx] for idx in class_list]) for class_list in top_classes]
+            predicted_scores = [",".join([f"{score:.4f}" for score in score_list]) for score_list in top_scores]
 
-                top_n = min(logits.shape[1], 2)
-                top_scores, top_classes = torch.topk(logits, top_n)
-                top_scores = F.softmax(top_scores, dim=-1).cpu().numpy()
-                top_classes = top_classes.cpu().numpy()
-
-                id2label = self.model.config.id2label
-                predicted_classes = [",".join([id2label[idx] for idx in class_list]) for class_list in top_classes]
-                predicted_scores = [",".join([f"{score:.4f}" for score in score_list]) for score_list in top_scores]
-
-            all_embeddings.append(batch_embeddings)
-            all_classes.extend(predicted_classes)
-            all_scores.extend(predicted_scores)
-
-        # Concatenate all embeddings into a single NumPy array
-        final_embeddings = np.vstack(all_embeddings)
-        return final_embeddings, all_classes, all_scores
+        return batch_embeddings, predicted_classes, predicted_scores
 
 def cache_embedding(embedding, pred, score, model_name: str, filename: str):
     model_machine_friendly_name = model_name.replace("/", "_")
