@@ -6,7 +6,7 @@ import os
 import cv2
 import numpy as np
 import modin.pandas as pd
-from typing import List
+from typing import List, Any
 from PIL import Image
 from cleanvision import Imagelab
 from matplotlib import pyplot as plt
@@ -78,6 +78,75 @@ def cluster_grid(prefix: str, cluster_sim: float, cluster_id: int, nb_images_dis
             plt.close(fig)
     except Exception as e:
         exception(f'Error creating cluster grid {e}')
+
+def crop_all_square_images(image_path, detections, square_dim: int):
+    try:
+        if not Path(image_path).exists():
+            warn(f'Skipping because the image {image_path} does not exist')
+            return
+
+        img = Image.open(image_path)
+
+        # Iterate over the detections and crop each one
+        for index, row in detections.iterrows():
+            # If the crop already exists, skip it
+            if Path(row.crop_path).exists():
+                continue
+
+            x1 = int(row.image_width * row.x)
+            y1 = int(row.image_height * row.y)
+            x2 = int(row.image_width * row.xx)
+            y2 = int(row.image_height * row.xy)
+            width = x2 - x1
+            height = y2 - y1
+            shorter_side = min(height, width)
+            longer_side = max(height, width)
+            delta = abs(longer_side - shorter_side)
+
+            # Divide the difference by 2 to determine how much padding is needed on each side
+            padding = delta // 2
+
+            # Add the padding to the shorter side of the image
+            if width == shorter_side:
+                x1 -= padding
+                x2 += padding
+            else:
+                y1 -= padding
+                y2 += padding
+
+            # Make sure that the coordinates don't go outside the image
+            # If they do, adjust by the overflow amount
+            if y1 < 0:
+                y1 = 0
+                y2 += abs(y1)
+                if y2 > row.image_height:
+                    y2 = row.image_height
+            elif y2 > row.image_height:
+                y2 = row.image_height
+                y1 -= abs(y2 - row.image_height)
+                if y1 < 0:
+                    y1 = 0
+            if x1 < 0:
+                x1 = 0
+                x2 += abs(x1)
+                if x2 > row.image_width:
+                    x2 = row.image_width
+            elif x2 > row.image_width:
+                x2 = row.image_width
+                x1 -= abs(x2 - row.image_width)
+                if x1 < 0:
+                    x1 = 0
+            # Crop the image
+            img_cropped = img.crop((x1, y1, x2, y2))
+            # Resize the image to square_dim x square_dim
+            img_cropped = img_cropped.resize((square_dim, square_dim), Image.LANCZOS)
+            img_cropped.save(row.crop_path)
+            img_cropped.close()
+
+        img.close()
+    except Exception as e:
+        exception(f'Error cropping {image_path} {e}')
+        raise e
 
 
 def crop_square_image(row, square_dim: int):

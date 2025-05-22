@@ -16,7 +16,7 @@ from hdbscan import HDBSCAN
 from scipy.cluster.hierarchy import linkage, fcluster
 from sklearn.metrics.pairwise import cosine_similarity
 from sdcat.logger import info, warn, debug
-from sdcat.cluster.utils import cluster_grid, crop_square_image, clean_bad_images
+from sdcat.cluster.utils import cluster_grid, crop_square_image, clean_bad_images, crop_all_square_images
 from sdcat.cluster.embedding import fetch_embedding, has_cached_embedding, compute_norm_embedding
 from sdcat import __version__ as sdcat_version
 
@@ -365,19 +365,23 @@ def cluster_vits(
         else:
             info(f'Cropping {len(df_dets)} detections...')
             # Filter rows that need cropping
-            rows_to_crop = df_dets[~existing]
+            rows_to_crop = df_dets[~existing]._to_pandas()
 
-            def crop_square_wrapper(row):
-                crop_square_image(row, 224)
-                return row.name
+            # Crop by grouped filename which is more efficient
+            grouped = rows_to_crop.groupby('image_path')
+            info(f'Cropping detections in {len(rows_to_crop)} images...')
 
             with ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
-                futures = [executor.submit(crop_square_wrapper, row) for _, row in rows_to_crop.iterrows()]
+                futures = [executor.submit(crop_all_square_images, group, df, 224) for group, df in grouped]
                 for _ in tqdm(as_completed(futures), total=len(futures)):
                     pass
 
     # Drop any rows with crop_path that have files that don't exist - sometimes the crops fail
+    num_before = len(df_dets)
     df_dets = df_dets[df_dets['crop_path'].apply(lambda x: os.path.exists(x))]
+    num_after = len(df_dets)
+    if num_before != num_after:
+        info(f'Dropped {num_before - num_after} detections with missing crop_path files')
     if df_dets.empty:
         warn('No detections found')
         return None
