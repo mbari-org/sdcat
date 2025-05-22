@@ -100,7 +100,7 @@ def fetch_embedding(model_name: str, filename: str):
                 label.append(line[0])
                 score.append(float(line[1]))
     else:
-        info(f'No prediction found for {filename}')
+        info(f'No prediction found for {filename} for {model_name}')
     return emb, label, score
 
 
@@ -177,6 +177,7 @@ def compute_norm_embedding(model_name: str, images: list, device: str = "cpu", b
             vit_wrapper = ViTWrapper(device=device, model_name=model_name)
             compute_embedding_vits(vit_wrapper, images, batch_size)
     else:
+        # TODO: replace this - modin does not work well here
         vit_wrapper = ViTWrapper(device='cpu', model_name=model_name)
         import modin.pandas as pd
         df_args = pd.DataFrame([{
@@ -191,7 +192,7 @@ def compute_norm_embedding(model_name: str, images: list, device: str = "cpu", b
                 row.images_batch,
                 row.batch_size
             )
-        info(f"Compute embeddings for {len(images)} images...")
+        info(f"Compute embeddings for {len(images)} images on CPU ...")
         df_args.apply(compute_embedding_wrapper, axis=1)
 
 def calc_mean_std(image_files: list) -> tuple:

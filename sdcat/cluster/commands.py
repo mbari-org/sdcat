@@ -9,6 +9,8 @@ import uuid
 from datetime import datetime
 from pathlib import Path
 
+import ray
+# ray.init(_temp_dir="/mnt/ML_SCRATCH/ray")
 import click
 import ephem
 import os
@@ -232,8 +234,9 @@ def run_cluster_det(det_dir, save_dir, device, use_vits, weighted_score, config_
             # size_after = len(df)
             # info(f'Removed {size_before - size_after} detections that were at night')
 
-        # Replace any NaNs with 0
+        # Replace any NaNs with 0 and reindex
         df.fillna(0)
+        df = df.reset_index(drop=True)
 
         # Print the first 5 rows of the dataframe
         info(df.head(5))
@@ -368,8 +371,9 @@ def run_cluster_roi(roi_dir, save_dir, device, use_vits, config_ini, alpha, clus
     df['score'] = 0.
     df['score_s'] = 0.
 
-    # Replace any NaNs with 0
+    # Replace any NaNs with 0 and reindex
     df.fillna(0)
+    df = df.reset_index(drop=True)
 
     # Print the first 5 rows of the dataframe
     info(df.head(5))

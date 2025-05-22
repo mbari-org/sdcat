@@ -6,7 +6,9 @@ import os
 import cv2
 import numpy as np
 import modin.pandas as pd
-from typing import List, Any
+from typing import List
+
+import pandas
 from PIL import Image
 from cleanvision import Imagelab
 from matplotlib import pyplot as plt
@@ -79,7 +81,14 @@ def cluster_grid(prefix: str, cluster_sim: float, cluster_id: int, nb_images_dis
     except Exception as e:
         exception(f'Error creating cluster grid {e}')
 
-def crop_all_square_images(image_path, detections, square_dim: int):
+def crop_all_square_images(image_path:str, detections: pandas.DataFrame, square_dim: int):
+    """
+    Crop the image to a square padding the shortest dimension, then resize it to square_dim x square_dim
+    Optimized for cropping all detections within an image
+    :param image_path: Path to the image
+    :param detections: Dataframe with the detections
+    :param square_dim: dimension of the square image
+    """
     try:
         if not Path(image_path).exists():
             warn(f'Skipping because the image {image_path} does not exist')
@@ -297,6 +306,7 @@ def compute_embedding_multi_gpu(model_name: str, images: list, batch_size: int =
         batch_size = math.ceil(len(images) / num_splits)
         return [images[i * batch_size:(i + 1) * batch_size] for i in range(num_splits)]
 
+    # Compute embeddings per GPU
     def compute_on_device(device, model_name, images, batch_size):
         vit_wrapper = ViTWrapper(device=device, model_name=model_name)
         compute_embedding_vits(vit_wrapper, images, batch_size)
@@ -309,17 +319,6 @@ def compute_embedding_multi_gpu(model_name: str, images: list, batch_size: int =
             # Wait for all tasks to complete
             for f in futures:
                 f.result()
-
-    # Compute embeddings per GPU
-    def compute_on_device(device, model_name, images, batch_size):
-        vit_wrapper = ViTWrapper(device=device, model_name=model_name)
-        compute_embedding_vits(vit_wrapper, images, batch_size)
-
-    def multi_gpu_compute(model_name, images, batch_size):
-        image_batches = split_batches(images, len(devices))
-        with ThreadPoolExecutor(max_workers=len(devices)) as executor:
-            for device, batch in zip(devices, image_batches):
-                executor.submit(compute_on_device, device, model_name, batch, batch_size) 
 
     multi_gpu_compute(model_name, images, batch_size)
 
