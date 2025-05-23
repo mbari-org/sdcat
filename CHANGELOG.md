@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v1.21.3 (2025-05-23)
+
+### Performance Improvements
+
+- Kill ray if initialized to free up memory
+  ([`3d8fa4b`](https://github.com/mbari-org/sdcat/commit/3d8fa4b3b53f89b13791989ddfe3f8999cacf3c1))
+
+
 ## v1.21.2 (2025-05-22)
 
 ### Performance Improvements
