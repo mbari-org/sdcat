@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v1.22.0 (2025-05-23)
+
+### Features
+
+- Plot noise cluster
+  ([`aee021f`](https://github.com/mbari-org/sdcat/commit/aee021fc1ac1090addd45179713fb0fcd1151764))
+
+
 ## v1.21.3 (2025-05-23)
 
 ### Performance Improvements
