@@ -1,6 +1,16 @@
 # CHANGELOG
 
 
+## v1.23.0 (2025-05-23)
+
+### Features
+
+- Drop weighted score option as it was not useful, improved performance loading vits model results,
+  and added suport to set the batches sizes for vits with --vits-batch-size and the clustering wiht
+  --hdbscan-batch-size
+  ([`6dfa2fa`](https://github.com/mbari-org/sdcat/commit/6dfa2faa9d06487681e64a2d5635df297352d571))
+
+
 ## v1.22.0 (2025-05-23)
 
 ### Features
