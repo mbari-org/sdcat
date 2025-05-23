@@ -49,10 +49,16 @@ min_sample_size = click.option('--min-sample-size',
                                help='The number of samples in a neighborhood for a point to be considered as a core point. '
                                     'This includes the point itself. Default is 1. Increase for more conservative clustering')
 
-batch_size = click.option('--batch-size',
-                          type=int,
-                          default=32,
-                          help='Batch size for processing images. Default is 32')
+vits_batch_size = click.option('--vits-batch-size',
+                               type=int,
+                               default=32,
+                               help='Batch size for processing images. Default is 32')
+
+hdbscan_batch_size = click.option('--hdbscan-batch-size',
+                            type=int,
+                            default=50000,
+                            help='Batch size for HDBSCAN. Default is 50000. Increase for your available CPU/GPU memory. ')
+
 use_tsne = click.option('--use-tsne',
                         is_flag=True,
                         help='Use t-SNE for dimensionality reduction. Default is False')

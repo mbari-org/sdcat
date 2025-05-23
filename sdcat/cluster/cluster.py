@@ -125,11 +125,6 @@ def _summarize_clusters(df: pd.DataFrame, output_path: Path, prefix: str,
         p.savefig(f"{output_path}/{prefix}_summary.png")
         info(f"Saved {output_path}/{prefix}_summary.png")
 
-        # Kill the ray processes to free up memory
-        if ray.is_initialized():
-            info('Killing ray processes to free up memory')
-            ray.shutdown()
-
         # Create a grid of the images to check the quality of the clustering results
         num_processes = min(os.cpu_count(), num_clusters)
         info(f'Using {num_processes} processes to visualize the {num_clusters} clusters')
@@ -348,13 +343,13 @@ def cluster_vits(
         min_cluster_size: int,
         min_samples: int,
         device: str = "cpu",
-        weighted_score: bool = False,
         use_vits: bool = False,
         use_tsne: bool = False,
         skip_visualization: bool = False,
         remove_bad_images: bool = False,
         roi: bool = False,
-        batch_size: int = 32
+        vits_batch_size: int = 32,
+        hdbscan_batch_size: int = 50000,
 ) -> dict or None:
     """  Cluster the crops using the VITS embeddings.
     :param prefix:  A unique prefix to save artifacts from clustering
@@ -370,12 +365,12 @@ def cluster_vits(
     :param min_cluster_size: The minimum number of samples in a cluster
     :param min_samples:The number of samples in a neighborhood for a point
     :param device: The device to use for clustering, 'cpu' or 'cuda' or 'cuda:0' or 'cuda:1'
-    :param weighted_score: Whether to weight score for the prediction from vits model with detection weight
     :param use_vits: Set to using the predictions from the vits cluster model
     :param skip_visualization: Whether to skip the visualization of the clusters
     :param remove_bad_images: Whether to remove bad images from the clustering
     :param use_tsne: Whether to use t-SNE for dimensionality reduction
-    :param batch_size: The batch size to use for clustering; maximize for speed for your GPU
+    :param vits_batch_size: The batch size to use for embedding extraction; maximize for speed for your GPU
+    :param hdbscan_batch_size: The batch size to use for clustering with HDBSCAN; maximize for speed for your GPU
     :return:  a dictionary with a summary."""
     warnings.filterwarnings('ignore')
     # If there are no detections, return an empty dataframe
@@ -432,22 +427,32 @@ def cluster_vits(
     # Skip the embedding extraction if all the embeddings are cached
     if num_cached != len(crop_paths):
         debug(f'Extracted embeddings from {len(crop_paths)} images using model {model}...')
-        compute_norm_embedding(model, crop_paths, device, batch_size)
+        compute_norm_embedding(model, crop_paths, device, vits_batch_size)
+
+    def load_model_results(crop_path):
+        try:
+            _, labels, scores = fetch_embedding(model, crop_path)
+            label = labels[0]
+            label_s = labels[1]
+            score = scores[0]
+            score_s = scores[1]
+            return pandas.Series({"class": label, "score": score, "class_s": label_s, "score_s": score_s})
+        except IndexError:
+            return pandas.Series({"class": "Unknown", "score": 0, "class_s": "Unknown", "score_s": 0})
 
     if use_vits:
-        debug('Compute weighted scores ...')
-        for filename in crop_paths:
-            _, label, score = fetch_embedding(model, filename)
-            weight = 1
-            if weighted_score:
-                weight = df_dets.loc[df_dets['crop_path'] == filename, 'score'].values[0]
-                # Weight cannot be zero or negative
-                if weight <= 0:
-                    weight = .0001
-            df_dets.loc[df_dets['crop_path'] == filename, 'class'] = label[0]
-            df_dets.loc[df_dets['crop_path'] == filename, 'score'] =(score[0]+weight)/2.
-            df_dets.loc[df_dets['crop_path'] == filename, 'class_s'] = label[1]
-        df_dets.loc[df_dets['crop_path'] == filename, 'score_s'] = (score[1]+weight)/2.
+        info(f'Loading ViTS model {model} results into dataframe ...')
+
+        # Add in column if missing and apply the function to each row in the dataframe
+        df_dets["class"] = "Unknown"
+        df_dets["score"] = 0
+        df_dets["class_s"] = "Unknown"
+        df_dets["score_s"] = 0
+        results_df = df_dets['crop_path'].apply(load_model_results).apply(pandas.Series)
+        df_dets["class"] = results_df["class"]
+        df_dets["score"] = results_df["score"]
+        df_dets["class_s"] = results_df["class_s"]
+        df_dets["score_s"] = results_df["score_s"]
 
     if not (output_path / prefix).exists():
         (output_path / prefix).mkdir(parents=True)
@@ -472,16 +477,14 @@ def cluster_vits(
         ancillary_df = (numerical_df - numerical_df.min()) / (numerical_df.max() - numerical_df.min())
 
     # Cluster
-    # Compute in batches of 100K; this works for the 8 block models on any GPU
-    batch_size = 100000
-    num_batches = int(np.ceil(len(crop_paths) / batch_size))
+    num_batches = int(np.ceil(len(crop_paths) / hdbscan_batch_size))
 
     info(f'Remove any existing cluster grid images in the output_path in {(output_path / prefix)}')
     cluster_grids = (output_path / prefix).rglob(f'{prefix}_*cluster*.png')
     for c in cluster_grids:
         c.unlink()
 
-    info(f'Processing images in batches of {batch_size} ...')
+    info(f'Processing images in batches of {hdbscan_batch_size} ...')
 
     def process_batch(i, n_jobs, index, df_batch):
         df_batch.index = index
@@ -537,7 +540,7 @@ def cluster_vits(
         )
 
     # Calculate the number of batches
-    num_batches = int(np.ceil(len(crop_paths) / batch_size))
+    num_batches = int(np.ceil(len(crop_paths) / hdbscan_batch_size))
 
     # If the number of batches is less than 2, set the core_dist_n_jobs to the number of CPU cores assuming the core
     # can handle the load of two batches at a time
@@ -554,8 +557,8 @@ def cluster_vits(
         futures = [executor.submit(process_batch,
                                    i,
                                    core_dist_n_jobs,
-                                   df_dets.index[i * batch_size:min((i + 1) * batch_size, len(crop_paths))],
-                                   df_dets.iloc[i * batch_size:min((i + 1) * batch_size, len(crop_paths))]._to_pandas())
+                                   df_dets.index[i * hdbscan_batch_size:min((i + 1) * hdbscan_batch_size, len(crop_paths))],
+                                   df_dets.iloc[i * hdbscan_batch_size:min((i + 1) * hdbscan_batch_size, len(crop_paths))]._to_pandas())
                    for i in range(num_batches)]
         # Wait for all the futures to complete
         for result in tqdm(as_completed(futures), total=len(futures)):

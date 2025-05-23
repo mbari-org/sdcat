@@ -190,7 +190,7 @@ def compute_norm_embedding(model_name: str, images: list, device: str = "cpu", b
             return compute_embedding_vits(
                 row.vit_wrapper,
                 row.images_batch,
-                row.batch_size
+                row.vits_batch_size
             )
         info(f"Compute embeddings for {len(images)} images on CPU ...")
         df_args.apply(compute_embedding_wrapper, axis=1)

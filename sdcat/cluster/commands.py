@@ -39,13 +39,13 @@ from sdcat.cluster.cluster import cluster_vits
 @common_args.algorithm
 @common_args.min_cluster_size
 @common_args.min_sample_size
-@common_args.batch_size
+@common_args.vits_batch_size
+@common_args.hdbscan_batch_size
 @click.option('--det-dir', help='Input folder(s) with raw detection results', multiple=True, required=True)
 @click.option('--save-dir', help='Output directory to save clustered detection results', required=True)
 @click.option('--device', help='Device to use, e.g. cpu or cuda:0', type=str, default='cpu')
 @click.option('--use-vits', help='Set to using the predictions from the vits cluster model', is_flag=True)
-@click.option('--weighted-score', help='Weigh for the score in the predictions from the vits model with the detection score', type=bool, default=False)
-def run_cluster_det(det_dir, save_dir, device, use_vits, weighted_score, config_ini, alpha, cluster_selection_epsilon, cluster_selection_method, algorithm, min_cluster_size, min_sample_size, batch_size, start_image, end_image, use_tsne, skip_visualization):
+def run_cluster_det(det_dir, save_dir, device, use_vits, config_ini, alpha, cluster_selection_epsilon, cluster_selection_method, algorithm, min_cluster_size, min_sample_size, vits_batch_size, hdbscan_batch_size, start_image, end_image, use_tsne, skip_visualization):
     config = cfg.Config(config_ini)
     max_area = int(config('cluster', 'max_area'))
     min_area = int(config('cluster', 'min_area'))
@@ -252,9 +252,11 @@ def run_cluster_det(det_dir, save_dir, device, use_vits, weighted_score, config_
             summary = cluster_vits(prefix, model, df, save_dir, alpha, cluster_selection_epsilon,
                                    cluster_selection_method, algorithm,
                                    min_similarity, min_cluster_size, min_samples, device,
-                                   use_tsne=use_tsne, weighted_score=False, use_vits=use_vits,
+                                   use_tsne=use_tsne, use_vits=use_vits,
                                    skip_visualization=skip_visualization, roi=False,
-                                   remove_bad_images=remove_bad_images, batch_size=batch_size)
+                                   remove_bad_images=remove_bad_images,
+                                   vits_batch_size=vits_batch_size,
+                                   hdbscan_batch_size=hdbscan_batch_size)
 
             if summary is None:
                 err(f'No summary returned from clustering')
@@ -286,12 +288,13 @@ def run_cluster_det(det_dir, save_dir, device, use_vits, weighted_score, config_
 @common_args.algorithm
 @common_args.min_cluster_size
 @common_args.min_sample_size
-@common_args.batch_size
+@common_args.vits_batch_size
+@common_args.hdbscan_batch_size
 @click.option('--roi-dir', help='Input folder(s) with raw ROI images', multiple=True, required=True)
 @click.option('--save-dir', help='Output directory to save clustered detection results', required=True)
 @click.option('--device', help='Device to use, e.g. cpu or cuda:0', type=str)
 @click.option('--use-vits', help='Set to using the predictions from the vits cluster model', is_flag=True)
-def run_cluster_roi(roi_dir, save_dir, device, use_vits, config_ini, alpha, cluster_selection_epsilon, cluster_selection_method, algorithm, min_cluster_size, min_sample_size, batch_size, use_tsne, skip_visualization):
+def run_cluster_roi(roi_dir, save_dir, device, use_vits, config_ini, alpha, cluster_selection_epsilon, cluster_selection_method, algorithm, min_cluster_size, min_sample_size, vits_batch_size, hdbscan_batch_size, use_tsne, skip_visualization):
     config = cfg.Config(config_ini)
     max_area = int(config('cluster', 'max_area'))
     min_area = int(config('cluster', 'min_area'))
@@ -386,10 +389,12 @@ def run_cluster_roi(roi_dir, save_dir, device, use_vits, config_ini, alpha, clus
 
         # Cluster the ROIs
         summary = cluster_vits(prefix, model, df, save_dir, alpha, cluster_selection_epsilon, cluster_selection_method, algorithm,
-                                  min_similarity, min_cluster_size, min_samples, device,
-                                  use_tsne=use_tsne, weighted_score=False, use_vits=use_vits,
-                                  skip_visualization=skip_visualization,  roi=True,
-                                  remove_bad_images=remove_bad_images, batch_size=batch_size)
+                                min_similarity, min_cluster_size, min_samples, device,
+                                use_tsne=use_tsne, use_vits=use_vits,
+                                skip_visualization=skip_visualization,  roi=True,
+                                remove_bad_images=remove_bad_images,
+                                vits_batch_size=vits_batch_size,
+                                hdbscan_batch_size=hdbscan_batch_size)
 
         # Add more detail to the summary specific to ROIs
         summary['sdcat_version'] = sdcat_version
