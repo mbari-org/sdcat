@@ -47,8 +47,9 @@ def _summarize_clusters(df: pd.DataFrame, output_path: Path, prefix: str,
     """
     info("Summarizing clusters")
     df = df._to_pandas()
-    clustered = df[df['cluster'] != -1]
-    labels = clustered['cluster'].values
+    clustered_df = df[df['cluster'] != -1]
+    noise_df = df[df['cluster'] == -1]
+    labels = clustered_df['cluster'].values
     num_samples = len(labels)
     clusters = np.unique(labels)
     num_clusters = len(clusters)
@@ -91,7 +92,7 @@ def _summarize_clusters(df: pd.DataFrame, output_path: Path, prefix: str,
 
         # Reduce the dimensionality of the embeddings using UMAP to 2 dimensions to visualize the clusters
         # Only use the exemplars and a random sample of 5000 images to speed up the visualization
-        sampled_df = clustered.sample(n=min(num_samples-1, 5000), random_state=42, replace=False)
+        sampled_df = clustered_df.sample(n=min(num_samples-1, 5000), random_state=42, replace=False)
         sampled_emb = [fetch_embedding(model, filename)[0] for filename in sampled_df['crop_path']]
         np_data = np.array(sampled_emb)
 
@@ -152,6 +153,18 @@ def _summarize_clusters(df: pd.DataFrame, output_path: Path, prefix: str,
                 )
             for future in as_completed(futures):
                 future.result()
+
+        # Create a grid of the noise images last with a different prefix
+        if len(noise_df) > 0:
+            grid_size = 4 if len(noise_df) < 50 else 8
+            cluster_grid(
+                prefix,
+                0,
+                -1,
+                grid_size,
+                noise_df['crop_path'],
+                output_path / prefix
+            )
 
     return summary
 

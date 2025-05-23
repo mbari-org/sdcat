@@ -64,6 +64,9 @@ def cluster_grid(prefix: str, cluster_sim: float, cluster_id: int, nb_images_dis
                 grid[j].axis('off')
                 grid[j].set_xticklabels([])
 
+            if cluster_id == -1:
+                cluster_id = "noise"
+
             # Add a title to the figure
             if total_pages > 1:
                 fig.suptitle(f"{prefix}\nsdcat_version {sdcat_version}\nCluster {cluster_id}, Page: {page} of {total_pages}\nSimilarity: {cluster_sim:.2f}, Size: {cluster_size}", fontsize=14)

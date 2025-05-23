@@ -187,12 +187,20 @@ For clustering, the output is organized in a folder with the following structure
 /data/20230504-MBARI/
 └── clusters
     └── crops                                   # The detection crops/rois, embeddings and predictions
-    └── dino_vit_134412_cluster_detections.parquet  # The detections with the cluster id and predictions in parquet format
-    └── dino_vit_134412_cluster_detections.csv  # The detections with the cluster id and predictions
-    └── dino_vit_134412_cluster_config.ini      # Copy of the config file used to run the clustering
-    └── dino_vit_134412_cluster_summary.json    # Summary of the clustering results
-    └── dino_vit_134412_cluster_summary.png     # 2D plot of the clustering results    
+    └── dino_vit8..._cluster_detections.parquet  # The detections with the cluster id and predictions in parquet format
+    └── dino_vit8..._cluster_detections.csv  # The detections with the cluster id and predictions
+    └── dino_vit8..._cluster_config.ini      # Copy of the config file used to run the clustering
+    └── dino_vit8..._cluster_summary.json    # Summary of the clustering results
+    └── dino_vit8..._cluster_summary.png     # 2D plot of the clustering results
+    └── dino_vit8... 
+        ├── dino_vits8.._cluster_1_p0.png    # Cluster 1 page 1 grid plot
+        ├── dino_vits8.._cluster_1_p1.png    # Cluster 1 page 2 grid plot
+        ├── dino_vits8.._cluster_2_p0.png    # Cluster 2 page 0 grid plot
+        ├── dino_vits8.._cluster_noise_p0.png    # Noise (unclustered) page 0 grid plot
 ```
+
+Example grid plot of the clustering results:
+![](https://raw.githubusercontent.com/mbari-org/sdcat/main/docs/imgs/example_cluster_4_p0.png)
  
 ## Process images creating bounding box detections with the YOLOv8s model.
 The YOLOv8s model is not as accurate as other models, but is fast and good for detecting larger objects in images,
