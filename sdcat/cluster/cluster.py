@@ -14,6 +14,7 @@ import numpy as np
 from tqdm import tqdm
 from umap import UMAP
 from hdbscan import HDBSCAN
+import ray
 from scipy.cluster.hierarchy import linkage, fcluster
 from sklearn.metrics.pairwise import cosine_similarity
 from sdcat.logger import info, warn, debug
@@ -122,6 +123,11 @@ def _summarize_clusters(df: pd.DataFrame, output_path: Path, prefix: str,
         p.fig.subplots_adjust(top=0.80)
         p.savefig(f"{output_path}/{prefix}_summary.png")
         info(f"Saved {output_path}/{prefix}_summary.png")
+
+        # Kill the ray processes to free up memory
+        if ray.is_initialized():
+            info('Killing ray processes to free up memory')
+            ray.shutdown()
 
         # Create a grid of the images to check the quality of the clustering results
         num_processes = min(os.cpu_count(), num_clusters)
