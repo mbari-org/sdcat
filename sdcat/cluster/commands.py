@@ -9,8 +9,6 @@ import uuid
 from datetime import datetime
 from pathlib import Path
 
-import ray
-# ray.init(_temp_dir="/mnt/ML_SCRATCH/ray")
 import click
 import ephem
 import os
@@ -64,6 +62,9 @@ def run_cluster_det(det_dir, save_dir, device, use_vits, config_ini, alpha, clus
     min_score = float(config('cluster', 'min_score'))
     min_similarity = float(config('cluster', 'min_similarity'))
     model = config('cluster', 'model')
+    allowable_classes = config('cluster', 'allowable_classes')
+    if len(allowable_classes) > 0:
+        allowable_classes = allowable_classes.split(',')
 
     save_dir = Path(save_dir)
     save_dir.mkdir(parents=True, exist_ok=True)
@@ -185,7 +186,7 @@ def run_cluster_det(det_dir, save_dir, device, use_vits, config_ini, alpha, clus
                     return 1
                 return 0
 
-            for index, row in tqdm.tqdm(df.iterrows(), total=len(df), desc="Extracting metadata", unit="image"):
+            for index, row in tqdm(df.iterrows(), total=len(df), desc="Extracting metadata", unit="image"):
                 image_name = Path(row.image_path).name
                 if pattern_date1.search(image_name):
                     match = pattern_date1.search(image_name).groups()
@@ -256,7 +257,8 @@ def run_cluster_det(det_dir, save_dir, device, use_vits, config_ini, alpha, clus
                                    skip_visualization=skip_visualization, roi=False,
                                    remove_bad_images=remove_bad_images,
                                    vits_batch_size=vits_batch_size,
-                                   hdbscan_batch_size=hdbscan_batch_size)
+                                   hdbscan_batch_size=hdbscan_batch_size,
+                                   allowable_classes=allowable_classes)
 
             if summary is None:
                 err(f'No summary returned from clustering')
@@ -266,7 +268,7 @@ def run_cluster_det(det_dir, save_dir, device, use_vits, config_ini, alpha, clus
             summary['sdcat_version'] = sdcat_version
             summary['dataset']['input'] = det_dir
             summary['dataset']['image_resolution'] = f"{df['image_width'].iloc[0]}x{df['image_height'].iloc[0]} pixels"
-            summary['dataset']['image_count'] = len(df)
+            summary['dataset']['detection_count'] = len(df)
 
             with open(save_dir / f'{prefix}_summary.json', 'w') as f:
                 json.dump(summary, f, indent=4)
@@ -311,6 +313,9 @@ def run_cluster_roi(roi_dir, save_dir, device, use_vits, config_ini, alpha, clus
     min_score = float(config('cluster', 'min_score'))
     min_similarity = float(config('cluster', 'min_similarity'))
     model = config('cluster', 'model')
+    allowable_classes = config('cluster', 'allowable_classes')
+    if len(allowable_classes) > 0:
+        allowable_classes = allowable_classes.split(',')
 
     if device:
         num_devices = torch.cuda.device_count()
@@ -394,13 +399,15 @@ def run_cluster_roi(roi_dir, save_dir, device, use_vits, config_ini, alpha, clus
                                 skip_visualization=skip_visualization,  roi=True,
                                 remove_bad_images=remove_bad_images,
                                 vits_batch_size=vits_batch_size,
-                                hdbscan_batch_size=hdbscan_batch_size)
+                                hdbscan_batch_size=hdbscan_batch_size,
+                                allowable_classes=allowable_classes)
 
         # Add more detail to the summary specific to ROIs
         summary['sdcat_version'] = sdcat_version
         summary['dataset']['roi'] = True
         summary['dataset']['input'] = roi_dir
-        summary['dataset']['image_count'] = len(df)
+        summary['dataset']['image_resolution'] = "224x224 pixels"
+        summary['dataset']['detection_count'] = len(df)
 
         with open(save_dir / f'{prefix}_summary.json', 'w') as f:
             json.dump(summary, f, indent=4)

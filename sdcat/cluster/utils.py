@@ -2,6 +2,7 @@
 # Filename: sdcat/cluster/utils.py
 # Description: Miscellaneous utility functions for cropping, clustering, and saving detections
 import os
+from itertools import chain
 
 import cv2
 import numpy as np
@@ -83,6 +84,51 @@ def cluster_grid(prefix: str, cluster_sim: float, cluster_id: int, nb_images_dis
             plt.close(fig)
     except Exception as e:
         exception(f'Error creating cluster grid {e}')
+
+
+def clean_bad_images(filepaths: List[str]) -> List[str]:
+    """Remove dark, blurry, exact duplicate, and near duplicate images."""
+    imagelab = Imagelab(filepaths=filepaths)
+
+    # Detect dark and blurry images
+    issue_types = {
+        "dark": {},
+        "blurry": {"threshold": 0.52},
+        "near_duplicates": {}
+    }
+    imagelab.find_issues(issue_types)
+
+    issue_columns = ["is_dark_issue", "is_blurry_issue"]
+    bad_images = set(imagelab.issues[imagelab.issues[issue_columns].any(axis=1)].index)
+
+    # Remove exact duplicates (keep one image per set)
+    exact_duplicates_sets = imagelab.info['exact_duplicates']['sets']
+    exact_duplicates_images = list(chain(*[dup_set[1:] for dup_set in exact_duplicates_sets]))
+    bad_images.update(exact_duplicates_images)
+
+    # Remove one image from each near duplicate set (keep best blurry score)
+    near_duplicates_image_sets = imagelab.info['near_duplicates']['sets']
+    near_duplicates_scores = (
+        imagelab.issues[imagelab.issues["is_near_duplicates_issue"] == True]
+        .sort_values(by='blurry_score')
+        .reset_index()[['index', 'blurry_score']]
+        .values.tolist()
+    )
+
+    for dup_set in near_duplicates_image_sets:
+        if len(dup_set) <= 1:
+            continue
+        # Keep the image with the **highest** blurry_score (least blurry)
+        best_image = max(
+            (entry for entry in near_duplicates_scores if entry[0] in dup_set),
+            key=lambda x: x[1],
+            default=None
+        )
+        if best_image is None:
+            continue
+        to_remove = [img for img in dup_set if img != best_image[0]]
+        bad_images.update(to_remove)
+    return list(bad_images)
 
 def crop_all_square_images(image_path:str, detections: pandas.DataFrame, square_dim: int):
     """
@@ -255,20 +301,6 @@ def rescale(img: np.ndarray, scale_percent: int = 75) -> np.ndarray:
     # Resize the image to the new dimensions exactly
     img_rescaled = cv2.resize(img, dim, interpolation=cv2.INTER_AREA)
     return img_rescaled
-
-
-def clean_bad_images(filepaths: List[str]) -> List[str]:
-    """Remove dark or blurry images from the dataframe"""
-    imagelab = Imagelab(filepaths=filepaths)
-    issue_types = { "dark": {}, "blurry": { "threshold": 0.52} }
-    imagelab.find_issues(issue_types)
-    issue_columns = ["is_dark_issue", "is_blurry_issue"]
-    bad_images = imagelab.issues[imagelab.issues[issue_columns].any(axis=1)].index
-    num_removed = len(bad_images)
-    debug(f"Removing {num_removed} dark or blurry images in {len(filepaths)} files")
-    for img in bad_images:
-        os.remove(img)
-    return bad_images
 
 
 def filter_images(min_area:int, max_area: int, min_saliency: int, min_score:float, df: pd.DataFrame) -> pd.DataFrame:

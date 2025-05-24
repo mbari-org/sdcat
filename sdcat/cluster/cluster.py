@@ -14,7 +14,6 @@ import numpy as np
 from tqdm import tqdm
 from umap import UMAP
 from hdbscan import HDBSCAN
-import ray
 from scipy.cluster.hierarchy import linkage, fcluster
 from sklearn.metrics.pairwise import cosine_similarity
 from sdcat.logger import info, warn, debug
@@ -46,18 +45,19 @@ def _summarize_clusters(df: pd.DataFrame, output_path: Path, prefix: str,
     Summarize and optionally visualize the clusters using t-SNE or UMAP in grids
     """
     info("Summarizing clusters")
+    num_samples = len(df)
     df = df._to_pandas()
     clustered_df = df[df['cluster'] != -1]
     noise_df = df[df['cluster'] == -1]
     labels = clustered_df['cluster'].values
-    num_samples = len(labels)
     clusters = np.unique(labels)
     num_clusters = len(clusters)
+    num_labels = len(labels)
 
     # Get the top 20 predicted classes in percent
     info("Getting top 20 predicted classes...")
 
-    top20 = df['class'].value_counts(normalize=True).head(5) * 100
+    top20 = df['class'].value_counts(normalize=True).head(20) * 100
     top20 = top20.sort_index().round(2)
 
     summary = {
@@ -69,17 +69,13 @@ def _summarize_clusters(df: pd.DataFrame, output_path: Path, prefix: str,
         },
         "statistics": {
             "total_clusters": num_clusters,
-            "cluster_coverage": f"{float(np.sum(labels) / num_samples):.2f} ({100*float(np.sum(labels) / num_samples):.2f}%)",
+            "cluster_coverage": f"{float(num_labels / num_samples):.2f} ({100*float(num_labels / num_samples):.2f}%)",
         }
     }
 
     image_paths = {c: df.loc[df['cluster'] == c, 'crop_path'][:150] for c in clusters}
 
-    for name, total in top20.items():
-        summary["statistics"]["top_predictions"] = {
-            "class": name,
-            "percentage": f"{total:.2f}%",
-        }
+    summary["statistics"]["top_predictions"] = [{"class": name, "percentage": f"{total:.2f}%"} for name, total in top20.items()]
 
     if not skip_visualization:
 
@@ -92,7 +88,7 @@ def _summarize_clusters(df: pd.DataFrame, output_path: Path, prefix: str,
 
         # Reduce the dimensionality of the embeddings using UMAP to 2 dimensions to visualize the clusters
         # Only use the exemplars and a random sample of 5000 images to speed up the visualization
-        sampled_df = clustered_df.sample(n=min(num_samples-1, 5000), random_state=42, replace=False)
+        sampled_df = clustered_df.sample(n=min(num_labels, 5000), random_state=42, replace=False)
         sampled_emb = [fetch_embedding(model, filename)[0] for filename in sampled_df['crop_path']]
         np_data = np.array(sampled_emb)
 
@@ -350,6 +346,7 @@ def cluster_vits(
         roi: bool = False,
         vits_batch_size: int = 32,
         hdbscan_batch_size: int = 50000,
+        allowable_classes: list = None,
 ) -> dict or None:
     """  Cluster the crops using the VITS embeddings.
     :param prefix:  A unique prefix to save artifacts from clustering
@@ -371,6 +368,7 @@ def cluster_vits(
     :param use_tsne: Whether to use t-SNE for dimensionality reduction
     :param vits_batch_size: The batch size to use for embedding extraction; maximize for speed for your GPU
     :param hdbscan_batch_size: The batch size to use for clustering with HDBSCAN; maximize for speed for your GPU
+    :param allowable_classes: A list of classes to allow in the clustering; if None, all classes are allowed
     :return:  a dictionary with a summary."""
     warnings.filterwarnings('ignore')
     # If there are no detections, return an empty dataframe
@@ -394,7 +392,7 @@ def cluster_vits(
 
             # Crop by grouped filename which is more efficient
             grouped = rows_to_crop.groupby('image_path')
-            info(f'Cropping detections in {len(rows_to_crop)} images...')
+            info(f'Cropping {len(rows_to_crop)} detections...')
 
             with ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
                 futures = [executor.submit(crop_all_square_images, group, df, 224) for group, df in grouped]
@@ -444,15 +442,19 @@ def cluster_vits(
         info(f'Loading ViTS model {model} results into dataframe ...')
 
         # Add in column if missing and apply the function to each row in the dataframe
-        df_dets["class"] = "Unknown"
-        df_dets["score"] = 0
-        df_dets["class_s"] = "Unknown"
-        df_dets["score_s"] = 0
         results_df = df_dets['crop_path'].apply(load_model_results).apply(pandas.Series)
         df_dets["class"] = results_df["class"]
         df_dets["score"] = results_df["score"]
         df_dets["class_s"] = results_df["class_s"]
         df_dets["score_s"] = results_df["score_s"]
+
+        # If allowable_classes is provided, filter the dataframe to only include those classes and reset the index
+        if allowable_classes:
+            df_dets = df_dets[df_dets["class"].isin(allowable_classes)].reset_index(drop=True)
+
+            if df_dets.empty:
+                print(f'No detections left after filtering by allowable classes')
+                return None
 
     if not (output_path / prefix).exists():
         (output_path / prefix).mkdir(parents=True)
@@ -498,14 +500,11 @@ def cluster_vits(
 
         if remove_bad_images:
             info(f'Cleaning bad images from {len(df_batch)} ')
-            size_before = len(df_batch)
             filepaths = df_batch['crop_path'].values.tolist()
             bad_images = clean_bad_images(filepaths)
-            df_batch = df_batch[~df_batch['crop_path'].isin(bad_images)]
-            size_after = len(df_batch)
-            info(
-                f'Removed {size_before - size_after} detections using cleanvision in batch {i + 1} of {num_batches}...')
-            if size_after == 0:
+            df_batch["crop_path"] = df_batch["crop_path"].where(~df_batch["crop_path"].isin(bad_images), other=np.nan)
+            info(f'Removed {len(bad_images)} detections using cleanvision in batch {i + 1} of {num_batches}...')
+            if df_batch['crop_path'].isna().all():
                 warn(f'No detections left in batch {i + 1} of {num_batches} after cleaning bad images')
                 return None
 
@@ -540,7 +539,7 @@ def cluster_vits(
         )
 
     # Calculate the number of batches
-    num_batches = int(np.ceil(len(crop_paths) / hdbscan_batch_size))
+    num_batches = int(np.ceil(len(df_dets) / hdbscan_batch_size))
 
     # If the number of batches is less than 2, set the core_dist_n_jobs to the number of CPU cores assuming the core
     # can handle the load of two batches at a time
@@ -562,13 +561,27 @@ def cluster_vits(
                    for i in range(num_batches)]
         # Wait for all the futures to complete
         for result in tqdm(as_completed(futures), total=len(futures)):
-            df_batch = result.result()
-            if df_batch is not None:
-                df_dets.update(df_batch['cluster_batch'])
-                df_dets.update(df_batch['cluster'])
-                df_dets.update(df_batch['HDBSCAN_probability'])
+            if result:
+                df_batch = result.result()
+                info(f'Batch {df_batch.index[0]} to {df_batch.index[-1]} completed')
+                if df_batch is not None:
+                    if df_batch.empty:
+                        warn(f'Batch {df_batch.index[0]} to {df_batch.index[-1]} is empty after clustering')
+                    else:
+                        df_dets.update(df_batch['cluster_batch'])
+                        df_dets.update(df_batch['cluster'])
+                        df_dets.update(df_batch['HDBSCAN_probability'])
+
+    info('Batch clustering completed')
+    if df_dets.empty:
+        warn('No detections left after clustering')
+        return None
+
+    # Drop any rows with NaN values
+    df_dets = df_dets.dropna()
 
     # Create an increasing array of integers based on the unique cluster_batch values, except for -1
+    info('Mapping clusters to unique integers ...')
     non_noise_df = df_dets[df_dets['cluster'] != -1]._to_pandas()
     unique_cluster_batch = non_noise_df.sort_values('cluster_batch').groupby('cluster_batch')
     cluster_mapping = {cluster: i for i, cluster in enumerate(unique_cluster_batch.groups)}
