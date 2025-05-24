@@ -1,6 +1,17 @@
 # CHANGELOG
 
 
+## v1.24.0 (2025-05-24)
+
+### Features
+
+- Add support for cleaning near duplicates and specifying allowable_classes in the cluster section
+  of the .ini (same formatting as the detection section). Both can significantly reduce the number
+  of images that are clustered, thus reducing the computational overhead and output that may be
+  loaded or visualized downstream
+  ([`58270f3`](https://github.com/mbari-org/sdcat/commit/58270f3cf562230e3100a4194aad08cda4508b37))
+
+
 ## v1.23.0 (2025-05-23)
 
 ### Features
