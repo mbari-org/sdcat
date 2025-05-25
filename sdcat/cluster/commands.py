@@ -14,7 +14,6 @@ import ephem
 import os
 import modin.pandas as pd
 import pytz
-import torch
 from PIL import Image
 from tqdm import tqdm
 
@@ -42,7 +41,7 @@ from sdcat.cluster.cluster import cluster_vits
 @common_args.hdbscan_batch_size
 @click.option('--det-dir', help='Input folder(s) with raw detection results', multiple=True, required=True)
 @click.option('--save-dir', help='Output directory to save clustered detection results', required=True)
-@click.option('--device', help='Device to use, e.g. cpu or cuda:0', type=str, default='cpu')
+@click.option('--device', help='Device to use, e.g. cpu or cuda:0 or cuda to use all cuda devices', type=str, default='cpu')
 @click.option('--use-vits', help='Set to using the predictions from the vits cluster model', is_flag=True)
 def run_cluster_det(det_dir, save_dir, device, use_vits, config_ini, alpha, cluster_selection_epsilon, cluster_selection_method, algorithm, min_cluster_size, min_sample_size, vits_batch_size, hdbscan_batch_size, start_image, end_image, use_tsne, skip_visualization):
     config = cfg.Config(config_ini)
@@ -163,8 +162,8 @@ def run_cluster_det(det_dir, save_dir, device, use_vits, config_ini, alpha, clus
 
         # TODO: refactor this block for modin optimization
         if extract_metadata:
-            import tqdm
             info('Extracting metadata ...')
+            pattern_date0 = re.compile(r'(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})\.(\d{6})Z')  # 20240923T225833.474105Z
             pattern_date1 = re.compile(r'(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z')  # 20161025T184500Z
             pattern_date2 = re.compile(r'(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z\d*mF*')
             pattern_date3 = re.compile(r'(\d{2})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z')  # 161025T184500Z
@@ -295,7 +294,7 @@ def run_cluster_det(det_dir, save_dir, device, use_vits, config_ini, alpha, clus
 @common_args.hdbscan_batch_size
 @click.option('--roi-dir', help='Input folder(s) with raw ROI images', multiple=True, required=True)
 @click.option('--save-dir', help='Output directory to save clustered detection results', required=True)
-@click.option('--device', help='Device to use, e.g. cpu or cuda:0', type=str)
+@click.option('--device', help='Device to use, e.g. cpu or cuda:0 or cuda to use all cuda devices', type=str)
 @click.option('--use-vits', help='Set to using the predictions from the vits cluster model', is_flag=True)
 def run_cluster_roi(roi_dir, save_dir, device, use_vits, config_ini, alpha, cluster_selection_epsilon, cluster_selection_method, algorithm, min_cluster_size, min_sample_size, vits_batch_size, hdbscan_batch_size, use_tsne, skip_visualization):
     config = cfg.Config(config_ini)
@@ -317,16 +316,6 @@ def run_cluster_roi(roi_dir, save_dir, device, use_vits, config_ini, alpha, clus
     allowable_classes = config('cluster', 'allowable_classes')
     if len(allowable_classes) > 0:
         allowable_classes = allowable_classes.split(',')
-
-    if device:
-        num_devices = torch.cuda.device_count()
-        info(f'{num_devices} cuda devices available')
-        info(f'Using device {device}')
-        if 'cuda' in device:
-            device_num = device.split(':')[-1]
-            info(f'Setting CUDA_VISIBLE_DEVICES to {device_num}')
-            torch.cuda.set_device(device)
-            os.environ['CUDA_VISIBLE_DEVICES'] = device_num
 
     save_dir = Path(save_dir)
     save_dir.mkdir(parents=True, exist_ok=True)
@@ -366,8 +355,14 @@ def run_cluster_roi(roi_dir, save_dir, device, use_vits, config_ini, alpha, clus
                                axis=1)
 
     # Copy the images to the crop path directory. Images may be cleaned so we want to duplicate them here.
-    for index, row in tqdm(df.iterrows(), total=len(df), desc="Copying images"):
-        shutil.copy(row['image_path'], row['crop_path'])
+    # Only copy images that do not already exist in the crop path to save time
+    to_copy = df[~df['crop_path'].apply(os.path.exists)]
+    if to_copy.empty:
+        info(f'No images to copy to {crop_path}')
+    else:
+        for src, dst in tqdm(zip(to_copy['image_path'], to_copy['crop_path']),
+                             total=len(to_copy), desc="Copying images"):
+            shutil.copy(src, dst)
 
     df = filter_images(min_area, max_area, min_saliency, min_score, df)
     if df.empty:
