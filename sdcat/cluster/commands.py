@@ -273,6 +273,7 @@ def run_cluster_det(det_dir, save_dir, device, use_vits, config_ini, alpha, clus
             with open(save_dir / f'{prefix}_summary.json', 'w') as f:
                 json.dump(summary, f, indent=4)
             info(f"Summary saved to {save_dir / f'{prefix}_summary.json'}")
+            info(f'Summary: {json.dumps(summary, indent=4)}')
 
             # Save a copy of the config.ini file
             shutil.copy(Path(config_ini), save_dir / f'{prefix}_config.ini')
@@ -408,6 +409,7 @@ def run_cluster_roi(roi_dir, save_dir, device, use_vits, config_ini, alpha, clus
         with open(save_dir / f'{prefix}_summary.json', 'w') as f:
             json.dump(summary, f, indent=4)
         info(f'Summary saved to {save_dir / f"{prefix}_summary.json"}')
+        info(f'Summary: {json.dumps(summary, indent=4)}')
 
         # Save a copy of the config.ini file
         shutil.copy(Path(config_ini), save_dir / f'{prefix}_config.ini')
