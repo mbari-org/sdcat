@@ -16,6 +16,7 @@ import modin.pandas as pd
 import pytz
 import torch
 from PIL import Image
+from tqdm import tqdm
 
 from sdcat import __version__ as sdcat_version
 from sdcat.cluster.utils import filter_images, combine_csv
@@ -365,7 +366,7 @@ def run_cluster_roi(roi_dir, save_dir, device, use_vits, config_ini, alpha, clus
                                axis=1)
 
     # Copy the images to the crop path directory. Images may be cleaned so we want to duplicate them here.
-    for index, row in df.iterrows():
+    for index, row in tqdm(df.iterrows(), total=len(df), desc="Copying images"):
         shutil.copy(row['image_path'], row['crop_path'])
 
     df = filter_images(min_area, max_area, min_saliency, min_score, df)
