@@ -302,10 +302,14 @@ def _run_hdbscan_assign(
         labels = scan.fit_predict(x)
     else:
         info(f'Running HDBSCAN on {num_samples} samples for batch {batch} on CPU core_dist_n_jobs {core_dist_n_jobs}...')
+        # Compute the cosine similarity matrix
+        cosine_sim_matrix = cosine_similarity(x)
+        distance_matrix = 1 - cosine_sim_matrix
+        x = distance_matrix.astype(np.float64)
         scan = HDBSCAN(
                 core_dist_n_jobs=core_dist_n_jobs,
                 prediction_data=True,
-                metric='l2',
+                metric='precomputed',
                 algorithm=algorithm,
                 allow_single_cluster=True,
                 min_cluster_size=min_cluster_size,
