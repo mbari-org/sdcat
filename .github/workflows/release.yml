@@ -94,13 +94,13 @@ jobs:
           echo "Latest PyPI version is: $pypi_version"
           echo "VERSION=$pypi_version" >> $GITHUB_ENV
 
-#      - name: Docker Build and Push
-#        run: |
-#          export RELEASE_VERSION=$(echo ${{ steps.release-status.outputs.tag }} | cut -c 2-)
-#          docker login -u ${{ secrets.DOCKERHUB_USERNAME }} -p ${{ secrets.DOCKERHUB_TOKEN }}
-#          docker buildx create --name mybuilder --platform linux/amd64 --use
-#          docker buildx build --push --platform linux/amd64 -t mbari/sdcat:${{ env.VERSION }}-cuda124 --label GIT_VERSION=${{ env.VERSION }} --label IMAGE_URI=mbari/sdcat:${{ env.VERSION }}-cuda124 -f docker/Dockerfile.cuda .
-#          docker buildx build --push --platform linux/amd64 -t mbari/sdcat:${{ env.VERSION }} --label GIT_VERSION=${{ env.VERSION }} --label IMAGE_URI=mbari/sdcat:${{ env.VERSION }} -f docker/Dockerfile .
+      - name: Docker Build and Push
+        run: |
+          export RELEASE_VERSION=$(echo ${{ steps.release-status.outputs.tag }} | cut -c 2-)
+          docker login -u ${{ secrets.DOCKERHUB_USERNAME }} -p ${{ secrets.DOCKERHUB_TOKEN }}
+          docker buildx create --name mybuilder --platform linux/amd64 --use
+          docker buildx build --no-cache --push --platform linux/amd64 -t mbari/sdcat:${{ env.VERSION }}-cuda124 --label GIT_VERSION=${{ env.VERSION }} --label IMAGE_URI=mbari/sdcat:${{ env.VERSION }}-cuda124 -f docker/Dockerfile.cuda .
+          docker buildx build --no-cache --push --platform linux/amd64 -t mbari/sdcat:${{ env.VERSION }} -t mbari/sdcat:latest --label GIT_VERSION=${{ env.VERSION }} --label IMAGE_URI=mbari/sdcat:${{ env.VERSION }} -f docker/Dockerfile .
   push_readme_to_dockerhub:
     runs-on: ubuntu-latest
     name: Push README to Docker Hub
