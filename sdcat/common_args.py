@@ -59,9 +59,9 @@ hdbscan_batch_size = click.option('--hdbscan-batch-size',
                             default=50000,
                             help='Batch size for HDBSCAN. Default is 50000. Increase for your available CPU/GPU memory. ')
 
-use_tsne = click.option('--use-tsne',
-                        is_flag=True,
-                        help='Use t-SNE for dimensionality reduction. Default is False')
+use_pca = click.option('--use-pca',
+                       is_flag=True,
+                       help='Use PCA for dimensionality reduction before clustering. Default is False')
 
 skip_visualization = click.option('--skip-visualization',
                                     is_flag=True,

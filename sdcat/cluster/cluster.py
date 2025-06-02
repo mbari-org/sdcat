@@ -11,6 +11,7 @@ import pandas
 import seaborn as sns
 import modin.pandas as pd
 import numpy as np
+from sklearn.decomposition import PCA
 from tqdm import tqdm
 from umap import UMAP
 from hdbscan import HDBSCAN
@@ -21,16 +22,11 @@ from sdcat.cluster.utils import cluster_grid, clean_bad_images, crop_all_square_
 from sdcat.cluster.embedding import fetch_embedding, has_cached_embedding, compute_norm_embedding
 from sdcat import __version__ as sdcat_version
 
-if find_spec("multicore_tsne"):
-    from multicore_tsne import MulticoreTSNE as TSNE
-else:
-    from sklearn.manifold import TSNE
-
 if find_spec("cuml"):
     info('=======> USING GPU for HDBSCAN AND UMAP <=========')
     from cuml.cluster import HDBSCAN as cuHDBSCAN  # pylint: disable=E0611, E0401
     from cuml.manifold.umap import UMAP as cuUMAP
-
+    from cuml.metrics import pairwise_distances as cu_pairwise_distances
     have_gpu = True
 else:
     have_gpu = False
@@ -238,7 +234,7 @@ def _run_hdbscan_assign(
         algorithm: str,
         min_cluster_size: int,
         min_samples: int,
-        use_tsne: bool,
+        use_pca: bool,
         batch: int,
         core_dist_n_jobs: int) -> pandas.DataFrame:
     """
@@ -249,7 +245,7 @@ def _run_hdbscan_assign(
     :param cluster_selection_method:  The method to use for cluster selection, 'leaf' or 'eom'
     :param min_cluster_size:  The minimum number of samples in a cluster
     :param min_samples:   The number of samples in a neighborhood for a point
-    :param use_tsne:  Whether to use t-SNE for dimensionality reduction
+    :param use_pca:  Whether to use PCA for dimensionality reduction
     :param batch:  Batch number for logging
     :return: pandas.DataFrame with the cluster assignments
     """
@@ -263,7 +259,7 @@ def _run_hdbscan_assign(
         f'min_samples {min_samples},'
         f'min_cluster_size {min_cluster_size},'
         f'cluster_selection_method {cluster_selection_method},'
-        f'use_tsne {use_tsne} ...')
+        f'use_pca {use_pca} ...')
 
     # Get the number of samples which is the number of rows in the dataframe
     num_samples = df.shape[0]
@@ -279,10 +275,10 @@ def _run_hdbscan_assign(
             if col != 'embedding':
                 features = np.concatenate((features, df[col].values.reshape(-1, 1)), axis=1)
 
-    # TSN-E does not work well when we have a few samples
-    if num_samples > 100 and use_tsne:
-        tsne = TSNE(n_components=2, perplexity=perplexity, metric="cosine", n_jobs=8, random_state=42, verbose=True)
-        x = tsne.fit_transform(features)
+    if use_pca:
+        info('Reducing to 100 dimensions using PCA...')
+        pca = PCA(n_components=100, random_state=42)
+        x = pca.fit_transform(features)
     else:
         x = features
 
@@ -344,7 +340,7 @@ def cluster_vits(
         min_samples: int,
         device: str = "cpu",
         use_vits: bool = False,
-        use_tsne: bool = False,
+        use_pca: bool = False,
         skip_visualization: bool = False,
         remove_bad_images: bool = False,
         roi: bool = False,
@@ -369,7 +365,7 @@ def cluster_vits(
     :param use_vits: Set to using the predictions from the vits cluster model
     :param skip_visualization: Whether to skip the visualization of the clusters
     :param remove_bad_images: Whether to remove bad images from the clustering
-    :param use_tsne: Whether to use t-SNE for dimensionality reduction
+    :param use_pca: Whether to use PCA for dimensionality reduction
     :param vits_batch_size: The batch size to use for embedding extraction; maximize for speed for your GPU
     :param hdbscan_batch_size: The batch size to use for clustering with HDBSCAN; maximize for speed for your GPU
     :param allowable_classes: A list of classes to allow in the clustering; if None, all classes are allowed
@@ -537,7 +533,7 @@ def cluster_vits(
             algorithm=algorithm,
             min_cluster_size=min_cluster_size,
             min_samples=min_samples,
-            use_tsne=use_tsne,
+            use_pca=use_pca,
             batch=i,
             core_dist_n_jobs=n_jobs
         )
@@ -652,7 +648,8 @@ def cluster_vits(
         "metric": "precomputed",
         "algorithm": algorithm,
         "alpha": alpha,
-        "cluster_selection_epsilon": cluster_selection_epsilon
+        "cluster_selection_epsilon": cluster_selection_epsilon,
+        "use_pca": use_pca,
     }
 
     df_dets_final.to_csv(output_path / f'{prefix}_cluster_detections.csv')
