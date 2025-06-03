@@ -264,9 +264,6 @@ def _run_hdbscan_assign(
     # Get the number of samples which is the number of rows in the dataframe
     num_samples = df.shape[0]
 
-    # Perplexity must be less than the number of samples
-    perplexity = min(30, num_samples - 1)
-
     info('Stacking features ...')
     features = np.stack(df['embedding'].values)
     # Add in other features if present
