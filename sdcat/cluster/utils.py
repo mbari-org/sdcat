@@ -94,9 +94,11 @@ def clean_bad_images(filepaths: List[str]) -> List[str]:
     issue_types = {
         "dark": {},
         "blurry": {"threshold": 0.52},
-        "near_duplicates": {}
+        "exact_duplicates": {},
+        "near_duplicates": {"hash_size": 5, "hash_types": ["whash", "phash"]}
     }
     imagelab.find_issues(issue_types)
+    # imagelab.report()
 
     issue_columns = ["is_dark_issue", "is_blurry_issue"]
     bad_images = set(imagelab.issues[imagelab.issues[issue_columns].any(axis=1)].index)
@@ -106,7 +108,7 @@ def clean_bad_images(filepaths: List[str]) -> List[str]:
     exact_duplicates_images = list(chain(*[dup_set[1:] for dup_set in exact_duplicates_sets]))
     bad_images.update(exact_duplicates_images)
 
-    # Remove one image from each near duplicate set (keep best blurry score)
+    # Remove one image from each near duplicate set (keep the best blurry score)
     near_duplicates_image_sets = imagelab.info['near_duplicates']['sets']
     near_duplicates_scores = (
         imagelab.issues[imagelab.issues["is_near_duplicates_issue"] == True]
