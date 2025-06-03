@@ -4,6 +4,7 @@
 import json
 import re
 import shutil
+import sys
 import tempfile
 import uuid
 from datetime import datetime
@@ -310,6 +311,7 @@ def run_cluster_det(
 
             # Add more detail to the summary specific to detections
             summary["sdcat_version"] = sdcat_version
+            summary["command"] = " ".join(sys.argv)
             summary["dataset"]["input"] = det_dir
             summary["dataset"]["image_resolution"] = f"{df['image_width'].iloc[0]}x{df['image_height'].iloc[0]} pixels"
             summary["dataset"]["detection_count"] = len(df)
@@ -478,6 +480,7 @@ def run_cluster_roi(
 
         # Add more detail to the summary specific to ROIs
         summary["sdcat_version"] = sdcat_version
+        summary["command"] = " ".join(sys.argv)
         summary["dataset"]["roi"] = True
         summary["dataset"]["input"] = roi_dir
         summary["dataset"]["image_resolution"] = "224x224 pixels"
