@@ -42,7 +42,7 @@ from sdcat.cluster.cluster import cluster_vits
 @click.option('--det-dir', help='Input folder(s) with raw detection results', multiple=True, required=True)
 @click.option('--save-dir', help='Output directory to save clustered detection results', required=True)
 @click.option('--device', help='Device to use, e.g. cpu or cuda:0 or cuda to use all cuda devices', type=str, default='cpu')
-@click.option('--use-pca', help='Use PCA to reduce embedding dimensions before clustering', is_flag=True)
+@click.option('--use-vits', help='Set to using the predictions from the vits cluster model', is_flag=True)
 def run_cluster_det(det_dir, save_dir, device, use_vits, config_ini, alpha, cluster_selection_epsilon, cluster_selection_method, algorithm, min_cluster_size, min_sample_size, vits_batch_size, hdbscan_batch_size, start_image, end_image, use_pca, skip_visualization):
     config = cfg.Config(config_ini)
     max_area = int(config('cluster', 'max_area'))
