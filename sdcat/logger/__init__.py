@@ -12,6 +12,7 @@ DEBUG = False
 
 logging.getLogger("modin").setLevel(logging.ERROR)
 
+
 class _Singleton(type):
     """A metaclass that creates a Singleton base class when called."""
 
@@ -61,6 +62,7 @@ def create_logger_file(prefix: str = "sdcat"):
     :param log_path: Path to the log file
     """
     import tempfile
+
     ENVIRONMENT = str(os.getenv("ENVIRONMENT"))
     if ENVIRONMENT and ENVIRONMENT.upper() == "TESTING":
         log_path = Path("logs")

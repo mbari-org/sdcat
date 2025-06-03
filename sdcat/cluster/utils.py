@@ -1,7 +1,6 @@
 # sdcat, Apache-2.0 license
 # Filename: sdcat/cluster/utils.py
 # Description: Miscellaneous utility functions for cropping, clustering, and saving detections
-import os
 from itertools import chain
 
 import cv2
@@ -19,8 +18,9 @@ from sdcat.logger import info, debug, warn, exception
 from sdcat import __version__ as sdcat_version
 
 
-def cluster_grid(prefix: str, cluster_sim: float, cluster_id: int, nb_images_display: int,
-                 images: List[str], output_path: Path):
+def cluster_grid(
+    prefix: str, cluster_sim: float, cluster_id: int, nb_images_display: int, images: List[str], output_path: Path
+):
     """
     Cluster visualization; create a grid of images
     :
@@ -33,19 +33,21 @@ def cluster_grid(prefix: str, cluster_sim: float, cluster_id: int, nb_images_dis
     :return:
     """
     cluster_size = len(images)
-    debug(f'Cluster number {cluster_id} size {cluster_size} similarity {cluster_sim}')
+    debug(f"Cluster number {cluster_id} size {cluster_size} similarity {cluster_sim}")
     try:
-
         # Plot a grid for each group of images nb_images_display at a time (e.g. 8x8)
         for i in range(0, len(images), nb_images_display * nb_images_display):
-            fig = plt.figure(figsize=(10., 10.))
-            grid = ImageGrid(fig, 111,  # similar to subplot(111)
-                             nrows_ncols=(nb_images_display, nb_images_display),
-                             # creates nb_images_display x nb_images_display grid of axes
-                             axes_pad=0.025,
-                             share_all=True,
-                             cbar_pad=0.025)
-            images_display = images[i:i + nb_images_display * nb_images_display]
+            fig = plt.figure(figsize=(10.0, 10.0))
+            grid = ImageGrid(
+                fig,
+                111,  # similar to subplot(111)
+                nrows_ncols=(nb_images_display, nb_images_display),
+                # creates nb_images_display x nb_images_display grid of axes
+                axes_pad=0.025,
+                share_all=True,
+                cbar_pad=0.025,
+            )
+            images_display = images[i : i + nb_images_display * nb_images_display]
             page = i // (nb_images_display * nb_images_display)
 
             # If we have more than 3 pages, then only display the first 3 pages
@@ -59,10 +61,10 @@ def cluster_grid(prefix: str, cluster_sim: float, cluster_id: int, nb_images_dis
                     image_square = Image.open(image)
                     grid[j].imshow(image_square)
                 except Exception as e:
-                    exception(f'Error opening {image} {e}')
+                    exception(f"Error opening {image} {e}")
                     continue
 
-                grid[j].axis('off')
+                grid[j].axis("off")
                 grid[j].set_xticklabels([])
 
             if cluster_id == -1:
@@ -70,20 +72,26 @@ def cluster_grid(prefix: str, cluster_sim: float, cluster_id: int, nb_images_dis
 
             # Add a title to the figure
             if total_pages > 1:
-                fig.suptitle(f"{prefix}\nsdcat_version {sdcat_version}\nCluster {cluster_id}, Page: {page} of {total_pages}\nSimilarity: {cluster_sim:.2f}, Size: {cluster_size}", fontsize=14)
+                fig.suptitle(
+                    f"{prefix}\nsdcat_version {sdcat_version}\nCluster {cluster_id}, Page: {page} of {total_pages}\nSimilarity: {cluster_sim:.2f}, Size: {cluster_size}",
+                    fontsize=14,
+                )
             else:
-                fig.suptitle(f"{prefix}\nsdcat_version {sdcat_version}\nCluster {cluster_id}\nSimilarity: {cluster_sim:.2f}, Size: {cluster_size}", fontsize=14)
+                fig.suptitle(
+                    f"{prefix}\nsdcat_version {sdcat_version}\nCluster {cluster_id}\nSimilarity: {cluster_sim:.2f}, Size: {cluster_size}",
+                    fontsize=14,
+                )
 
             # Set the background color of the grid to white
-            fig.set_facecolor('white')
+            fig.set_facecolor("white")
 
             # Write the figure to a file
-            out = output_path / f'{prefix}_cluster_{cluster_id}_p{page}.png'
-            debug(f'Writing {out}')
+            out = output_path / f"{prefix}_cluster_{cluster_id}_p{page}.png"
+            debug(f"Writing {out}")
             fig.savefig(out.as_posix())
             plt.close(fig)
     except Exception as e:
-        exception(f'Error creating cluster grid {e}')
+        exception(f"Error creating cluster grid {e}")
 
 
 def clean_bad_images(filepaths: List[str]) -> List[str]:
@@ -95,7 +103,7 @@ def clean_bad_images(filepaths: List[str]) -> List[str]:
         "dark": {},
         "blurry": {"threshold": 0.52},
         "exact_duplicates": {},
-        "near_duplicates": {"hash_size": 5, "hash_types": ["whash", "phash"]}
+        "near_duplicates": {"hash_size": 5, "hash_types": ["whash", "phash"]},
     }
     imagelab.find_issues(issue_types)
     # imagelab.report()
@@ -104,16 +112,16 @@ def clean_bad_images(filepaths: List[str]) -> List[str]:
     bad_images = set(imagelab.issues[imagelab.issues[issue_columns].any(axis=1)].index)
 
     # Remove exact duplicates (keep one image per set)
-    exact_duplicates_sets = imagelab.info['exact_duplicates']['sets']
+    exact_duplicates_sets = imagelab.info["exact_duplicates"]["sets"]
     exact_duplicates_images = list(chain(*[dup_set[1:] for dup_set in exact_duplicates_sets]))
     bad_images.update(exact_duplicates_images)
 
     # Remove one image from each near duplicate set (keep the best blurry score)
-    near_duplicates_image_sets = imagelab.info['near_duplicates']['sets']
+    near_duplicates_image_sets = imagelab.info["near_duplicates"]["sets"]
     near_duplicates_scores = (
-        imagelab.issues[imagelab.issues["is_near_duplicates_issue"] == True]
-        .sort_values(by='blurry_score')
-        .reset_index()[['index', 'blurry_score']]
+        imagelab.issues[imagelab.issues["is_near_duplicates_issue"]]
+        .sort_values(by="blurry_score")
+        .reset_index()[["index", "blurry_score"]]
         .values.tolist()
     )
 
@@ -122,9 +130,7 @@ def clean_bad_images(filepaths: List[str]) -> List[str]:
             continue
         # Keep the image with the **highest** blurry_score (least blurry)
         best_image = max(
-            (entry for entry in near_duplicates_scores if entry[0] in dup_set),
-            key=lambda x: x[1],
-            default=None
+            (entry for entry in near_duplicates_scores if entry[0] in dup_set), key=lambda x: x[1], default=None
         )
         if best_image is None:
             continue
@@ -132,7 +138,8 @@ def clean_bad_images(filepaths: List[str]) -> List[str]:
         bad_images.update(to_remove)
     return list(bad_images)
 
-def crop_all_square_images(image_path:str, detections: pandas.DataFrame, square_dim: int):
+
+def crop_all_square_images(image_path: str, detections: pandas.DataFrame, square_dim: int):
     """
     Crop the image to a square padding the shortest dimension, then resize it to square_dim x square_dim
     Optimized for cropping all detections within an image
@@ -142,7 +149,7 @@ def crop_all_square_images(image_path:str, detections: pandas.DataFrame, square_
     """
     try:
         if not Path(image_path).exists():
-            warn(f'Skipping because the image {image_path} does not exist')
+            warn(f"Skipping because the image {image_path} does not exist")
             return
 
         img = Image.open(image_path)
@@ -205,7 +212,7 @@ def crop_all_square_images(image_path:str, detections: pandas.DataFrame, square_
 
         img.close()
     except Exception as e:
-        exception(f'Error cropping {image_path} {e}')
+        exception(f"Error cropping {image_path} {e}")
         raise e
 
 
@@ -220,9 +227,8 @@ def crop_square_image(row, square_dim: int):
     :return:
     """
     try:
-
         if not Path(row.image_path).exists():
-            warn(f'Skipping {row.crop_path} because the image {row.image_path} does not exist')
+            warn(f"Skipping {row.crop_path} because the image {row.image_path} does not exist")
             return
 
         if Path(row.crop_path).exists():  # If the crop already exists, skip it
@@ -284,7 +290,7 @@ def crop_square_image(row, square_dim: int):
         img.close()
 
     except Exception as e:
-        exception(f'Error cropping {row.image_path} {e}')
+        exception(f"Error cropping {row.image_path} {e}")
         raise e
 
 
@@ -305,7 +311,7 @@ def rescale(img: np.ndarray, scale_percent: int = 75) -> np.ndarray:
     return img_rescaled
 
 
-def filter_images(min_area:int, max_area: int, min_saliency: int, min_score:float, df: pd.DataFrame) -> pd.DataFrame:
+def filter_images(min_area: int, max_area: int, min_saliency: int, min_score: float, df: pd.DataFrame) -> pd.DataFrame:
     """
     Filter the dataframe to remove images that are too small or have low saliency
     :param min_area: Minimum area of the image
@@ -316,32 +322,31 @@ def filter_images(min_area:int, max_area: int, min_saliency: int, min_score:floa
     """
     # Filter by saliency, area, score or day/night
     size_before = len(df)
-    if 'saliency' in df.columns:
-        df = df[(df['saliency'] > min_saliency) | (df['saliency'] == -1)]
-    if 'area' in df.columns:
-        df = df[(df['area'] > min_area) & (df['area'] < max_area)]
-    if 'score' in df.columns:
-        df = df[(df['score'] > min_score)]
+    if "saliency" in df.columns:
+        df = df[(df["saliency"] > min_saliency) | (df["saliency"] == -1)]
+    if "area" in df.columns:
+        df = df[(df["area"] > min_area) & (df["area"] < max_area)]
+    if "score" in df.columns:
+        df = df[(df["score"] > min_score)]
     size_after = len(df)
-    info(f'Removed {size_before - size_after} detections outside of area, saliency, or too low scoring')
+    info(f"Removed {size_before - size_after} detections outside of area, saliency, or too low scoring")
 
     return df
 
 
 def compute_embedding_multi_gpu(model_name: str, images: list, batch_size: int = 32):
-
     from concurrent.futures import ThreadPoolExecutor
     from sdcat.cluster.embedding import ViTWrapper, compute_embedding_vits
     import torch
     import math
 
     # Detect all CUDA devices
-    devices = [f'cuda:{i}' for i in range(torch.cuda.device_count())]
+    devices = [f"cuda:{i}" for i in range(torch.cuda.device_count())]
 
     # Split the images evenly across GPUs
     def split_batches(images, num_splits):
         batch_size = math.ceil(len(images) / num_splits)
-        return [images[i * batch_size:(i + 1) * batch_size] for i in range(num_splits)]
+        return [images[i * batch_size : (i + 1) * batch_size] for i in range(num_splits)]
 
     # Compute embeddings per GPU
     def compute_on_device(device, model_name, images, batch_size):
@@ -351,8 +356,10 @@ def compute_embedding_multi_gpu(model_name: str, images: list, batch_size: int =
     def multi_gpu_compute(model_name, images, batch_size):
         image_batches = split_batches(images, len(devices))
         with ThreadPoolExecutor(max_workers=len(devices)) as executor:
-            futures = [ executor.submit(compute_on_device, device, model_name, batch, batch_size)
-                    for device, batch in zip(devices, image_batches) ] 
+            futures = [
+                executor.submit(compute_on_device, device, model_name, batch, batch_size)
+                for device, batch in zip(devices, image_batches)
+            ]
             # Wait for all tasks to complete
             for f in futures:
                 f.result()
@@ -365,23 +372,23 @@ def combine_csv(csv_files: List[Path], temp_path: Path, crop_path: str) -> Path:
 
     output_file = temp_path / "combined.csv"
 
-    info(f'Combining detection files to {output_file}...')
+    info(f"Combining detection files to {output_file}...")
     with open(output_file, "w", encoding="utf-8") as outfile:
         first_file = True
-        for file in tqdm(csv_files, desc='Combining detection files', unit='file'):
+        for file in tqdm(csv_files, desc="Combining detection files", unit="file"):
             # Create a crop directory for each detection file
             crop_root = crop_path / file.stem
             crop_root.mkdir(parents=True, exist_ok=True)
             with open(file, "r", encoding="utf-8") as infile:
                 lines = infile.readlines()
                 if first_file:
-                    header = lines[0].strip() + ',crop_root\n'
+                    header = lines[0].strip() + ",crop_root\n"
                     outfile.writelines(header)  # include header
-                    out_text = [l.strip() + f',{crop_root}\n' for l in lines[1:]]
+                    out_text = [line.strip() + f",{crop_root}\n" for line in lines[1:]]
                     outfile.writelines(out_text)
                     first_file = False
                 else:
-                    out_text = [l.strip() + f',{crop_root}\n' for l in lines[1:]]
+                    out_text = [line.strip() + f",{crop_root}\n" for line in lines[1:]]
                     outfile.writelines(out_text)
-    info(f'Combined detection files to {output_file}')
+    info(f"Combined detection files to {output_file}")
     return str(output_file)

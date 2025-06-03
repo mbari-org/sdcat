@@ -14,6 +14,7 @@ import torch.nn.functional as F
 from sdcat.cluster.utils import compute_embedding_multi_gpu
 from sdcat.logger import info, err
 
+
 class ViTWrapper:
     DEFAULT_MODEL_NAME = "google/vit-base-patch16-224"
 
@@ -70,15 +71,16 @@ class ViTWrapper:
 
         return batch_embeddings, predicted_classes, predicted_scores
 
+
 def cache_embedding(embedding, pred, score, model_name: str, filename: str):
     model_machine_friendly_name = model_name.replace("/", "_")
     # save embeddings numpy array as npy file and the predictions as a txt file
-    save(f'{filename}_{model_machine_friendly_name}.npy', embedding)
-    with open(f'{filename}_{model_machine_friendly_name}_pred.txt', 'w') as f:
-        predictions = pred.split(',')
-        scores = score.split(',')
+    save(f"{filename}_{model_machine_friendly_name}.npy", embedding)
+    with open(f"{filename}_{model_machine_friendly_name}_pred.txt", "w") as f:
+        predictions = pred.split(",")
+        scores = score.split(",")
         for pred, score in zip(predictions, scores):
-            f.write(f'{pred.strip()},{score.strip()}\n')
+            f.write(f"{pred.strip()},{score.strip()}\n")
 
 
 def fetch_embedding(model_name: str, filename: str):
@@ -87,20 +89,20 @@ def fetch_embedding(model_name: str, filename: str):
     emb = []
     label = []
     score = []
-    emb_filename = f'{filename}_{model_machine_friendly_name}.npy'
+    emb_filename = f"{filename}_{model_machine_friendly_name}.npy"
     if os.path.exists(emb_filename):
         emb = load(emb_filename)
     else:
-        info(f'No embedding found for {os.path.basename(emb_filename)}')
-    if os.path.exists(f'{filename}_{model_machine_friendly_name}_pred.txt'):
-        with open(f'{filename}_{model_machine_friendly_name}_pred.txt', 'r') as f:
+        info(f"No embedding found for {os.path.basename(emb_filename)}")
+    if os.path.exists(f"{filename}_{model_machine_friendly_name}_pred.txt"):
+        with open(f"{filename}_{model_machine_friendly_name}_pred.txt", "r") as f:
             lines = f.readlines()
             for line in lines:
-                line = line.strip().split(',')
+                line = line.strip().split(",")
                 label.append(line[0])
                 score.append(float(line[1]))
     else:
-        info(f'No prediction found for {filename} for {model_name}')
+        info(f"No prediction found for {filename} for {model_name}")
     return emb, label, score
 
 
@@ -112,8 +114,9 @@ def has_cached_embedding(model_name: str, filename: str) -> int:
     :return: 1 if the image has a cached embedding, otherwise 0
     """
     model_machine_friendly_name = model_name.replace("/", "_")
-    if os.path.exists(f'{filename}_{model_machine_friendly_name}.npy') and \
-            os.path.exists(f'{filename}_{model_machine_friendly_name}_pred.txt'):
+    if os.path.exists(f"{filename}_{model_machine_friendly_name}.npy") and os.path.exists(
+        f"{filename}_{model_machine_friendly_name}_pred.txt"
+    ):
         return 1
     return 0
 
@@ -125,7 +128,7 @@ def encode_image(filename):
     return keep
 
 
-def compute_embedding_vits(vit:ViTWrapper, images: list, batch_size:int=32):
+def compute_embedding_vits(vit: ViTWrapper, images: list, batch_size: int = 32):
     """
     Compute the embedding for the given images using the given model
     :param vitwrapper: Wrapper for the ViT model
@@ -135,7 +138,7 @@ def compute_embedding_vits(vit:ViTWrapper, images: list, batch_size:int=32):
     model_name = vit.model_name
 
     # Batch process the images
-    batches = [images[i:i + batch_size] for i in range(0, len(images), batch_size)]
+    batches = [images[i : i + batch_size] for i in range(0, len(images), batch_size)]
     for batch in batches:
         try:
             # Skip running the model if the embeddings already exist
@@ -149,7 +152,7 @@ def compute_embedding_vits(vit:ViTWrapper, images: list, batch_size:int=32):
                 emb = emb.astype(np.float32)
                 cache_embedding(emb, pred, score, model_name, filename)
         except Exception as e:
-            err(f'Error processing {batch}: {e}')
+            err(f"Error processing {batch}: {e}")
 
 
 def compute_norm_embedding(model_name: str, images: list, device: str = "cpu", batch_size: int = 32):
@@ -169,7 +172,7 @@ def compute_norm_embedding(model_name: str, images: list, device: str = "cpu", b
     # mean, std = calc_mean_std(images)
 
     # If using a GPU, set then skip the parallel CPU processing
-    if torch.cuda.is_available() and 'cuda' in device:
+    if torch.cuda.is_available() and "cuda" in device:
         if torch.cuda.device_count() > 1 and device == "cuda":
             torch.cuda.empty_cache()
             compute_embedding_multi_gpu(model_name, images, batch_size)
@@ -178,22 +181,19 @@ def compute_norm_embedding(model_name: str, images: list, device: str = "cpu", b
             compute_embedding_vits(vit_wrapper, images, batch_size)
     else:
         # TODO: replace this - modin does not work well here
-        vit_wrapper = ViTWrapper(device='cpu', model_name=model_name)
+        vit_wrapper = ViTWrapper(device="cpu", model_name=model_name)
         import modin.pandas as pd
-        df_args = pd.DataFrame([{
-            "vit_wrapper": vit_wrapper,
-            "images_batch": [batch],
-            "batch_size": batch_size
-        } for batch in images])
+
+        df_args = pd.DataFrame(
+            [{"vit_wrapper": vit_wrapper, "images_batch": [batch], "batch_size": batch_size} for batch in images]
+        )
 
         def compute_embedding_wrapper(row):
-            return compute_embedding_vits(
-                row.vit_wrapper,
-                row.images_batch,
-                row.batch_size
-            )
+            return compute_embedding_vits(row.vit_wrapper, row.images_batch, row.batch_size)
+
         info(f"Compute embeddings for {len(images)} images on CPU ...")
         df_args.apply(compute_embedding_wrapper, axis=1)
+
 
 def calc_mean_std(image_files: list) -> tuple:
     """

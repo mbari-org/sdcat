@@ -14,6 +14,7 @@ from pathlib import Path
 # This is a global variable to control whether to save the algorithm results; useful for debugging or presentation
 save = True
 
+
 def compute_saliency(contour, min_std: float, img_saliency: np.ndarray, img_luminance: np.ndarray) -> int:
     """
     Calculate the saliency cost of a contour. Lower saliency contours are more likely to be reflections.
@@ -34,7 +35,7 @@ def compute_saliency(contour, min_std: float, img_saliency: np.ndarray, img_lumi
 
     # Calculate variance of pixel intensities within the contour
     x, y, w, h = cv2.boundingRect(contour)
-    roi = img_luminance[y:y + h, x:x + w]
+    roi = img_luminance[y : y + h, x : x + w]
     variance = np.var(roi)
     std = np.std(roi)
 
@@ -68,20 +69,28 @@ def process_contour(contours: np.ndarray, min_std: float, img_s: np.ndarray, img
         area = cv2.contourArea(c)
         saliency = compute_saliency(c, min_std, img_s, img_l)
 
-        debug(f'Found blob area: {area}, saliency: {saliency}, area: {area}')
-        df = pd.concat([df, pd.DataFrame({
-            'image_path': '',
-            'class': 'Unknown',
-            'score': 0.,
-            'area': area,
-            'saliency': saliency,
-            'x': x,
-            'y': y,
-            'xx': x + w,
-            'xy': y + h,
-            'w': w,
-            'h': h,
-        }, index=[0])])
+        debug(f"Found blob area: {area}, saliency: {saliency}, area: {area}")
+        df = pd.concat(
+            [
+                df,
+                pd.DataFrame(
+                    {
+                        "image_path": "",
+                        "class": "Unknown",
+                        "score": 0.0,
+                        "area": area,
+                        "saliency": saliency,
+                        "x": x,
+                        "y": y,
+                        "xx": x + w,
+                        "xy": y + h,
+                        "w": w,
+                        "h": h,
+                    },
+                    index=[0],
+                ),
+            ]
+        )
 
     return df
 
@@ -106,13 +115,16 @@ def smooth_reflections(image: np.ndarray, show=False) -> np.ndarray:
 
     image = cv2.GaussianBlur(image, (15, 15), 0)
     if show:
-        cv2.imshow('Smooth reflections', image)
-        if save: cv2.imwrite('my_smooth_reflections.jpg', image)
+        cv2.imshow("Smooth reflections", image)
+        if save:
+            cv2.imwrite("my_smooth_reflections.jpg", image)
         cv2.waitKey(0)
     return image
 
 
-def extract_blobs(min_std: float, block_size: int, saliency_map: np.ndarray, img_color: np.ndarray, show=False) -> (pd.DataFrame, np.ndarray):
+def extract_blobs(
+    min_std: float, block_size: int, saliency_map: np.ndarray, img_color: np.ndarray, show=False
+) -> (pd.DataFrame, np.ndarray):
     """
     Extract blobs from a saliency map
     :param min_std: minimum standard deviation of the contour to be considered
@@ -128,8 +140,9 @@ def extract_blobs(min_std: float, block_size: int, saliency_map: np.ndarray, img
 
     if show:
         # Display the thresholded saliency map
-        cv2.imshow('Gaussian Blur Saliency Map', saliency_map.astype(np.uint8))
-        if save: cv2.imwrite('my_gaussian_blur_saliency_map.jpg', saliency_map.astype(np.uint8))
+        cv2.imshow("Gaussian Blur Saliency Map", saliency_map.astype(np.uint8))
+        if save:
+            cv2.imwrite("my_gaussian_blur_saliency_map.jpg", saliency_map.astype(np.uint8))
         cv2.waitKey(0)
 
     # Threshold the saliency map using gradient thresholding
@@ -139,7 +152,7 @@ def extract_blobs(min_std: float, block_size: int, saliency_map: np.ndarray, img
         cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
         cv2.THRESH_BINARY,
         block_size,  # Block size (size of the local neighborhood)
-        3  # Constant subtracted from the mean
+        3,  # Constant subtracted from the mean
     )
 
     # Invert the saliency map so that the salient regions are white
@@ -148,7 +161,7 @@ def extract_blobs(min_std: float, block_size: int, saliency_map: np.ndarray, img
     # Connect blobs by dilating then eroding them
     # For images > 3000 pixels, use a 9x9 kernel, otherwise use a 5x5 kernel
     width, height = saliency_map_thres_c.shape
-    info(f'Saliency map image size: {width} x {height}')
+    info(f"Saliency map image size: {width} x {height}")
     if width > 3000 or height > 3000:
         kernel1 = np.ones((5, 5), np.uint8)
         kernel2 = np.ones((3, 3), np.uint8)
@@ -162,8 +175,9 @@ def extract_blobs(min_std: float, block_size: int, saliency_map: np.ndarray, img
 
     if show:
         # Display the thresholded saliency map
-        cv2.imshow('Threshold Saliency Map', saliency_map_thres_c.astype(np.uint8))
-        if save: cv2.imwrite('my_thresholded_saliency_map.jpg', saliency_map_thres_c.astype(np.uint8))
+        cv2.imshow("Threshold Saliency Map", saliency_map_thres_c.astype(np.uint8))
+        if save:
+            cv2.imwrite("my_thresholded_saliency_map.jpg", saliency_map_thres_c.astype(np.uint8))
         cv2.waitKey(0)
 
     contours, _ = cv2.findContours(saliency_map_thres_c, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_TC89_L1)
@@ -173,35 +187,38 @@ def extract_blobs(min_std: float, block_size: int, saliency_map: np.ndarray, img
     cv2.drawContours(contour_img, contours, -1, (81, 12, 51), 2)
 
     if show:
-        cv2.imshow(f'{len(contours)} Contours', contour_img)
-        if save: cv2.imwrite('my_contours.jpg', contour_img)
+        cv2.imshow(f"{len(contours)} Contours", contour_img)
+        if save:
+            cv2.imwrite("my_contours.jpg", contour_img)
         cv2.waitKey(0)
 
     # Get the luminance to use in saliency calculation
     img_lum = cv2.cvtColor(img_color, cv2.COLOR_BGR2LAB)[:, :, 0]
 
-    info(f'Found {len(contours)} contours. Processing contours...')
+    info(f"Found {len(contours)} contours. Processing contours...")
     df = process_contour(contours, min_std, saliency_map_thres_c.astype(np.uint8), img_lum)
 
     if show:
         for i, row in df.iterrows():
-            x = row['x']
-            y = row['y']
-            w = row['w']
-            h = row['h']
-            saliency = row['saliency']
+            x = row["x"]
+            y = row["y"]
+            w = row["w"]
+            h = row["h"]
+            saliency = row["saliency"]
             cv2.rectangle(contour_img, (x, y), (x + w, y + h), (247, 108, 0), 2)
             saliency = np.round(saliency)
-            cv2.putText(contour_img, f'{saliency}', (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+            cv2.putText(contour_img, f"{saliency}", (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
 
-        cv2.imshow(f'{len(df)} Bounding Boxes around Salient Regions', contour_img)
-        if save: cv2.imwrite('my_bounding_boxes.jpg', contour_img)
+        cv2.imshow(f"{len(df)} Bounding Boxes around Salient Regions", contour_img)
+        if save:
+            cv2.imwrite("my_bounding_boxes.jpg", contour_img)
         cv2.waitKey(0)
         cv2.destroyAllWindows()
 
     return df, contour_img
 
-def fine_grained_saliency(image, clahe=False,show=False) -> np.ndarray:
+
+def fine_grained_saliency(image, clahe=False, show=False) -> np.ndarray:
     """
     Compute a fine-grained saliency map and normalize it
     :param image:  image
@@ -248,7 +265,7 @@ def fine_grained_saliency(image, clahe=False,show=False) -> np.ndarray:
 
     # Combine the center and surround regions for each channel
     # Reduce the weight of the saturation channel
-    saliency_lum = 1.2*(center_lum - surround_lum)
+    saliency_lum = 1.2 * (center_lum - surround_lum)
     saliency_saturation = (center_saturation - surround_saturation) / 4
 
     # Combine the saliency maps into the final saliency map
@@ -268,49 +285,55 @@ def fine_grained_saliency(image, clahe=False,show=False) -> np.ndarray:
 
     if show:
         # Display the original image and the saliency map
-        cv2.imshow('Original Image', image)
-        cv2.imshow('Fine-Grained Saliency Map', saliency_map.astype(np.uint8))
+        cv2.imshow("Original Image", image)
+        cv2.imshow("Fine-Grained Saliency Map", saliency_map.astype(np.uint8))
         if save:
-            cv2.imwrite('my_fine_grained_saliency_map.jpg', saliency_map.astype(np.uint8))
-            cv2.imwrite('my_original_image.jpg', image)
+            cv2.imwrite("my_fine_grained_saliency_map.jpg", saliency_map.astype(np.uint8))
+            cv2.imwrite("my_original_image.jpg", image)
 
         cv2.waitKey(0)
 
     return saliency_map
 
 
-def run_saliency_detect_bulk(spec_removal: bool,
-                             scale_percent: int,
-                             images: list,
-                             out_path: Path,
-                             min_std: float = 8.,
-                             block_size: int = 23,
-                             clahe:bool = False,
-                             show: bool = False):
-    info(f'Processing {len(images)} images')
+def run_saliency_detect_bulk(
+    spec_removal: bool,
+    scale_percent: int,
+    images: list,
+    out_path: Path,
+    min_std: float = 8.0,
+    block_size: int = 23,
+    clahe: bool = False,
+    show: bool = False,
+):
+    info(f"Processing {len(images)} images")
     for f in images:
-        out_csv_file = out_path / f'{f.stem}.csv'
-        out_image_file = out_path / f'{f.stem}.jpg' if show else None
-        run_saliency_detect(spec_removal,
-                            scale_percent,
-                            f.as_posix(),
-                            out_csv_file.as_posix(),
-                            out_image_file.as_posix() if out_image_file else None,
-                            min_std,
-                            block_size,
-                            clahe,
-                            show)
+        out_csv_file = out_path / f"{f.stem}.csv"
+        out_image_file = out_path / f"{f.stem}.jpg" if show else None
+        run_saliency_detect(
+            spec_removal,
+            scale_percent,
+            f.as_posix(),
+            out_csv_file.as_posix(),
+            out_image_file.as_posix() if out_image_file else None,
+            min_std,
+            block_size,
+            clahe,
+            show,
+        )
 
 
-def run_saliency_detect(spec_removal: bool,
-                        scale_percent: int,
-                        in_image_file: str,
-                        out_csv_file: str,
-                        out_image_file: str = None,
-                        min_std: float = 8.,
-                        block_size: int = 23,
-                        clahe: bool = False,
-                        show: bool = False):
+def run_saliency_detect(
+    spec_removal: bool,
+    scale_percent: int,
+    in_image_file: str,
+    out_csv_file: str,
+    out_image_file: str = None,
+    min_std: float = 8.0,
+    block_size: int = 23,
+    clahe: bool = False,
+    show: bool = False,
+):
     """
     Run the detection algorithm on an saliency map image
     :param spec_removal: True to remove specular highlights
@@ -324,26 +347,30 @@ def run_saliency_detect(spec_removal: bool,
     :param block_size: block size for adaptive thresholding
     :return:
     """
-    info(f'Processing {in_image_file}')
+    info(f"Processing {in_image_file}")
     image_path = Path(in_image_file)
     img_color = cv2.imread(image_path.as_posix())
     img_color_rescaled = rescale(img_color, scale_percent=scale_percent)
 
     if show:
-        cv2.imshow('Original Rescaled', img_color_rescaled)
-        if save: cv2.imwrite('my_original_rescaled.jpg', img_color_rescaled)
+        cv2.imshow("Original Rescaled", img_color_rescaled)
+        if save:
+            cv2.imwrite("my_original_rescaled.jpg", img_color_rescaled)
         cv2.waitKey(0)
 
     # Calculate the scale factor to rescale the detections back to the original image size
-    scale_width, scale_height = img_color.shape[0] / img_color_rescaled.shape[0], img_color.shape[1] / \
-                                img_color_rescaled.shape[1]
+    scale_width, scale_height = (
+        img_color.shape[0] / img_color_rescaled.shape[0],
+        img_color.shape[1] / img_color_rescaled.shape[1],
+    )
 
     if spec_removal:
         # Remove reflections
         img_spc = specularity_removal(img_color_rescaled)
         if show:
-            cv2.imshow('Clean Rescaled', img_spc)
-            if save: cv2.imwrite('my_clean_rescaled.jpg', img_spc)
+            cv2.imshow("Clean Rescaled", img_spc)
+            if save:
+                cv2.imwrite("my_clean_rescaled.jpg", img_spc)
             cv2.waitKey(0)
     else:
         img_spc = img_color_rescaled
@@ -354,25 +381,24 @@ def run_saliency_detect(spec_removal: bool,
     # Extract blobs from the saliency map
     df, contour_img = extract_blobs(min_std, block_size, saliency_map, img_spc, show=show)
 
-    info(f'Found {len(df)} blobs in {image_path}')
+    info(f"Found {len(df)} blobs in {image_path}")
 
     if len(df) == 0:
         return
 
     if show or out_image_file:
         # Plot boxes on the input frame
-        pred_list = df[['x', 'y', 'xx', 'xy', 'score', 'saliency']].values.tolist()
+        pred_list = df[["x", "y", "xx", "xy", "score", "saliency"]].values.tolist()
         for p in pred_list:
             # Draw a rectangle with yellow line borders of thickness of 3 px
-            cv2.rectangle(img_spc,
-                          (int(p[0]), int(p[1])),
-                          (int(p[2]), int(p[3])), (247, 108, 0), 3)
+            cv2.rectangle(img_spc, (int(p[0]), int(p[1])), (int(p[2]), int(p[3])), (247, 108, 0), 3)
             # Add saliency score
-            cv2.putText(img_spc, f'{int(p[5])}', (int(p[0]), int(p[1])), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 255), 2)
+            cv2.putText(img_spc, f"{int(p[5])}", (int(p[0]), int(p[1])), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 255), 2)
 
         if show:
-            cv2.imshow(f'Found {len(pred_list)} detections', img_spc)
-            if save: cv2.imwrite('my_detections.jpg', img_spc)
+            cv2.imshow(f"Found {len(pred_list)} detections", img_spc)
+            if save:
+                cv2.imwrite("my_detections.jpg", img_spc)
             cv2.waitKey(0)
             cv2.destroyAllWindows()
 
@@ -381,15 +407,15 @@ def run_saliency_detect(spec_removal: bool,
             cv2.imwrite(out_image_file, img_spc)
 
     # Scale the detections back to the original image size
-    df[['x', 'xx', 'w']] *= scale_width
-    df[['y', 'xy', 'h']] *= scale_height
-    df['image_path'] = image_path.as_posix()
+    df[["x", "xx", "w"]] *= scale_width
+    df[["y", "xy", "h"]] *= scale_height
+    df["image_path"] = image_path.as_posix()
 
     # Save the results to a csv file for later processing
-    df.to_csv(out_csv_file, mode='w', header=True, index=False)
+    df.to_csv(out_csv_file, mode="w", header=True, index=False)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # Read all images from the tests/data/kelpflow directory
     # Get the path of this file
     # test_path = Path(__file__).parent.parent.parent / 'tests' / 'data' / 'flirleft'
@@ -403,13 +429,13 @@ if __name__ == '__main__':
     # test_path = Path(__file__).parent.parent.parent / 'tests' / 'data' / 'dolphin'
     # test_path = Path(__file__).parent.parent.parent / 'tests' / 'data' / 'all'
     # test_path = Path(__file__).parent.parent.parent / 'tests' / 'data' / 'otter'
-    test_path = Path(__file__).parent.parent.parent / 'tests' / 'data' / 'jelly'
+    test_path = Path(__file__).parent.parent.parent / "tests" / "data" / "jelly"
     scale = 50  # Run at 1/2 scale
-    out_path = Path(__file__).parent.parent.parent / 'tests' / 'data' / 'out' / 'jelly'
+    out_path = Path(__file__).parent.parent.parent / "tests" / "data" / "out" / "jelly"
     out_path.mkdir(parents=True, exist_ok=True)
 
     # Count the images in the directory
-    ext_glob = '*.JPG'
+    ext_glob = "*.JPG"
     num_images = len(list(test_path.glob(ext_glob)))
 
     # Do the work in a temporary directory
@@ -417,19 +443,21 @@ if __name__ == '__main__':
         temp_path = Path(temp_path)
 
         for in_image_file in test_path.glob(ext_glob):
-            run_saliency_detect(False,
-                                scale,
-                                in_image_file,
-                                (temp_path / f'{in_image_file.stem}.csv').as_posix(),
-                                (temp_path / f'{in_image_file.stem}.jpg').as_posix(),
-                                min_std=8.,
-                                block_size=23,
-                                show=True)
+            run_saliency_detect(
+                False,
+                scale,
+                in_image_file,
+                (temp_path / f"{in_image_file.stem}.csv").as_posix(),
+                (temp_path / f"{in_image_file.stem}.jpg").as_posix(),
+                min_std=8.0,
+                block_size=23,
+                show=True,
+            )
 
         # Copy the results to the output directory
-        for csv in temp_path.glob('*.csv'):
+        for csv in temp_path.glob("*.csv"):
             csv.rename(out_path / csv.name)
-        for image in temp_path.glob('*.jpg'):
+        for image in temp_path.glob("*.jpg"):
             image.rename(out_path / image.name)
 
-    info(f'Processed {num_images} images. Results are in {out_path}')
+    info(f"Processed {num_images} images. Results are in {out_path}")

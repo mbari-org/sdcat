@@ -2,7 +2,7 @@
 
 ## Development Environment
 
-For development, an Anaconda environment is recommended.  This will create a conda environment 
+For development, an Anaconda environment is recommended.  This will create a conda environment
 called `sdcat`.
 
 ```shell
@@ -34,13 +34,13 @@ The tests should run and pass.
 platform darwin -- Python 3.10.13, pytest-7.4.4, pluggy-1.3.0
 rootdir: /Users/dcline/Dropbox/code/sdcat
 plugins: napari-plugin-engine-0.2.0, anyio-3.7.1, napari-0.4.18, npe2-0.7.3
-collected 3 items                                                                                                                                                                                                                                                                                                                                                                                                                                                           
+collected 3 items
 
 tests/test_detect.py ...                                                                                                                                                                                                                                                                                                                                                                                                                                              [100%]
 
 ======================================================================================================================================================================================================================= 3 passed in 61.48s (0:01:01) ========================================================================================================================================================================================================================
 ```
- 
+
 # Building python package
 
 To build the python package, run the following command:

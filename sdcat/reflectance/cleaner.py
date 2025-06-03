@@ -16,8 +16,8 @@ def specularity_removal(image: np.ndarray) -> np.ndarray:
     """
     start_time = time.time()
     # Radius for inpainting should be smaller for smaller images, but max out at 30
-    radius = min(int(min(image.shape[:2]) * .01), 30)
-    info(f'Specularity removal using radius {radius} for inpainting')
+    radius = min(int(min(image.shape[:2]) * 0.01), 30)
+    info(f"Specularity removal using radius {radius} for inpainting")
 
     img_color = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
     img_gray = cv2.cvtColor(img_color, cv2.COLOR_BGR2GRAY)

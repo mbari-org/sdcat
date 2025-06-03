@@ -4,27 +4,27 @@
 [![Python](https://img.shields.io/badge/language-Python-blue.svg)](https://www.python.org/downloads/)
 [![Run pytest](https://github.com/mbari-org/sdcat/actions/workflows/pytest.yml/badge.svg)](https://github.com/mbari-org/sdcat/actions/workflows/pytest.yml)
 
-**sdcat** 
+**sdcat**
 
 *Sliced Detection and Clustering Analysis Toolkit*
 
 This repository processes images using a sliced detection and clustering workflow.
-If your images look something like the image below, and you want to detect objects in the images, 
+If your images look something like the image below, and you want to detect objects in the images,
 and optionally cluster the detections, then this repository may be useful to you.
 The repository is designed to be run from the command line, and can be run in a Docker container,
-without or with a GPU (recommended). 
+without or with a GPU (recommended).
 
-To use with a multiple gpus, use the --device cuda option   
+To use with a multiple gpus, use the --device cuda option
 To use with single gpus, use the --device cuda:0,1 option
 
---- 
+---
 ![](https://raw.githubusercontent.com/mbari-org/sdcat/main/docs/imgs/example_images.jpg)
 ---
 Detection
 ---
 Detection can be done with a fine-grained saliency-based detection model,  and/or one the following models run with the SAHI algorithm.
 Both detections algorithms (saliency and object dtection) are run by default and combined to produce the final detections.
-SAHI is short for Slicing Aided Hyper Inference, and is a method to slice images into smaller windows and run a detection model 
+SAHI is short for Slicing Aided Hyper Inference, and is a method to slice images into smaller windows and run a detection model
 on the windows.
 
 | Object Detection Model           | Description                                                        |
@@ -38,13 +38,13 @@ on the windows.
 | FathomNet/MBARI-315k-yolov5      | MBARI YOLOv5x for general detection in benthic images              |
 
 
-To skip saliency detection, use the --skip-saliency option. 
+To skip saliency detection, use the --skip-saliency option.
 
 ```shell
 sdcat detect --skip-saliency --image-dir <image-dir> --save-dir <save-dir> --model <model> --slice-size-width 900 --slice-size-height 900
 ```
 
-To skip using the SAHI algorithm, use --skip-sahi.   
+To skip using the SAHI algorithm, use --skip-sahi.
 
 ```shell
 sdcat detect --skip-sahi --image-dir <image-dir> --save-dir <save-dir> --model <model> --slice-size-width 900 --slice-size-height 900
@@ -53,17 +53,17 @@ sdcat detect --skip-sahi --image-dir <image-dir> --save-dir <save-dir> --model <
 ---
 ViTS + HDBSCAN Clustering
 ---
-Once the detections are generated, the detections can be clustered.  Alternatively, 
-detections can be clustered from a collection of images, sometimes referred to as 
+Once the detections are generated, the detections can be clustered.  Alternatively,
+detections can be clustered from a collection of images, sometimes referred to as
 region of interests (ROIs) by providing the detections in a folder with the roi option.
-    
+
 ```shell
-sdcat cluster roi --roi <roi> --save-dir <save-dir> --model <model> 
+sdcat cluster roi --roi <roi> --save-dir <save-dir> --model <model>
 ```
 
 The clustering is done with a Vision Transformer (ViT) model, and a cosine similarity metric with the HDBSCAN algorithm.
 The ViT model is used to generate embeddings for the detections, and the HDBSCAN algorithm is used to cluster the detections.
-What is an embedding?  An embedding is a vector representation of an object in an image.  
+What is an embedding?  An embedding is a vector representation of an object in an image.
 
 The defaults are set to produce fine-grained clusters, but the parameters can be adjusted to produce coarser clusters.
 The algorithm workflow looks like this:
@@ -78,20 +78,20 @@ The algorithm workflow looks like this:
 | MBARI-org/mbari-uav-vit-b-16         | MBARI UAV vits16 model trained on 10425 UAV images with labels from 21 classes |
 
 Smaller block_size means more patches and more accurate fine-grained clustering on smaller objects, so
-ViTS models with 8 block size are recommended for fine-grained clustering on small objects, and 16 is recommended for coarser clustering on 
+ViTS models with 8 block size are recommended for fine-grained clustering on small objects, and 16 is recommended for coarser clustering on
 larger objects.  We recommend running with multiple models to see which model works best for your data,
 and to experiment with the --min-samples and --min-cluster-size options to get good clustering results.
-   
+
 # Installation
- 
+
 Pip install the sdcat package with:
 
 ```bash
 pip install sdcat
 ```
 
-Alternatively, [Docker](https://www.docker.com) can be used to run the code. A pre-built docker image is available at [Docker Hub](https://hub.docker.com/r/mbari/sdcat) with the latest version of the code.  
- 
+Alternatively, [Docker](https://www.docker.com) can be used to run the code. A pre-built docker image is available at [Docker Hub](https://hub.docker.com/r/mbari/sdcat) with the latest version of the code.
+
 Detection
 ```shell
 docker run -it -v $(pwd):/data mbari/sdcat detect --image-dir /data/images --save-dir /data/detections --model MBARI-org/uav-yolov5
@@ -134,7 +134,7 @@ Commands:
 To get details on a particular command, use the --help option with the command.  For example, with the **cluster** command:
 
 ```shell
- sdcat  cluster --help 
+ sdcat  cluster --help
 ```
 
 which will print out the following:
@@ -153,23 +153,23 @@ Commands:
 
 ## File organization
 
-The sdcat toolkit generates data in the following folders. 
+The sdcat toolkit generates data in the following folders.
 
 For detections, the output is organized in a folder with the following structure:
- 
+
 ```
 /data/20230504-MBARI/
 └── detections
     └── hustvl
         └── yolos-small                         # The model used to generate the detections
             ├── det_raw                         # The raw detections from the model
-            │   └── csv                    
+            │   └── csv
             │       ├── DSC01833.csv
             │       ├── DSC01859.csv
             │       ├── DSC01861.csv
             │       └── DSC01922.csv
             ├── det_filtered                    # The filtered detections from the model
-                ├── crops                       # Crops of the detections 
+                ├── crops                       # Crops of the detections
                 ├── dino_vits8...date           # The clustering results - one folder per each run of the clustering algorithm
                 ├── dino_vits8..detections.csv  # The detections with the cluster id
             ├── stats.txt                       # Statistics of the detections
@@ -192,7 +192,7 @@ For clustering, the output is organized in a folder with the following structure
     └── dino_vit8..._cluster_config.ini      # Copy of the config file used to run the clustering
     └── dino_vit8..._cluster_summary.json    # Summary of the clustering results
     └── dino_vit8..._cluster_summary.png     # 2D plot of the clustering results
-    └── dino_vit8... 
+    └── dino_vit8...
         ├── dino_vits8.._cluster_1_p0.png    # Cluster 1 page 1 grid plot
         ├── dino_vits8.._cluster_1_p1.png    # Cluster 1 page 2 grid plot
         ├── dino_vits8.._cluster_2_p0.png    # Cluster 2 page 0 grid plot
@@ -201,10 +201,10 @@ For clustering, the output is organized in a folder with the following structure
 
 Example grid plot of the clustering results:
 ![](https://raw.githubusercontent.com/mbari-org/sdcat/main/docs/imgs/example_cluster_4_p0.png)
- 
+
 ## Process images creating bounding box detections with the YOLOv8s model.
 The YOLOv8s model is not as accurate as other models, but is fast and good for detecting larger objects in images,
-and good for experiments and quick results. 
+and good for experiments and quick results.
 **Slice size** is the size of the detection window.  The default is to allow the SAHI algorithm to determine the slice size;
 a smaller slice size will take longer to process.
 
@@ -215,12 +215,12 @@ sdcat detect --image-dir <image-dir> --save-dir <save-dir> --model yolov8s --sli
 ## Cluster detections from the YOLOv8s model, but use the classifications from the ViT model.
 
 Cluster the detections from the YOLOv8s model.  The detections are clustered using cosine similarity and embedding
-features from the default Vision Transformer (ViT) model `google/vit-base-patch16-224` 
+features from the default Vision Transformer (ViT) model `google/vit-base-patch16-224`
 
 ```shell
 sdcat cluster --det-dir <det-dir>/yolov8s/det_filtered --save-dir <save-dir>  --use-vits
 ```
-  
+
 
 # Related work
 * https://github.com/obss/sahi SAHI

@@ -72,14 +72,22 @@ torchvision = "0.18.1"
 tqdm = ">=4.66.4"
 transformers = "^4.42.4"
 umap-learn = ">=0.5.5"
-
 ephem = "^4.1.6"
 cleanvision = "^0.3.6"
 modin = {extras = ["all"], version = "^0.32.0"}
+
 [tool.poetry.group.dev.dependencies]
 build = "^1.2.1"
 twine = "^5.1.1"
 pytest = "^7.0.1"
+mypy = "1.8.0"
+ruff = "0.2.2"
+syrupy = "4.6.1"
+types-python-dateutil = "2.8.2"
+types-PyYAML = "6.0.1"
+types-six = "^1.16.21.20240513"
+types-pytz = "^2024.1.0.20240417"
+pre_commit = "4.2.0"
 
 [tool.poetry.extras]
 rapids = ["cuml"]

@@ -15,21 +15,27 @@ def run_detect(data_dir: Path, scale: int) -> int:
     """
 
     # Get the root directory of the project
-    root_dir = Path(__file__).parent.parent / 'sdcat'
+    root_dir = Path(__file__).parent.parent / "sdcat"
 
     num_detections = 0
     # Run in temporary directory
     with tempfile.TemporaryDirectory() as tmp_dir:
         # Run sdcat
-        proc = subprocess.Popen(['python3',
-                                 f'{root_dir}/__main__.py',
-                                 'detect',
-                                 '--skip-sahi',
-                                 '--scale-percent', str(scale),
-                                 '--save-dir',
-                                 tmp_dir,
-                                 '--image-dir',
-                                 data_dir.as_posix()], stdout=subprocess.PIPE)
+        proc = subprocess.Popen(
+            [
+                "python3",
+                f"{root_dir}/__main__.py",
+                "detect",
+                "--skip-sahi",
+                "--scale-percent",
+                str(scale),
+                "--save-dir",
+                tmp_dir,
+                "--image-dir",
+                data_dir.as_posix(),
+            ],
+            stdout=subprocess.PIPE,
+        )
 
     # Wait for the process to finish
     proc.wait(5000)
@@ -39,8 +45,8 @@ def run_detect(data_dir: Path, scale: int) -> int:
 
     # The output should have a total of num_detections lines, including 1 for the header
     # Data is filtered after detection and put in the det_filtered directory
-    out_path = Path(tmp_dir) / 'det_filtered'
-    for file in out_path.rglob('*.csv'):
+    out_path = Path(tmp_dir) / "det_filtered"
+    for file in out_path.rglob("*.csv"):
         with open(file) as f:
             lines = f.readlines()
             num_detections = len(lines) - 1
@@ -48,35 +54,36 @@ def run_detect(data_dir: Path, scale: int) -> int:
 
     return num_detections
 
-def test_bird():
-    """ Test that sdcat can detect the correct number of targets in a drone image with birds"""
 
-    data_path = Path(__file__).parent / 'data' / 'bird'
+def test_bird():
+    """Test that sdcat can detect the correct number of targets in a drone image with birds"""
+
+    data_path = Path(__file__).parent / "data" / "bird"
     num_detections = run_detect(data_path, 25)
-    print(f'Found {num_detections} in test_bird')
+    print(f"Found {num_detections} in test_bird")
     assert num_detections == 16
 
 
 def test_pinniped():
-    """ Test that sdcat can detect the correct number of targets in a drone images with pinnipeds and waves"""
+    """Test that sdcat can detect the correct number of targets in a drone images with pinnipeds and waves"""
 
-    data_path = Path(__file__).parent / 'data' / 'pinniped'
+    data_path = Path(__file__).parent / "data" / "pinniped"
     num_detections = run_detect(data_path, 60)
-    print(f'Found {num_detections} in test_pinniped')
+    print(f"Found {num_detections} in test_pinniped")
     assert num_detections == 53
 
 
 def test_plankton():
-    """ Test that sdcat can detect the correct number of targets in an image with plankton"""
+    """Test that sdcat can detect the correct number of targets in an image with plankton"""
 
-    data_path = Path(__file__).parent / 'data' / 'plankton'
+    data_path = Path(__file__).parent / "data" / "plankton"
     num_detections = run_detect(data_path, 80)
-    print(f'Found {num_detections} in test_plankton')
+    print(f"Found {num_detections} in test_plankton")
     assert num_detections == 773
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     test_bird()
     test_pinniped()
     test_plankton()
-    print('All tests passed')
+    print("All tests passed")

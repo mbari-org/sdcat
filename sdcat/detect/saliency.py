@@ -18,8 +18,9 @@ from pathlib import Path
 save = True
 
 
-def process_contour(out_csv_file: str, contours: np.ndarray, gray: np.ndarray, min_blob_area: int, max_blob_area: int,
-                    scale: float = 1.0):
+def process_contour(
+    out_csv_file: str, contours: np.ndarray, gray: np.ndarray, min_blob_area: int, max_blob_area: int, scale: float = 1.0
+):
     """
     Process a single contour. Save the results to a csv file.
     This is a separate function, so it can be run in parallel.
@@ -45,32 +46,41 @@ def process_contour(out_csv_file: str, contours: np.ndarray, gray: np.ndarray, m
             std_intensity = np.std(masked_image[mask != 0])
 
             # Small blobs that are very bright are likely reflections, so ignore them
-            if max_intensity > 200. and area < 10000 and std_intensity < 30.:
+            if max_intensity > 200.0 and area < 10000 and std_intensity < 30.0:
                 debug(
-                    f'Skipping possible reflection blob: {area}, mean: {mean_intensity}, max: {max_intensity}, std: {std_intensity}, area: {area}')
+                    f"Skipping possible reflection blob: {area}, mean: {mean_intensity}, max: {max_intensity}, std: {std_intensity}, area: {area}"
+                )
                 continue
-            if std_intensity > 8.:
+            if std_intensity > 8.0:
                 debug(
-                    f'Found blob area: {area}, mean: {mean_intensity}, max: {max_intensity}, std: {std_intensity}, area: {area}')
-                df = pd.concat([df, pd.DataFrame({
-                    'image_path': '',
-                    'class': 'Unknown',
-                    'score': 0.1,
-                    'area': area,
-                    'mean_intensity': mean_intensity,
-                    'std_intensity': std_intensity,
-                    'x': int(x / scale),
-                    'y': int(y / scale),
-                    'xx': int((x + w) / scale),
-                    'xy': int((y + h) / scale),
-                    'w': int(w / scale),
-                    'h': int(h / scale),
-                },
-                    index=[0])])
+                    f"Found blob area: {area}, mean: {mean_intensity}, max: {max_intensity}, std: {std_intensity}, area: {area}"
+                )
+                df = pd.concat(
+                    [
+                        df,
+                        pd.DataFrame(
+                            {
+                                "image_path": "",
+                                "class": "Unknown",
+                                "score": 0.1,
+                                "area": area,
+                                "mean_intensity": mean_intensity,
+                                "std_intensity": std_intensity,
+                                "x": int(x / scale),
+                                "y": int(y / scale),
+                                "xx": int((x + w) / scale),
+                                "xy": int((y + h) / scale),
+                                "w": int(w / scale),
+                                "h": int(h / scale),
+                            },
+                            index=[0],
+                        ),
+                    ]
+                )
 
     if len(df) > 0:
         # Save the df to a csv file for later processing
-        df.to_csv(out_csv_file, mode='w', header=True, index=False)
+        df.to_csv(out_csv_file, mode="w", header=True, index=False)
 
 
 def homomorphic_filtering(image_in: np.ndarray, alpha: float = 0.0003125, beta: float = 1.00):
@@ -118,7 +128,7 @@ def extract_blobs(saliency_map: np.ndarray, img_gray: np.ndarray, img_color: np.
     if show:
         result_image = img_color.copy()
         cv2.drawContours(result_image, contours, -1, (0, 255, 0), 2)
-        cv2.imshow(f'{len(contours)} Contours', result_image)
+        cv2.imshow(f"{len(contours)} Contours", result_image)
         cv2.waitKey(0)
 
     # Iterate through the contours and filter out by size and standard deviation of intensity
@@ -128,7 +138,7 @@ def extract_blobs(saliency_map: np.ndarray, img_gray: np.ndarray, img_color: np.
     # Determine number of processes
     num_processes = min(os.cpu_count(), len(contours) // 100)
     num_processes = max(1, num_processes)
-    info(f'Using {num_processes} processes to compute {len(contours)} 100 at a time ...')
+    info(f"Using {num_processes} processes to compute {len(contours)} 100 at a time ...")
 
     # Work in a temporary directory
     with tempfile.TemporaryDirectory() as temp_path:
@@ -137,13 +147,7 @@ def extract_blobs(saliency_map: np.ndarray, img_gray: np.ndarray, img_color: np.
 
         # Prepare arguments
         args = [
-            (
-                (temp_path / f'{i}_det.csv').as_posix(),
-                contours[i:i + 100],
-                gray,
-                min_blob_area,
-                max_blob_area
-            )
+            ((temp_path / f"{i}_det.csv").as_posix(), contours[i : i + 100], gray, min_blob_area, max_blob_area)
             for i in range(0, len(contours), 100)
         ]
 
@@ -154,10 +158,10 @@ def extract_blobs(saliency_map: np.ndarray, img_gray: np.ndarray, img_color: np.
                 future.result()  # Re-raises any exception that occurred
 
         # Combine the results
-        info(f'Combining blob detection results')
-        csv_files = list(temp_path.glob('*.csv'))
-        csv_file = combine_csv(csv_files, temp_path / 'det.csv')
-        df = pd.read_csv(csv_file, sep=',')
+        info(f"Combining blob detection results in {temp_path}")
+        csv_files = list(temp_path.glob("*.csv"))
+        csv_file = combine_csv(csv_files, temp_path / "det.csv")
+        df = pd.read_csv(csv_file, sep=",")
 
         # Remove the temporary files
         for f in csv_files:
@@ -166,16 +170,16 @@ def extract_blobs(saliency_map: np.ndarray, img_gray: np.ndarray, img_color: np.
     if show:
         result_image = img_color.copy()
         for i, row in df.iterrows():
-            x = row['x']
-            y = row['y']
-            w = row['w']
-            h = row['h']
-            std_intensity = row['std_intensity']
+            x = row["x"]
+            y = row["y"]
+            w = row["w"]
+            h = row["h"]
+            std_intensity = row["std_intensity"]
             cv2.rectangle(result_image, (x, y), (x + w, y + h), (81, 12, 51), 2)
             std_intensity_int = np.round(std_intensity * 100)
-            cv2.putText(result_image, f'{std_intensity_int}', (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+            cv2.putText(result_image, f"{std_intensity_int}", (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
 
-        cv2.imshow(f'{len(df)} Bounding Boxes around Salient Regions', result_image)
+        cv2.imshow(f"{len(df)} Bounding Boxes around Salient Regions", result_image)
         cv2.waitKey(0)
         cv2.destroyAllWindows()
 
@@ -243,9 +247,9 @@ def fine_grained_saliency_pyramid(image_path: str, show=False) -> np.ndarray:
 
         # Combine the center and surround regions for each channel
         # Reduce the weight of the saturation channel
-        saliency_hue = (center_hue - surround_hue) * (3 ** level)
-        saliency_saturation = (center_saturation - surround_saturation) / (3 ** level)
-        saliency_value = (center_value - surround_value) * (3 ** level)
+        saliency_hue = (center_hue - surround_hue) * (3**level)
+        saliency_saturation = (center_saturation - surround_saturation) / (3**level)
+        saliency_value = (center_value - surround_value) * (3**level)
 
         # Combine the saliency maps into the final saliency map
         saliency_level = (saliency_hue + saliency_saturation + saliency_value) / 3
@@ -264,20 +268,20 @@ def fine_grained_saliency_pyramid(image_path: str, show=False) -> np.ndarray:
 
     if show:
         # Display the original image and the saliency map
-        cv2.imshow('Original Image', image)
-        cv2.imshow('Fine-Grained Saliency Map', saliency_map.astype(np.uint8))
-        if save: cv2.imwrite('my_saliency_map.jpg', saliency_map.astype(np.uint8))
+        cv2.imshow("Original Image", image)
+        cv2.imshow("Fine-Grained Saliency Map", saliency_map.astype(np.uint8))
+        if save:
+            cv2.imwrite("my_saliency_map.jpg", saliency_map.astype(np.uint8))
         cv2.waitKey(0)
 
     # Threshold the saliency map
     mean, std = cv2.meanStdDev(saliency_map)
-    info(f'Mean: {mean}, Std: {std}')
-    _, saliency_map = cv2.threshold(saliency_map.astype(np.uint8), int(mean - 1.5 * std), 255,
-                                    cv2.ADAPTIVE_THRESH_MEAN_C)
+    info(f"Mean: {mean}, Std: {std}")
+    _, saliency_map = cv2.threshold(saliency_map.astype(np.uint8), int(mean - 1.5 * std), 255, cv2.ADAPTIVE_THRESH_MEAN_C)
 
     if show:
         # Display the thresholded saliency map
-        cv2.imshow('Thresholded Saliency Map', saliency_map.astype(np.uint8))
+        cv2.imshow("Thresholded Saliency Map", saliency_map.astype(np.uint8))
         cv2.waitKey(0)
 
     # Invert the saliency map so that the salient regions are white
@@ -289,7 +293,7 @@ def fine_grained_saliency_pyramid(image_path: str, show=False) -> np.ndarray:
     return saliency_map
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # Read all images from the tests/data/kelpflow directory
     # Get the path of the this file
     # test_path = Path(__file__).parent.parent.parent / 'tests' / 'data' / 'bird'
@@ -298,33 +302,31 @@ if __name__ == '__main__':
     # test_path = Path( __file__).parent.parent.parent / 'tests' / 'data' / 'glare'
     # test_path = Path(__file__).parent.parent.parent / 'tests' / 'data' / 'dolphin'
     # test_path = Path(__file__).parent.parent.parent / 'tests' / 'data' / 'all'
-    test_path = Path(__file__).parent.parent.parent / 'tests' / 'data' / 'jelly_DSC'
+    test_path = Path(__file__).parent.parent.parent / "tests" / "data" / "jelly_DSC"
     show = True
-    for image_path in test_path.glob('*.JPG'):
+    for image_path in test_path.glob("*.JPG"):
         saliency_map = fine_grained_saliency_pyramid(image_path.as_posix())
         img_gray = cv2.cvtColor(cv2.imread(image_path.as_posix()), cv2.COLOR_RGB2GRAY)
         img_color = cv2.imread(image_path.as_posix())
         df = extract_blobs(saliency_map, img_gray, img_color, show=show)
 
-        print(f'Found {len(df)} blobs in {image_path}')
+        print(f"Found {len(df)} blobs in {image_path}")
 
         # Convert the x, y, xx, xy, score columns to a list of Tensors that is Shape: [num_boxes,5].
-        pred_list = df[['x', 'y', 'xx', 'xy', 'score']].values.tolist()
+        pred_list = df[["x", "y", "xx", "xy", "score"]].values.tolist()
         pred_list = torch.tensor(pred_list)  # convert the list of Tensors to a list of Tensors
-        print(f'Running NMS on {len(df)} predictions')
-        nms_pred_idx = nms(pred_list, 'IOU', 0.1)  # run nms with 0.1 IOU
+        print(f"Running NMS on {len(df)} predictions")
+        nms_pred_idx = nms(pred_list, "IOU", 0.1)  # run nms with 0.1 IOU
         nms_pred_list = pred_list[nms_pred_idx].tolist()
-        df_all = pd.DataFrame(nms_pred_list, columns=['x', 'y', 'xx', 'xy', 'score'])
-        print(f'{len(df_all)} predictions found after NMS')
+        df_all = pd.DataFrame(nms_pred_list, columns=["x", "y", "xx", "xy", "score"])
+        print(f"{len(df_all)} predictions found after NMS")
 
         # Plot boxes on the input frame
-        pred_list = df_all[['x', 'y', 'xx', 'xy', 'score']].values.tolist()
+        pred_list = df_all[["x", "y", "xx", "xy", "score"]].values.tolist()
         for p in pred_list:
             # Draw a rectangle with red line borders of thickness of 3 px
-            image_raw = cv2.rectangle(img_color,
-                                      (int(p[0]), int(p[1])),
-                                      (int(p[2]), int(p[3])), (0, 0, 255), 3)
+            image_raw = cv2.rectangle(img_color, (int(p[0]), int(p[1])), (int(p[2]), int(p[3])), (0, 0, 255), 3)
 
-        cv2.imshow('final', img_color)
+        cv2.imshow("final", img_color)
         cv2.waitKey(0)
         cv2.destroyAllWindows()
