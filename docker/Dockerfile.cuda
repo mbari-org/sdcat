@@ -20,7 +20,6 @@ RUN if GIT_VERSION=latest; then pip install sdcat; else pip install sdcat==${GIT
 WORKDIR ${APP_HOME}
 ENV HOME=${APP_HOME}
 RUN chmod a+rwx -R ${APP_HOME}
-ENTRYPOINT ["sdcat"]
 
 RUN pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cu121 && \
     pip install --no-cache-dir yolov5 --index-url https://pypi.org/simple
