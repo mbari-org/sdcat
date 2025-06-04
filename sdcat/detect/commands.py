@@ -181,10 +181,20 @@ def run_detect(
 
     num_processes = min(os.cpu_count(), num_images)
     if not skip_saliency:
-        info(f"Using {num_processes} processes to compute {num_images} images 2 at a time ...")
+        images_per_process = min(num_images, 2)  # Process 2 images at a time for saliency detection
+        info(f"Using {num_processes} processes to compute {num_images} images {images_per_process} at a time ...")
         args = [
-            (spec_remove, scale_percent, images[i : i + 2], save_path_det_raw, min_std, block_size, clahe, show)
-            for i in range(0, num_images, 2)
+            (
+                spec_remove,
+                scale_percent,
+                images[i : i + images_per_process],
+                save_path_det_raw,
+                min_std,
+                block_size,
+                clahe,
+                show,
+            )
+            for i in range(0, num_images, images_per_process)
         ]
         with ProcessPoolExecutor(max_workers=num_processes) as executor:
             futures = [executor.submit(run_saliency_detect_bulk, *arg) for arg in args]
