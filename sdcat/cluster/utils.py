@@ -1,8 +1,6 @@
 # sdcat, Apache-2.0 license
 # Filename: sdcat/cluster/utils.py
 # Description: Miscellaneous utility functions for cropping, clustering, and saving detections
-from itertools import chain
-
 import cv2
 import numpy as np
 import modin.pandas as pd
@@ -98,23 +96,26 @@ def clean_bad_images(filepaths: List[str]) -> List[str]:
     """Remove dark, blurry, exact duplicate, and near duplicate images."""
     imagelab = Imagelab(filepaths=filepaths)
 
+    # Override the default configurations
+    config = {
+        "visualize_num_images_per_row": 4,
+        "report_num_images": 4,
+        "report_max_prevalence": 1.0, # Default is 0.5, but we want to see all issues
+        "report_cell_size": (2, 2),
+    }
+    imagelab._config = config
+
     # Detect dark and blurry images
     issue_types = {
         "dark": {},
         "blurry": {"threshold": 0.52},
-        "exact_duplicates": {},
         "near_duplicates": {"hash_size": 5, "hash_types": ["whash", "phash"]},
     }
     imagelab.find_issues(issue_types)
     imagelab.report()
 
-    issue_columns = ["is_dark_issue", "is_blurry_issue", "is_near_duplicates_issue", "is_exact_duplicates_issue"]
+    issue_columns = ["is_dark_issue", "is_blurry_issue"]
     bad_images = set(imagelab.issues[imagelab.issues[issue_columns].any(axis=1)].index)
-
-    # Remove exact duplicates (keep one image per set)
-    exact_duplicates_sets = imagelab.info["exact_duplicates"]["sets"]
-    exact_duplicates_images = list(chain(*[dup_set[1:] for dup_set in exact_duplicates_sets]))
-    bad_images.update(exact_duplicates_images)
 
     # Remove one image from each near duplicate set (keep the best blurry score)
     near_duplicates_image_sets = imagelab.info["near_duplicates"]["sets"]

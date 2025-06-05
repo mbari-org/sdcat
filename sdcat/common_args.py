@@ -70,4 +70,10 @@ use_pca = click.option(
     "--use-pca", is_flag=True, help="Use PCA for dimensionality reduction before clustering. Default is False"
 )
 
+use_cuhdbscan = click.option(
+    "--use-cuhdbscan",
+    is_flag=True,
+    help="Use cuHDBSCAN for clustering. Default is False. Requires a GPU with CUDA support. Faster than hdbscan but not as accurate as it uses euclidean distance instead of cosine distance",
+)
+
 skip_visualization = click.option("--skip-visualization", is_flag=True, help="Skip visualization. Default is False")

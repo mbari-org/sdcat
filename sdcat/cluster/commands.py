@@ -31,6 +31,7 @@ from sdcat.cluster.cluster import cluster_vits
 @common_args.start_image
 @common_args.end_image
 @common_args.use_pca
+@common_args.use_cuhdbscan
 @common_args.skip_visualization
 @common_args.alpha
 @common_args.cluster_selection_epsilon
@@ -61,6 +62,7 @@ def run_cluster_det(
     start_image,
     end_image,
     use_pca,
+    use_cuhdbscan,
     skip_visualization,
 ):
     config = cfg.Config(config_ini)
@@ -296,6 +298,7 @@ def run_cluster_det(
                 min_samples,
                 device,
                 use_pca=use_pca,
+                use_cuhdbscan=use_cuhdbscan,
                 use_vits=use_vits,
                 skip_visualization=skip_visualization,
                 roi=False,
@@ -332,6 +335,7 @@ def run_cluster_det(
 @click.command("roi", help="Cluster roi. See cluster --config-ini to override cluster defaults.")
 @common_args.config_ini
 @common_args.use_pca
+@common_args.use_cuhdbscan
 @common_args.skip_visualization
 @common_args.alpha
 @common_args.cluster_selection_epsilon
@@ -360,6 +364,7 @@ def run_cluster_roi(
     vits_batch_size,
     hdbscan_batch_size,
     use_pca,
+    use_cuhdbscan,
     skip_visualization,
 ):
     config = cfg.Config(config_ini)
@@ -469,6 +474,7 @@ def run_cluster_roi(
             min_samples,
             device,
             use_pca=use_pca,
+            use_cuhdbscan=use_cuhdbscan,
             use_vits=use_vits,
             skip_visualization=skip_visualization,
             roi=True,

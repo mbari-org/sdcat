@@ -106,12 +106,12 @@ def _summarize_clusters(
             xx = pca.fit_transform(np_data)
         else:
             if have_gpu:
-                info("Using GPU to reduce for cluster 2D plot")
+                info("Using GPU to reduce cluster 2D plot")
                 xx = cuUMAP(
                     init=init, n_components=2, n_neighbors=n_neighbors, min_dist=0.1, metric="euclidean"
                 ).fit_transform(np_data)
             else:
-                info("Using UMAP to reduce for cluster 2D plot")
+                info("Using UMAP to reduce cluster 2D plot")
                 xx = UMAP(init=init, n_components=2, n_neighbors=n_neighbors, metric="cosine").fit_transform(np_data)
 
         df_joint = pandas.DataFrame({"x": xx[:, 0], "y": xx[:, 1], "labels": sampled_df["cluster"].values})
@@ -125,7 +125,7 @@ def _summarize_clusters(
 
         # Create a grid of the images to check the quality of the clustering results
         num_processes = min(os.cpu_count(), num_clusters)
-        info(f"Using {num_processes} processes to visualize the {num_clusters} clusters")
+        info(f"Using {num_processes} CPUs to visualize the {num_clusters} clusters")
 
         # Use a pool of processes to speed up the visualization of the clusters
         # Skip modin here because it does not offer much speedup
@@ -226,6 +226,7 @@ def _run_hdbscan_assign(
     min_cluster_size: int,
     min_samples: int,
     use_pca: bool,
+    use_cuhdbscan: bool,
     batch: int,
     core_dist_n_jobs: int,
 ) -> pandas.DataFrame:
@@ -238,6 +239,7 @@ def _run_hdbscan_assign(
     :param min_cluster_size:  The minimum number of samples in a cluster
     :param min_samples:   The number of samples in a neighborhood for a point
     :param use_pca:  Whether to use PCA for dimensionality reduction
+    :param use_cuhdbscan:  Whether to use cuHDBSCAN for clustering; requires a GPU with CUDA support
     :param batch:  Batch number for logging
     :return: pandas.DataFrame with the cluster assignments
     """
@@ -252,13 +254,17 @@ def _run_hdbscan_assign(
         f"min_samples {min_samples},"
         f"min_cluster_size {min_cluster_size},"
         f"cluster_selection_method {cluster_selection_method},"
-        f"use_pca {use_pca} ..."
+        f"use_pca {use_pca}",
+        f"use_cuhdbscan {use_cuhdbscan}"
     )
+    if use_cuhdbscan and not have_gpu:
+        warn("cuHDBSCAN is requested but no GPU is available. Falling back to CPU HDBSCAN.")
+        use_cuhdbscan = False
 
     # Get the number of samples which is the number of rows in the dataframe
     num_samples = df.shape[0]
 
-    info("Stacking features ...")
+    info(f"Stacking {len(df)} features ...")
     features = np.stack(df["embedding"].values)
     # Add in other features if present
     if df.shape[1] > 1:
@@ -274,7 +280,7 @@ def _run_hdbscan_assign(
         x = features
 
     # Cluster the features using HDBSCAN
-    if have_gpu:
+    if have_gpu and use_cuhdbscan:
         info(f"Running HDBSCAN on {num_samples} samples for batch {batch} on GPU...")
         scan = cuHDBSCAN(
             prediction_data=True,
@@ -335,6 +341,7 @@ def cluster_vits(
     device: str = "cpu",
     use_vits: bool = False,
     use_pca: bool = False,
+    use_cuhdbscan = False,
     skip_visualization: bool = False,
     remove_bad_images: bool = False,
     roi: bool = False,
@@ -360,6 +367,7 @@ def cluster_vits(
     :param skip_visualization: Whether to skip the visualization of the clusters
     :param remove_bad_images: Whether to remove bad images from the clustering
     :param use_pca: Whether to use PCA for dimensionality reduction
+    :param use_cuhdbscan: Whether to use cuHDBSCAN for clustering; requires a GPU with CUDA support
     :param vits_batch_size: The batch size to use for embedding extraction; maximize for speed for your GPU
     :param hdbscan_batch_size: The batch size to use for clustering with HDBSCAN; maximize for speed for your GPU
     :param allowable_classes: A list of classes to allow in the clustering; if None, all classes are allowed
@@ -404,7 +412,7 @@ def cluster_vits(
 
     df_dets = df_dets.sort_index()
     df_dets["exemplar"] = 0
-    df_dets["cluster"] = -1
+    df_dets["cluster"] = -2  # -2 means not clustered yet or bad image
     df_dets["cluster_batch"] = ""
     df_dets["HDBSCAN_probability"] = 0
 
@@ -524,12 +532,14 @@ def cluster_vits(
         info(f"Done fetching batch {i + 1} embeddings for {len(crop_paths[start:end])} images")
 
         if remove_bad_images:
-            info(f"Cleaning bad images from {len(df_batch)} ")
+            info(f"Cleaning bad images from {len(df_batch)} images")
             filepaths = df_batch["crop_path"].values.tolist()
             bad_images = clean_bad_images(filepaths)
-            df_batch["crop_path"] = df_batch["crop_path"].where(~df_batch["crop_path"].isin(bad_images), other=np.nan)
+            bad_indexes = df_batch[df_batch["crop_path"].isin(bad_images)].index.tolist()
             info(f"Removed {len(bad_images)} detections using cleanvision in batch {i + 1} of {num_batches}...")
-            if df_batch["crop_path"].isna().all():
+            df_batch = df_batch.drop(index=bad_indexes)
+            # All detections in this batch are bad, so skip clustering
+            if df_batch.empty:
                 warn(f"No detections left in batch {i + 1} of {num_batches} after cleaning bad images")
                 return None
 
@@ -547,6 +557,7 @@ def cluster_vits(
                     ancillary_data = ancillary_data_row.select_dtypes(include=["float", "int"]).iloc[0]
                 df_batch.loc[df_batch["crop_path"] == filename, ancillary_data.index] = ancillary_data
 
+        # Drop the crop_path column if it exists as it is not numerical and not needed for clustering
         df_batch = df_batch.drop(columns=["crop_path"], errors="ignore")
 
         # Run clustering
@@ -561,6 +572,7 @@ def cluster_vits(
             use_pca=use_pca,
             batch=i,
             core_dist_n_jobs=n_jobs,
+            use_cuhdbscan=use_cuhdbscan,
         )
 
     # Calculate the number of batches
@@ -570,11 +582,11 @@ def cluster_vits(
     # can handle the load of two batches at a time
     if num_batches > 1:
         core_dist_n_jobs = 1
-        info(f"Using {core_dist_n_jobs} processes for HDBSCAN")
+        info(f"Using {core_dist_n_jobs} CPUs for HDBSCAN")
     else:
         # Set the number of processes to the number of batches
         core_dist_n_jobs = int(os.cpu_count())
-        info(f"Using {core_dist_n_jobs} processes for HDBSCAN")
+        info(f"Using {core_dist_n_jobs} CPUs for HDBSCAN")
 
     # # Run batches in parallel
     with ThreadPoolExecutor(max_workers=core_dist_n_jobs) as executor:
@@ -601,13 +613,22 @@ def cluster_vits(
                         df_dets.update(df_batch["cluster"])
                         df_dets.update(df_batch["HDBSCAN_probability"])
 
-    info("Batch clustering completed")
+    info("All batch clusters processed")
     if df_dets.empty:
         warn("No detections left after clustering")
         return None
 
     # Drop any rows with NaN values
     df_dets = df_dets.dropna()
+    if df_dets.empty:
+        warn("No detections left after dropping NaN values")
+        return None
+
+    # Drop any rows with -2 in the cluster column which means not clustered yet or bad image
+    df_dets = df_dets[df_dets["cluster"] != -2]
+    if df_dets.empty:
+        warn("No detections left after dropping -2 values in the cluster column")
+        return None
 
     # Create an increasing array of integers based on the unique cluster_batch values, except for -1
     info("Mapping clusters to unique integers ...")
@@ -682,6 +703,9 @@ def cluster_vits(
         "cluster_selection_epsilon": cluster_selection_epsilon,
         "use_pca": use_pca,
     }
+    if use_cuhdbscan and have_gpu:
+        hdbscan_params["use_cuhdbscan"] = True
+        hdbscan_params["metric"] = "l2"
 
     df_dets_final.to_csv(output_path / f"{prefix}_cluster_detections.csv")
     info(f'Saved {output_path / f"{prefix}_cluster_detections.csv"}')
