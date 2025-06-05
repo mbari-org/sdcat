@@ -15,30 +15,48 @@ called `sdcat`.
 
 ```shell
 poetry install
-poetry shell
 ```
 
 
-## Running the tests
+## Running pre-commit hooks
 
-Run tests before checking code back in.
+Before checking code back in, be sure to run the pre-commit hooks to ensure code quality and consistency.
 
 ```shell
-poetry run pytest
+poetry run pre-commit run --all-files
 ```
 
-The tests should run and pass.
+All tests should run and pass. If you have not installed `pre-commit` yet, you can do so with:
 
 ```shell
-=========================================================================================================================================================================================================================== test session starts ============================================================================================================================================================================================================================
-platform darwin -- Python 3.10.13, pytest-7.4.4, pluggy-1.3.0
-rootdir: /Users/dcline/Dropbox/code/sdcat
-plugins: napari-plugin-engine-0.2.0, anyio-3.7.1, napari-0.4.18, npe2-0.7.3
+pip install pre-commit
+```
+
+```shell
+poetry  pre-commit run --all-file
+```
+```shell
+Fix End of Files.........................................................Passed
+Trim Trailing Whitespace.................................................Passed
+ruff.....................................................................Passed
+ruff-format..............................................................Passed
+Run pytest before commit.................................................Passed
+- hook id: run-pytest
+- files were modified by this hook
+
+============================= test session starts ==============================
+platform darwin -- Python 3.11.12, pytest-7.4.4, pluggy-1.6.0
+rootdir: /Users/dcline/Dropbox/code/ai/sdcat
+configfile: pyproject.toml
+testpaths: tests
+plugins: syrupy-4.6.1, anyio-4.9.0
 collected 3 items
 
-tests/test_detect.py ...                                                                                                                                                                                                                                                                                                                                                                                                                                              [100%]
+tests/test_detect.py ...                                                 [100%]
 
-======================================================================================================================================================================================================================= 3 passed in 61.48s (0:01:01) ========================================================================================================================================================================================================================
+========================= 3 passed in 65.53s (0:01:05) =========================
+
+
 ```
 
 # Building python package
