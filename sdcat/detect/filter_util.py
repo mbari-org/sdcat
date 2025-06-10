@@ -38,14 +38,14 @@ def process_image(
 
         if df_combined.empty:
             warn(f"No detections found in {image_filename}")
-            return None
+            return 0
 
         df_combined = df_combined[(df_combined["area"] > min_area) & (df_combined["area"] < max_area)]
         df_combined = df_combined[(df_combined["saliency"] > min_saliency) | (df_combined["saliency"] == -1)]
 
         if df_combined.empty:
             warn(f"No detections found in {image_filename}")
-            return None
+            return 0
 
         pred_list = torch.tensor(df_combined[["x", "y", "xx", "xy", "score"]].values.tolist())
         nms_pred_idx = nms(pred_list, "IOU", 0.1)
