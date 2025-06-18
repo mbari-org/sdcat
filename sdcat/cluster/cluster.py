@@ -160,13 +160,14 @@ def _similarity_merge(df: pd.DataFrame, exemplar_emb: np.ndarray, min_similarity
     max_scores = similarities.max(axis=1)
     best_clusters = similarities.argmax(axis=1)
     valid = max_scores > min_similarity
-    df.loc[noise_df.index[valid], "cluster"] = best_clusters[valid]
+    valid_indices = noise_df.index[valid]
+    df.loc[valid_indices, "cluster"] = best_clusters[valid]
     for idx, cluster, score in zip(noise_df.index[valid], best_clusters[valid], max_scores[valid]):
         debug(f"Noise {idx} is now {cluster} {score:.2f}")
 
     # Get the exemplar embeddings for the clusters again with noise clusters assigned to the nearest exemplar
     max_scores = df.sort_values("cluster", ascending=True).groupby("cluster")["HDBSCAN_probability"].idxmax()
-    # Remove the first element which is the -1 cluster
+    # Remove the first element which may be the -1 cluster
     if -1 in max_scores.index:
         max_scores = max_scores.drop(-1)
     exemplar_emb = [fetch_embedding(model, filename)[0] for filename in df.loc[max_scores]["crop_path"]]
@@ -176,7 +177,7 @@ def _similarity_merge(df: pd.DataFrame, exemplar_emb: np.ndarray, min_similarity
     info(
         f"Maximum cluster id: {df['cluster'].values.max()} minimum cluster id: {df['cluster'].values.min()} unique clusters: {len(unique_clusters_before)}"
     )
-    linkage_matrix = linkage(exemplar_emb, method="complete", metric="cosine")
+    linkage_matrix = linkage(np.array(exemplar_emb), method="complete", metric="cosine")
     linkage_clusters = fcluster(linkage_matrix, 1 - min_similarity, criterion="distance")
 
     info(f"Unique clusters before merging: {len(unique_clusters_before)}")
@@ -188,11 +189,8 @@ def _similarity_merge(df: pd.DataFrame, exemplar_emb: np.ndarray, min_similarity
     else:
 
         def map_to_new_cluster(old_cluster):
-            if old_cluster == -1:
-                return -1  # Keep noise unchanged
-            if old_cluster > len(linkage_clusters) - 1:
-                warn(f"Cluster {old_cluster} is not in the linkage matrix")
-                return old_cluster  # Leave unchanged
+            if old_cluster == -1 or old_cluster > len(exemplar_emb):
+                return old_cluster
             new_cluster = linkage_clusters[old_cluster]
             debug(f"Assigning cluster {old_cluster} to {new_cluster}")
             return new_cluster
@@ -208,6 +206,7 @@ def _similarity_merge(df: pd.DataFrame, exemplar_emb: np.ndarray, min_similarity
         cluster_emb = [fetch_embedding(model, f)[0] for f in cluster_df["crop_path"]]
         cluster_emb = np.array(cluster_emb)
 
+        # This computes self-similarity within the cluster
         return np.mean(cosine_similarity(cluster_emb))
 
     # Group by cluster and apply the function in parallel
@@ -254,7 +253,7 @@ def _run_hdbscan_assign(
         f"min_samples {min_samples},"
         f"min_cluster_size {min_cluster_size},"
         f"cluster_selection_method {cluster_selection_method},"
-        f"use_pca {use_pca}",
+        f"use_pca {use_pca},"
         f"use_cuhdbscan {use_cuhdbscan}"
     )
     if use_cuhdbscan and not have_gpu:
