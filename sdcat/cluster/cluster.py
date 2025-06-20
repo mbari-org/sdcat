@@ -108,7 +108,8 @@ def _summarize_clusters(
             if have_gpu:
                 info("Using GPU to reduce cluster 2D plot")
                 xx = cuUMAP(
-                    init=init, n_components=2, n_neighbors=n_neighbors, min_dist=0.1, metric="euclidean"
+                    init=init, n_components=2, n_neighbors=n_neighbors, min_dist=0.1, metric="euclidean",
+                    verbose=False, # print statements from the verbose flag are forcing an exit in rapids so disable it
                 ).fit_transform(np_data)
             else:
                 info("Using UMAP to reduce cluster 2D plot")
