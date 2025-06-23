@@ -49,6 +49,20 @@ allowed_tags = [
 minor_tags = ["feat"]
 patch_tags = ["fix", "perf"]
 
+[tool.semantic_release.changelog]
+changelog_file = "CHANGELOG.md"
+exclude_commit_patterns = [
+  '''chore(?:\([^)]*?\))?: .+''',
+  '''ci(?:\([^)]*?\))?: .+''',
+  '''refactor(?:\([^)]*?\))?: .+''',
+  '''style(?:\([^)]*?\))?: .+''',
+  '''test(?:\([^)]*?\))?: .+''',
+  '''build\((?!deps\): .+)''',
+  '''Merged? .*''',
+  '''Initial Commit.*''',
+  # Old semantic-release version commits
+  '''^\d+\.\d+\.\d+''',
+]
 
 [tool.poetry.dependencies]
 python = ">=3.9,<3.12"
