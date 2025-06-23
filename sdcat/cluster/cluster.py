@@ -626,15 +626,6 @@ def cluster_vits(
         warn("No detections left after dropping NaN values")
         return None
 
-    # Drop any rows with -2 in the cluster column which means not clustered yet or bad image
-    before = len(df_dets_clean)
-    df_dets_clean = df_dets_clean[df_dets_clean["cluster"] != -2]
-    after = len(df_dets_clean)
-    info(f"Dropped {before - after} detections that are bad")
-    if df_dets_clean.empty:
-        warn("No detections left after dropping -2 values in the cluster column")
-        return None
-
     # Create an increasing array of integers based on the unique cluster_batch values, except for -1
     info("Mapping clusters to unique integers ...")
     non_noise_df = df_dets_clean[df_dets_clean["cluster"] != -1]
