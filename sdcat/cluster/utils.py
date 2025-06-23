@@ -120,19 +120,19 @@ def clean_bad_images(filepaths: List[str]) -> List[str]:
     # Remove all low information images
     low_info_images = imagelab.issues[imagelab.issues["is_low_information_issue"]].index
     if len(low_info_images) > 0:
-        info(f"=====>Removing {len(low_info_images)} low information images")
+        info(f"Removing {len(low_info_images)} low information images")
         bad_images.extend(low_info_images)
 
     # Remove all dark images
     dark_images = imagelab.issues[imagelab.issues["is_dark_issue"]].index
     if len(dark_images) > 0:
-        info(f"=====>Removing {len(dark_images)} dark images")
+        info(f"Removing {len(dark_images)} dark images")
         bad_images.extend(dark_images)
 
     # Remove all blurry images
     blurry_images = imagelab.issues[imagelab.issues["is_blurry_issue"]].index
     if len(blurry_images) > 0:
-        info(f"=====>Removing {len(blurry_images)} blurry images")
+        info(f"Removing {len(blurry_images)} blurry images")
         bad_images.extend(blurry_images)
 
     # Remove one image from each near duplicate set (keep the best blurry score)
@@ -144,7 +144,7 @@ def clean_bad_images(filepaths: List[str]) -> List[str]:
         .values.tolist()
     )
 
-    info(f"=====>Removing {len(near_duplicates_image_sets)} duplicated image sets, keeping the least blurry image")
+    info(f"Removing {len(near_duplicates_image_sets)} duplicated image sets, keeping the least blurry image")
     for dup_set in near_duplicates_image_sets:
         if len(dup_set) <= 1:
             continue
