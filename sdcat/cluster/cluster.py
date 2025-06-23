@@ -108,8 +108,12 @@ def _summarize_clusters(
             if have_gpu:
                 info("Using GPU to reduce cluster 2D plot")
                 xx = cuUMAP(
-                    init=init, n_components=2, n_neighbors=n_neighbors, min_dist=0.1, metric="euclidean",
-                    verbose=False, # print statements from the verbose flag are forcing an exit in rapids so disable it
+                    init=init,
+                    n_components=2,
+                    n_neighbors=n_neighbors,
+                    min_dist=0.1,
+                    metric="euclidean",
+                    verbose=False,  # print statements from the verbose flag are forcing an exit in rapids so disable it
                 ).fit_transform(np_data)
             else:
                 info("Using UMAP to reduce cluster 2D plot")
@@ -165,14 +169,6 @@ def _similarity_merge(df: pd.DataFrame, exemplar_emb: np.ndarray, min_similarity
     df.loc[valid_indices, "cluster"] = best_clusters[valid]
     for idx, cluster, score in zip(noise_df.index[valid], best_clusters[valid], max_scores[valid]):
         debug(f"Noise {idx} is now {cluster} {score:.2f}")
-
-    # Get the exemplar embeddings for the clusters again with noise clusters assigned to the nearest exemplar
-    max_scores = df.sort_values("cluster", ascending=True).groupby("cluster")["HDBSCAN_probability"].idxmax()
-    # Remove the first element which may be the -1 cluster
-    if -1 in max_scores.index:
-        max_scores = max_scores.drop(-1)
-    exemplar_emb = [fetch_embedding(model, filename)[0] for filename in df.loc[max_scores]["crop_path"]]
-    df.loc[max_scores, "exemplar"] = 1
 
     info(f"Merging clusters with similarity threshold {min_similarity:.2f} ...")
     info(
@@ -341,7 +337,7 @@ def cluster_vits(
     device: str = "cpu",
     use_vits: bool = False,
     use_pca: bool = False,
-    use_cuhdbscan = False,
+    use_cuhdbscan=False,
     skip_visualization: bool = False,
     remove_bad_images: bool = False,
     roi: bool = False,
@@ -412,7 +408,7 @@ def cluster_vits(
 
     df_dets = df_dets.sort_index()
     df_dets["exemplar"] = 0
-    df_dets["cluster"] = -2  # -2 means not clustered yet or bad image
+    df_dets["cluster"] = -1  # -1 means noise or unassigned
     df_dets["cluster_batch"] = ""
     df_dets["HDBSCAN_probability"] = 0
 
@@ -521,48 +517,55 @@ def cluster_vits(
 
     info(f"Processing images in batches of {hdbscan_batch_size} ...")
 
-    def process_batch(i, n_jobs, index, df_batch):
-        df_batch.index = index
-        start = df_batch.index[0]
-        end = df_batch.index[-1] + 1
+    def process_batch(i, n_jobs, df, df_ancillary=None):
+        """
+        Process a batch of images and return the clustered dataframe.
+        Disable df_ancillary for now
+        """
+        start = df.index[0]
+        end = df.index[-1] + 1
         info(f"Processing batch {i + 1} of {num_batches} {start} to {end}...")
+        filepaths = df["crop_path"].values.tolist()
+        info(f"Fetching batch {i + 1}  embeddings for {len(filepaths)} images...")
+        df["embedding"] = [fetch_embedding(model, filename)[0] for filename in filepaths]
+        info(f"Done fetching batch {i + 1} embeddings for {len(filepaths)} images")
 
-        info(f"Fetching batch {i + 1}  embeddings for {len(crop_paths[start:end])} images...")
-        df_batch["embedding"] = [fetch_embedding(model, filename)[0] for filename in crop_paths[start:end]]
-        info(f"Done fetching batch {i + 1} embeddings for {len(crop_paths[start:end])} images")
+        # Drop any rows where the embedding is None or empty
+        df = df[df["embedding"].apply(lambda x: x is not None and len(x) > 0)]
 
         if remove_bad_images:
-            info(f"Cleaning bad images from {len(df_batch)} images")
-            filepaths = df_batch["crop_path"].values.tolist()
+            info(f"Cleaning bad images from {len(df)} images")
             bad_images = clean_bad_images(filepaths)
-            bad_indexes = df_batch[df_batch["crop_path"].isin(bad_images)].index.tolist()
-            info(f"Removed {len(bad_images)} detections using cleanvision in batch {i + 1} of {num_batches}...")
-            df_batch = df_batch.drop(index=bad_indexes)
+            bad_indexes = df[df["crop_path"].isin(bad_images)].index.tolist()
+            info(
+                f"Removed {len(bad_images)} of {len(filepaths)} images using cleanvision in batch {i + 1} of {num_batches}..."
+            )
+            df = df.drop(index=bad_indexes)
             # All detections in this batch are bad, so skip clustering
-            if df_batch.empty:
+            if df.empty:
                 warn(f"No detections left in batch {i + 1} of {num_batches} after cleaning bad images")
                 return None
 
         # Drop unnecessary columns
         keep_columns = ["area", "saliency", "w", "h", "embedding", "crop_path"]
-        df_batch = df_batch[[col for col in df_batch.columns if col in keep_columns]]
+        df = df[[col for col in df.columns if col in keep_columns]]
 
         # Merge ancillary data
-        if ancillary_df is not None:
+        if df_ancillary is not None:
             for filename in crop_paths[start:end]:
-                ancillary_data_row = ancillary_df.loc[ancillary_df["crop_path"] == filename]
+                ancillary_data_row = df_ancillary.loc[df_ancillary["crop_path"] == filename]
                 if ancillary_data_row.empty:
-                    ancillary_data = pd.Series([0] * len(ancillary_df.columns), index=ancillary_df.columns)
+                    ancillary_data = pd.Series([0] * len(df_ancillary.columns), index=df_ancillary.columns)
                 else:
                     ancillary_data = ancillary_data_row.select_dtypes(include=["float", "int"]).iloc[0]
-                df_batch.loc[df_batch["crop_path"] == filename, ancillary_data.index] = ancillary_data
+                df.loc[df_ancillary["crop_path"] == filename, ancillary_data.index] = ancillary_data
 
         # Drop the crop_path column if it exists as it is not numerical and not needed for clustering
-        df_batch = df_batch.drop(columns=["crop_path"], errors="ignore")
+        df = df.drop(columns=["crop_path"], errors="ignore")
 
         # Run clustering
         return _run_hdbscan_assign(
-            df=df_batch,
+            df=df,
             alpha=alpha,
             cluster_selection_epsilon=cluster_selection_epsilon,
             cluster_selection_method=cluster_selection_method,
@@ -588,15 +591,14 @@ def cluster_vits(
         core_dist_n_jobs = int(os.cpu_count())
         info(f"Using {core_dist_n_jobs} CPUs for HDBSCAN")
 
-    # # Run batches in parallel
+    # Run batches in parallel
     with ThreadPoolExecutor(max_workers=core_dist_n_jobs) as executor:
         futures = [
             executor.submit(
                 process_batch,
                 i,
                 core_dist_n_jobs,
-                df_dets.index[i * hdbscan_batch_size : min((i + 1) * hdbscan_batch_size, len(crop_paths))],
-                df_dets.iloc[i * hdbscan_batch_size : min((i + 1) * hdbscan_batch_size, len(crop_paths))]._to_pandas(),
+                df_dets.iloc[i * hdbscan_batch_size : min((i + 1) * hdbscan_batch_size, len(crop_paths))],
             )
             for i in range(num_batches)
         ]
@@ -619,20 +621,23 @@ def cluster_vits(
         return None
 
     # Drop any rows with NaN values
-    df_dets = df_dets.dropna()
-    if df_dets.empty:
+    df_dets_clean = df_dets.dropna()
+    if df_dets_clean.empty:
         warn("No detections left after dropping NaN values")
         return None
 
     # Drop any rows with -2 in the cluster column which means not clustered yet or bad image
-    df_dets = df_dets[df_dets["cluster"] != -2]
-    if df_dets.empty:
+    before = len(df_dets_clean)
+    df_dets_clean = df_dets_clean[df_dets_clean["cluster"] != -2]
+    after = len(df_dets_clean)
+    info(f"Dropped {before - after} detections that are bad")
+    if df_dets_clean.empty:
         warn("No detections left after dropping -2 values in the cluster column")
         return None
 
     # Create an increasing array of integers based on the unique cluster_batch values, except for -1
     info("Mapping clusters to unique integers ...")
-    non_noise_df = df_dets[df_dets["cluster"] != -1]._to_pandas()
+    non_noise_df = df_dets_clean[df_dets_clean["cluster"] != -1]
     unique_cluster_batch = non_noise_df.sort_values("cluster_batch").groupby("cluster_batch")
     cluster_mapping = {cluster: i for i, cluster in enumerate(unique_cluster_batch.groups)}
 
