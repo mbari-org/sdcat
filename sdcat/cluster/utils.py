@@ -100,7 +100,7 @@ def clean_bad_images(filepaths: List[str]) -> List[str]:
     config = {
         "visualize_num_images_per_row": 4,
         "report_num_images": 4,
-        "report_max_prevalence": 1.0, # Default is 0.5, but we want to see all issues
+        "report_max_prevalence": 1.0,  # Default is 0.5, but we want to see all issues
         "report_cell_size": (2, 2),
     }
     imagelab._config = config
@@ -108,14 +108,32 @@ def clean_bad_images(filepaths: List[str]) -> List[str]:
     # Detect dark and blurry images
     issue_types = {
         "dark": {},
-        "blurry": {"threshold": 0.52},
-        "near_duplicates": {"hash_size": 5, "hash_types": ["whash", "phash"]},
+        "blurry": {"threshold": 0.52},  # Default is 0.5, but we want to be more strict
+        "near_duplicates": {"hash_size": 4, "hash_types": ["whash", "phash"]},
+        "low_information": {"threshold": 0.52},
     }
     imagelab.find_issues(issue_types)
-    imagelab.report()
+    # imagelab.report() Disabling report = this is causing a segfault when run on large datasets
 
-    issue_columns = ["is_dark_issue", "is_blurry_issue"]
-    bad_images = set(imagelab.issues[imagelab.issues[issue_columns].any(axis=1)].index)
+    bad_images = []
+
+    # Remove all low information images
+    low_info_images = imagelab.issues[imagelab.issues["is_low_information_issue"]].index
+    if len(low_info_images) > 0:
+        info(f"=====>Removing {len(low_info_images)} low information images")
+        bad_images.extend(low_info_images)
+
+    # Remove all dark images
+    dark_images = imagelab.issues[imagelab.issues["is_dark_issue"]].index
+    if len(dark_images) > 0:
+        info(f"=====>Removing {len(dark_images)} dark images")
+        bad_images.extend(dark_images)
+
+    # Remove all blurry images
+    blurry_images = imagelab.issues[imagelab.issues["is_blurry_issue"]].index
+    if len(blurry_images) > 0:
+        info(f"=====>Removing {len(blurry_images)} blurry images")
+        bad_images.extend(blurry_images)
 
     # Remove one image from each near duplicate set (keep the best blurry score)
     near_duplicates_image_sets = imagelab.info["near_duplicates"]["sets"]
@@ -126,6 +144,7 @@ def clean_bad_images(filepaths: List[str]) -> List[str]:
         .values.tolist()
     )
 
+    info(f"=====>Removing {len(near_duplicates_image_sets)} duplicated image sets, keeping the least blurry image")
     for dup_set in near_duplicates_image_sets:
         if len(dup_set) <= 1:
             continue
@@ -136,7 +155,7 @@ def clean_bad_images(filepaths: List[str]) -> List[str]:
         if best_image is None:
             continue
         to_remove = [img for img in dup_set if img != best_image[0]]
-        bad_images.update(to_remove)
+        bad_images.extend(to_remove)
     return list(bad_images)
 
 
@@ -368,7 +387,7 @@ def compute_embedding_multi_gpu(model_name: str, images: list, batch_size: int =
     multi_gpu_compute(model_name, images, batch_size)
 
 
-def combine_csv(csv_files: List[Path], temp_path: Path, crop_path: str) -> Path:
+def combine_csv(csv_files: List[Path], temp_path: Path, crop_path: str) -> str:
     from tqdm import tqdm
 
     output_file = temp_path / "combined.csv"
