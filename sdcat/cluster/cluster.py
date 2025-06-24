@@ -12,6 +12,7 @@ import seaborn as sns
 import modin.pandas as pd
 import numpy as np
 from sklearn.decomposition import PCA
+from sklearn.preprocessing import normalize
 from tqdm import tqdm
 from umap import UMAP
 from hdbscan import HDBSCAN
@@ -224,6 +225,7 @@ def _run_hdbscan_assign(
     use_pca: bool,
     use_cuhdbscan: bool,
     batch: int,
+    max_batch: int,
     core_dist_n_jobs: int,
 ) -> pandas.DataFrame:
     """
@@ -237,13 +239,14 @@ def _run_hdbscan_assign(
     :param use_pca:  Whether to use PCA for dimensionality reduction
     :param use_cuhdbscan:  Whether to use cuHDBSCAN for clustering; requires a GPU with CUDA support
     :param batch:  Batch number for logging
+    :param max_batch:  Maximum batch number for logging
     :return: pandas.DataFrame with the cluster assignments
     """
     info(
         f"Clustering using HDBSCAN with: "
         f"sdcat version {sdcat_version},"
         f"core_dist_n_jobs: {core_dist_n_jobs},"
-        f"batch {batch},"
+        f"batch {batch} of {max_batch},"
         f"alpha {alpha},"
         f"algorithm {algorithm},"
         f"cluster_selection_epsilon {cluster_selection_epsilon},"
@@ -277,10 +280,12 @@ def _run_hdbscan_assign(
 
     # Cluster the features using HDBSCAN
     if have_gpu and use_cuhdbscan:
-        info(f"Running HDBSCAN on {num_samples} samples for batch {batch} on GPU...")
+        info(f"Running HDBSCAN on {num_samples} samples for batch {batch} of {max_batch} on GPU...")
+        # L2 norm the data for cuHDBSCAN; used together with Euclidean distance as an approximation of cosine distance
+        x_norm =normalize(x, norm='l2')
         scan = cuHDBSCAN(
             prediction_data=True,
-            metric="l2",
+            metric="euclidean",
             allow_single_cluster=True,
             algorithm=algorithm,
             min_cluster_size=min_cluster_size,
@@ -289,9 +294,9 @@ def _run_hdbscan_assign(
             cluster_selection_epsilon=cluster_selection_epsilon,
             cluster_selection_method=cluster_selection_method,
         )
-        labels = scan.fit_predict(x)
+        labels = scan.fit_predict(x_norm)
     else:
-        info(f"Running HDBSCAN on {num_samples} samples for batch {batch} on CPU core_dist_n_jobs {core_dist_n_jobs}...")
+        info(f"Running HDBSCAN on {num_samples} samples for batch {batch} of {max_batch} on CPU core_dist_n_jobs {core_dist_n_jobs}...")
         # Compute the cosine similarity matrix
         cosine_sim_matrix = cosine_similarity(x)
         distance_matrix = 1 - cosine_sim_matrix
@@ -387,12 +392,12 @@ def cluster_vits(
             # Filter rows that need cropping
             rows_to_crop = df_dets[~existing]._to_pandas()
 
-            # Crop by grouped filename which is more efficient
+            # Crop by grouped image_path which is more efficient
             grouped = rows_to_crop.groupby("image_path")
             info(f"Cropping {len(rows_to_crop)} detections...")
 
             with ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
-                futures = [executor.submit(crop_all_square_images, group, df, 224) for group, df in grouped]
+                futures = [executor.submit(crop_all_square_images, group, df, 224, 0) for group, df in grouped]
                 for _ in tqdm(as_completed(futures), total=len(futures)):
                     pass
 
@@ -574,6 +579,7 @@ def cluster_vits(
             min_samples=min_samples,
             use_pca=use_pca,
             batch=i,
+            max_batch=num_batches,
             core_dist_n_jobs=n_jobs,
             use_cuhdbscan=use_cuhdbscan,
         )
@@ -662,7 +668,52 @@ def cluster_vits(
     exemplar_emb = [fetch_embedding(model, filename)[0] for filename in df_dets.loc[max_scores]["crop_path"]]
     exemplar_emb = np.array(exemplar_emb)
 
-    # Merge by similarity
+    # Create a new dataframe with the exemplars for each cluster
+    df_exemplars = df_dets.loc[max_scores, ["cluster", "x", "y", "xx", "xy", "image_width", "image_height", "crop_path", "image_path"]].copy()
+    df_exemplars = df_exemplars.sort_values("cluster", ascending=True)
+    df_exemplars["angle"] = 0
+
+    # Add a new row for every row for every angle to be rotated
+    df_exemplars_final = pd.DataFrame()
+    for angle in [45, 135, 180]:
+        new_rows = df_exemplars.copy()
+        new_rows["crop_path"] = new_rows["crop_path"].str.replace(".png", f"_rot{angle}.png")
+        new_rows["angle"] = angle
+        df_exemplars_final = pd.concat([df_exemplars_final, new_rows], ignore_index=True)
+
+    # Add the original exemplars without rotation
+    df_exemplars_final = pd.concat([df_exemplars_final, df_exemplars], ignore_index=True)
+
+    # Crop all exemplar images at rotated angles, skipping those that already exist
+    info(f"Cropping {len(df_exemplars_final)} exemplar images to square...")
+    existing = df_exemplars_final["crop_path"].apply(lambda x: os.path.exists(x))
+    rows_to_crop = df_exemplars_final[~existing]._to_pandas()
+    image_angle_group = rows_to_crop.groupby(["image_path", "angle"])
+    with ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
+        futures = [executor.submit(crop_all_square_images, image_angle[0], df, 224, image_angle[1]) for image_angle, df in image_angle_group]
+        for _ in tqdm(as_completed(futures), total=len(futures)):
+            pass
+
+    crop_paths = df_exemplars_final["crop_path"].values.tolist()
+    compute_norm_embedding(model_name=model, images=crop_paths, device=device, batch_size=vits_batch_size)
+
+    info("Computing median embeddings for exemplars across all rotations ...")
+    # Group by cluster and compute the median embedding for each clusters
+    df_exemplar_group = df_exemplars_final.groupby("cluster")
+    def calc_mean(group):
+        """Calculate the mean embedding for a group of exemplars."""
+        embeddings = [fetch_embedding(model, path)[0] for path in group["crop_path"]]
+        # Remove any empty embeddings
+        embeddings = [emb for emb in embeddings if len(emb) > 0]
+        if not embeddings:
+            raise RuntimeError(f"No embeddings found for {group['crop_path'].values}")
+        return np.median(np.array(embeddings), axis=0)
+
+    # Apply the function to each group and get the mean embeddings array for the merge
+    exemplar_emb = df_exemplar_group.apply(calc_mean).values
+    exemplar_emb = np.stack(exemplar_emb, axis=0)
+
+    # Merge by similarity to the median exemplar embeddings
     df_dets_final, avg_sim_scores = _similarity_merge(df_dets, exemplar_emb, min_similarity, model)
 
     # Drop any rows with NaN values in the cluster column

@@ -158,79 +158,155 @@ def clean_bad_images(filepaths: List[str]) -> List[str]:
         bad_images.extend(to_remove)
     return list(bad_images)
 
+def compute_square_coordinates(row) -> List[int]:
+    """
+    Compute square coordinates for cropping an image to a square, padding the shorter dimension.
 
-def crop_all_square_images(image_path: str, detections: pandas.DataFrame, square_dim: int):
+    This also adjusts the crop to make sure the crop is fully in the frame, otherwise the crop that
+    exceeds the frame is filled with black bars - these produce clusters of "edge" objects instead
+    of the detection
+    """
+    x1 = int(row.image_width * row.x)
+    y1 = int(row.image_height * row.y)
+    x2 = int(row.image_width * row.xx)
+    y2 = int(row.image_height * row.xy)
+    width = x2 - x1
+    height = y2 - y1
+    shorter_side = min(height, width)
+    longer_side = max(height, width)
+    delta = abs(longer_side - shorter_side)
+
+    # Divide the difference by 2 to determine how much padding is needed on each side
+    padding = delta // 2
+
+    # Add the padding to the shorter side of the image
+    if width == shorter_side:
+        x1 -= padding
+        x2 += padding
+    else:
+        y1 -= padding
+        y2 += padding
+
+    # Make sure that the coordinates don't go outside the image
+    # If they do, adjust by the overflow amount
+    if y1 < 0:
+        y1 = 0
+        y2 += abs(y1)
+        if y2 > row.image_height:
+            y2 = row.image_height
+    elif y2 > row.image_height:
+        y2 = row.image_height
+        y1 -= abs(y2 - row.image_height)
+        if y1 < 0:
+            y1 = 0
+    if x1 < 0:
+        x1 = 0
+        x2 += abs(x1)
+        if x2 > row.image_width:
+            x2 = row.image_width
+    elif x2 > row.image_width:
+        x2 = row.image_width
+        x1 -= abs(x2 - row.image_width)
+        if x1 < 0:
+            x1 = 0
+    return [x1, y1, x2, y2]
+
+
+def crop_rotated_fill(image, cx, cy, w, h, angle) -> np.ndarray:
+    """
+    Crop a rotated rectangle from an image and fill the background with the mean color of the image.
+    """
+    # Compute mean color of the image (across all pixels and channels)
+    mean_color = image.mean(axis=(0, 1)).astype(np.uint8).tolist()
+
+    # Create rotated rectangle
+    rect = ((cx, cy), (w, h), angle)
+    box = cv2.boxPoints(rect).astype(np.float32)
+
+    # Destination points for upright box
+    dst_pts = np.array([
+        [0, 0],
+        [w - 1, 0],
+        [w - 1, h - 1],
+        [0, h - 1]
+    ], dtype=np.float32)
+
+    M = cv2.getPerspectiveTransform(box, dst_pts)
+
+    # Warp with border filled by mean color
+    warped = cv2.warpPerspective(
+        image,
+        M,
+        (int(w), int(h)),
+        borderMode=cv2.BORDER_CONSTANT,
+        borderValue=mean_color
+    )
+    return warped
+
+
+def crop_all_square_images(image_path: str, detections: pandas.DataFrame, square_dim: int, rotation: int):
     """
     Crop the image to a square padding the shortest dimension, then resize it to square_dim x square_dim
     Optimized for cropping all detections within an image
     :param image_path: Path to the image
     :param detections: Dataframe with the detections
     :param square_dim: dimension of the square image
+    :param rotation: Rotation angle in degrees to apply to the image before cropping
     """
     try:
         if not Path(image_path).exists():
             warn(f"Skipping because the image {image_path} does not exist")
             return
 
-        img = Image.open(image_path)
+        # If the number of crops that already exist is equal to the number of detections, return early
+        detections["exists"] = detections["crop_path"].apply(lambda x: Path(x).exists())
+        if detections["exists"].all():
+            debug(f"All crops for {image_path} already exist, skipping cropping")
+            return
 
-        # Iterate over the detections and crop each one
-        for index, row in detections.iterrows():
-            # If the crop already exists, skip it
-            if Path(row.crop_path).exists():
-                continue
+        if rotation > 0:
+            # Read the image converting to BGR format for OpenCV
+            image = cv2.imread(image_path)
+            image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
-            x1 = int(row.image_width * row.x)
-            y1 = int(row.image_height * row.y)
-            x2 = int(row.image_width * row.xx)
-            y2 = int(row.image_height * row.xy)
-            width = x2 - x1
-            height = y2 - y1
-            shorter_side = min(height, width)
-            longer_side = max(height, width)
-            delta = abs(longer_side - shorter_side)
+            # Iterate over the detections and crop each one
+            for index, row in detections.iterrows():
+                # If the crop already exists, skip it to save time
+                if Path(row.crop_path).exists():
+                    continue
+                x1, y1, x2, y2 = compute_square_coordinates(row)
+                img_cropped = crop_rotated_fill(
+                    image_rgb,
+                    cx=int((x1 + x2) / 2),
+                    cy=int((y1 + y2) / 2),
+                    w=x2 - x1,
+                    h=y2 - y1,
+                    angle=int(rotation)
+                )
 
-            # Divide the difference by 2 to determine how much padding is needed on each side
-            padding = delta // 2
+                # Resize the image to square_dim x square_dim
+                cropped = cv2.resize(img_cropped, (224, 224), interpolation=cv2.INTER_LANCZOS4)
+                # Convert back to BGR format for saving
+                cropped = cv2.cvtColor(cropped, cv2.COLOR_RGB2BGR)
+                cv2.imwrite(row.crop_path, cropped)
+                debug(f'Cropping {image_path} to {row.crop_path} with coordinates ({x1}, {y1}, {x2}, {y2})')
+        else:
+            img = Image.open(image_path)
 
-            # Add the padding to the shorter side of the image
-            if width == shorter_side:
-                x1 -= padding
-                x2 += padding
-            else:
-                y1 -= padding
-                y2 += padding
+            # Iterate over the detections and crop each one
+            for index, row in detections.iterrows():
+                # If the crop already exists, skip it to save time
+                if Path(row.crop_path).exists():
+                    continue
+                x1, y1, x2, y2 = compute_square_coordinates(row)
+                img_cropped = img.crop((x1, y1, x2, y2))
+                # Resize the image to square_dim x square_dim
+                img_cropped = img_cropped.resize((square_dim, square_dim), Image.LANCZOS)
+                debug(f'Cropping {image_path} to {row.crop_path} with coordinates ({x1}, {y1}, {x2}, {y2})')
+                img_cropped.save(row.crop_path)
+                img_cropped.close()
 
-            # Make sure that the coordinates don't go outside the image
-            # If they do, adjust by the overflow amount
-            if y1 < 0:
-                y1 = 0
-                y2 += abs(y1)
-                if y2 > row.image_height:
-                    y2 = row.image_height
-            elif y2 > row.image_height:
-                y2 = row.image_height
-                y1 -= abs(y2 - row.image_height)
-                if y1 < 0:
-                    y1 = 0
-            if x1 < 0:
-                x1 = 0
-                x2 += abs(x1)
-                if x2 > row.image_width:
-                    x2 = row.image_width
-            elif x2 > row.image_width:
-                x2 = row.image_width
-                x1 -= abs(x2 - row.image_width)
-                if x1 < 0:
-                    x1 = 0
-            # Crop the image
-            img_cropped = img.crop((x1, y1, x2, y2))
-            # Resize the image to square_dim x square_dim
-            img_cropped = img_cropped.resize((square_dim, square_dim), Image.LANCZOS)
-            img_cropped.save(row.crop_path)
-            img_cropped.close()
-
-        img.close()
+            img.close()
     except Exception as e:
         exception(f"Error cropping {image_path} {e}")
         raise e
@@ -239,9 +315,6 @@ def crop_all_square_images(image_path: str, detections: pandas.DataFrame, square
 def crop_square_image(row, square_dim: int):
     """
     Crop the image to a square padding the shortest dimension, then resize it to square_dim x square_dim
-    This also adjusts the crop to make sure the crop is fully in the frame, otherwise the crop that
-    exceeds the frame is filled with black bars - these produce clusters of "edge" objects instead
-    of the detection
     :param row:
     :param square_dim: dimension of the square image
     :return:
@@ -254,49 +327,7 @@ def crop_square_image(row, square_dim: int):
         if Path(row.crop_path).exists():  # If the crop already exists, skip it
             return
 
-        x1 = int(row.image_width * row.x)
-        y1 = int(row.image_height * row.y)
-        x2 = int(row.image_width * row.xx)
-        y2 = int(row.image_height * row.xy)
-        width = x2 - x1
-        height = y2 - y1
-        shorter_side = min(height, width)
-        longer_side = max(height, width)
-        delta = abs(longer_side - shorter_side)
-
-        # Divide the difference by 2 to determine how much padding is needed on each side
-        padding = delta // 2
-
-        # Add the padding to the shorter side of the image
-        if width == shorter_side:
-            x1 -= padding
-            x2 += padding
-        else:
-            y1 -= padding
-            y2 += padding
-
-        # Make sure that the coordinates don't go outside the image
-        # If they do, adjust by the overflow amount
-        if y1 < 0:
-            y1 = 0
-            y2 += abs(y1)
-            if y2 > row.image_height:
-                y2 = row.image_height
-        elif y2 > row.image_height:
-            y2 = row.image_height
-            y1 -= abs(y2 - row.image_height)
-            if y1 < 0:
-                y1 = 0
-        if x1 < 0:
-            x1 = 0
-            x2 += abs(x1)
-            if x2 > row.image_width:
-                x2 = row.image_width
-        elif x2 > row.image_width:
-            x2 = row.image_width
-            x1 -= abs(x2 - row.image_width)
-            if x1 < 0:
-                x1 = 0
+        x1, y1, x2, y2 = compute_square_coordinates(row)
 
         # Crop the image
         img = Image.open(row.image_path)
