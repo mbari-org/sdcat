@@ -30,6 +30,7 @@ if find_spec("cuml"):
     info("=======> USING GPU for HDBSCAN AND UMAP <=========")
     from cuml.cluster import HDBSCAN as cuHDBSCAN  # pylint: disable=E0611, E0401
     from cuml.manifold.umap import UMAP as cuUMAP
+
     have_gpu = True
 else:
     have_gpu = False
@@ -154,6 +155,7 @@ def _summarize_clusters(
 
     return summary
 
+
 def _reassign_noise(df: pd.DataFrame, exemplar_emb: np.ndarray, cluster: List[int], min_similarity: float, model: str):
     """
     Reassign the noise (-1) cluster to the nearest exemplar cluster based on cosine similarity.
@@ -168,7 +170,10 @@ def _reassign_noise(df: pd.DataFrame, exemplar_emb: np.ndarray, cluster: List[in
     df.loc[valid_indices, "cluster"] = cluster[best_sim_idx[valid]]
     return df
 
-def _similarity_merge(df: pd.DataFrame, exemplar_emb: np.ndarray, cluster: List[int], min_similarity: float, model: str) -> (pd.DataFrame, dict):
+
+def _similarity_merge(
+    df: pd.DataFrame, exemplar_emb: np.ndarray, cluster: List[int], min_similarity: float, model: str
+) -> (pd.DataFrame, dict):
     """
     Merge clusters based on the linkage of the cosine similarity of their embeddings.
     """
@@ -188,6 +193,7 @@ def _similarity_merge(df: pd.DataFrame, exemplar_emb: np.ndarray, cluster: List[
     if len(np.unique(linkage_clusters)) == 1:
         info("No clusters to merge")
     else:
+
         def map_to_new_cluster(old_cluster):
             if old_cluster == -1:
                 debug(f"Cluster {old_cluster} is noise, skipping")
@@ -203,13 +209,15 @@ def _similarity_merge(df: pd.DataFrame, exemplar_emb: np.ndarray, cluster: List[
 
     return df
 
+
 def _compute_exemplars(df: pd.DataFrame, model: str, device: str, vits_batch_size: int) -> pd.DataFrame:
     non_noise_df = df[df["cluster"] != -1]
     max_score_idx = non_noise_df.sort_values("cluster", ascending=True).groupby("cluster")["HDBSCAN_probability"].idxmax()
 
     # Create a new dataframe with the exemplars for each cluster
     df_exemplars = df.loc[
-        max_score_idx, ["cluster", "x", "y", "xx", "xy", "image_width", "image_height", "crop_path", "image_path"]].copy()
+        max_score_idx, ["cluster", "x", "y", "xx", "xy", "image_width", "image_height", "crop_path", "image_path"]
+    ].copy()
     df_exemplars = df_exemplars.sort_values("cluster", ascending=True)
     df_exemplars["angle"] = 0
 
@@ -230,8 +238,10 @@ def _compute_exemplars(df: pd.DataFrame, model: str, device: str, vits_batch_siz
     rows_to_crop = df_exemplars_final[~existing]._to_pandas()
     image_angle_group = rows_to_crop.groupby(["image_path", "angle"])
     with ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
-        futures = [executor.submit(crop_all_square_images, image_angle[0], df, 224, image_angle[1]) for image_angle, df
-                   in image_angle_group]
+        futures = [
+            executor.submit(crop_all_square_images, image_angle[0], df, 224, image_angle[1])
+            for image_angle, df in image_angle_group
+        ]
         for _ in tqdm(as_completed(futures), total=len(futures)):
             pass
 
@@ -255,6 +265,7 @@ def _compute_exemplars(df: pd.DataFrame, model: str, device: str, vits_batch_siz
     cluster = df_exemplar_group["cluster"].first().values
     return exemplar_emb, cluster
 
+
 def _compute_avg_sim(df: pd.DataFrame, model: str) -> (pd.DataFrame, dict):
     def compute_cluster_avg_similarity(cluster_df):
         if len(cluster_df) == 0:
@@ -276,6 +287,7 @@ def _compute_avg_sim(df: pd.DataFrame, model: str) -> (pd.DataFrame, dict):
     cluster_scores = df.groupby("cluster").apply(compute_cluster_avg_similarity)
     avg_sim_scores = cluster_scores.dropna().to_dict()
     return avg_sim_scores
+
 
 def _run_hdbscan_assign(
     df: pandas.DataFrame,
@@ -345,7 +357,7 @@ def _run_hdbscan_assign(
     if have_gpu and use_cuhdbscan:
         info(f"Running HDBSCAN on {num_samples} samples for batch {batch} of {max_batch} on GPU...")
         # L2 norm the data for cuHDBSCAN; used together with Euclidean distance as an approximation of cosine distance
-        x_norm =normalize(x, norm='l2')
+        x_norm = normalize(x, norm="l2")
         scan = cuHDBSCAN(
             prediction_data=True,
             metric="euclidean",
@@ -359,7 +371,9 @@ def _run_hdbscan_assign(
         )
         labels = scan.fit_predict(x_norm)
     else:
-        info(f"Running HDBSCAN on {num_samples} samples for batch {batch} of {max_batch} on CPU core_dist_n_jobs {core_dist_n_jobs}...")
+        info(
+            f"Running HDBSCAN on {num_samples} samples for batch {batch} of {max_batch} on CPU core_dist_n_jobs {core_dist_n_jobs}..."
+        )
         # Compute the cosine similarity matrix
         cosine_sim_matrix = cosine_similarity(x)
         distance_matrix = 1 - cosine_sim_matrix
@@ -389,15 +403,20 @@ def _run_hdbscan_assign(
     # e.g. "9476e0d0-3ee3-492e-816c-050f02e07bdb_00000002" for batch 0 and cluster label 2
     # or "-1" for noise
     batch_uuid = str(uuid.uuid4())
+
     def set_cluster_batch(x):
         if x != -1:
             return f"{batch:08d}{x:08d}_{batch_uuid}"
         return "-1"
+
     df_["cluster_batch"] = df_["cluster"].apply(set_cluster_batch)
     unique_clusters = df_["cluster"].unique()
     info(f"Batch {batch} index: {df_.index[0]} to {df_.index[-1]}")
-    info(f"Maximum cluster id: {labels.max()} minimum cluster id: {labels.min()} unique clusters: {len(unique_clusters)} noise: {np.sum(labels == -1)}")
+    info(
+        f"Maximum cluster id: {labels.max()} minimum cluster id: {labels.min()} unique clusters: {len(unique_clusters)} noise: {np.sum(labels == -1)}"
+    )
     return df_
+
 
 def cluster_vits(
     prefix: str,
@@ -720,11 +739,13 @@ def cluster_vits(
     info(f"Mapping {len(cluster_batch_group)} unique cluster batches to integers ...")
     df_dets["cluster_org"] = df_dets["cluster"]  # Keep the original cluster for reference
     values = df_dets["cluster_batch"].values
-    df_dets["cluster"] = [cluster_batch_group.get(c, -1) for c in values] # Map to contiguous integers
+    df_dets["cluster"] = [cluster_batch_group.get(c, -1) for c in values]  # Map to contiguous integers
 
     unique_clusters = df_dets["cluster"].unique()
     info(f"Index: {df_dets.index[0]} to {df_dets.index[-1]}")
-    info(f"Remapped maximum cluster id: {df_dets['cluster'].values.max()} minimum cluster id: {df_dets['cluster'].values.min()} unique clusters: {len(unique_clusters)}")
+    info(
+        f"Remapped maximum cluster id: {df_dets['cluster'].values.max()} minimum cluster id: {df_dets['cluster'].values.min()} unique clusters: {len(unique_clusters)}"
+    )
 
     # Compute the exemplars for each cluster
     exemplar_emb, cluster = _compute_exemplars(df_dets, model, device, vits_batch_size)
@@ -743,7 +764,7 @@ def cluster_vits(
 
     info(f"Mapping {len(unique_clusters)} unique cluster to contiguous integers ...")
     values = df_dets_final["cluster"].values
-    df_dets["cluster"] = [cluster_group.get(c, -1) for c in values] # Map to contiguous integers
+    df_dets["cluster"] = [cluster_group.get(c, -1) for c in values]  # Map to contiguous integers
 
     # Get the average similarity within and across all clusters
     avg_sim_scores = _compute_avg_sim(df_dets_final, model)

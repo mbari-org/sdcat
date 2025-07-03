@@ -156,6 +156,7 @@ def clean_bad_images(filepaths: List[str]) -> List[str]:
         bad_images.extend(to_remove)
     return list(bad_images)
 
+
 def compute_square_coordinates(row) -> List[int]:
     """
     Compute square coordinates for cropping an image to a square, padding the shorter dimension.
@@ -222,23 +223,12 @@ def crop_rotated_fill(image, cx, cy, w, h, angle) -> np.ndarray:
     box = cv2.boxPoints(rect).astype(np.float32)
 
     # Destination points for upright box
-    dst_pts = np.array([
-        [0, 0],
-        [w - 1, 0],
-        [w - 1, h - 1],
-        [0, h - 1]
-    ], dtype=np.float32)
+    dst_pts = np.array([[0, 0], [w - 1, 0], [w - 1, h - 1], [0, h - 1]], dtype=np.float32)
 
     M = cv2.getPerspectiveTransform(box, dst_pts)
 
     # Warp with border filled by mean color
-    warped = cv2.warpPerspective(
-        image,
-        M,
-        (int(w), int(h)),
-        borderMode=cv2.BORDER_CONSTANT,
-        borderValue=mean_color
-    )
+    warped = cv2.warpPerspective(image, M, (int(w), int(h)), borderMode=cv2.BORDER_CONSTANT, borderValue=mean_color)
     return warped
 
 
@@ -274,12 +264,7 @@ def crop_all_square_images(image_path: str, detections: pandas.DataFrame, square
                     continue
                 x1, y1, x2, y2 = compute_square_coordinates(row)
                 img_cropped = crop_rotated_fill(
-                    image_rgb,
-                    cx=int((x1 + x2) / 2),
-                    cy=int((y1 + y2) / 2),
-                    w=x2 - x1,
-                    h=y2 - y1,
-                    angle=int(rotation)
+                    image_rgb, cx=int((x1 + x2) / 2), cy=int((y1 + y2) / 2), w=x2 - x1, h=y2 - y1, angle=int(rotation)
                 )
 
                 # Resize the image to square_dim x square_dim
@@ -287,7 +272,7 @@ def crop_all_square_images(image_path: str, detections: pandas.DataFrame, square
                 # Convert back to BGR format for saving
                 cropped = cv2.cvtColor(cropped, cv2.COLOR_RGB2BGR)
                 cv2.imwrite(row.crop_path, cropped)
-                debug(f'Cropping {image_path} to {row.crop_path} with coordinates ({x1}, {y1}, {x2}, {y2})')
+                debug(f"Cropping {image_path} to {row.crop_path} with coordinates ({x1}, {y1}, {x2}, {y2})")
         else:
             img = Image.open(image_path)
 
@@ -300,7 +285,7 @@ def crop_all_square_images(image_path: str, detections: pandas.DataFrame, square
                 img_cropped = img.crop((x1, y1, x2, y2))
                 # Resize the image to square_dim x square_dim
                 img_cropped = img_cropped.resize((square_dim, square_dim), Image.LANCZOS)
-                debug(f'Cropping {image_path} to {row.crop_path} with coordinates ({x1}, {y1}, {x2}, {y2})')
+                debug(f"Cropping {image_path} to {row.crop_path} with coordinates ({x1}, {y1}, {x2}, {y2})")
                 img_cropped.save(row.crop_path)
                 img_cropped.close()
 

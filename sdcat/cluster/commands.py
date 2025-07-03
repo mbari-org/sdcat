@@ -449,10 +449,10 @@ def run_cluster_roi(
     df["class_s"] = "Unknown"
     df["score"] = 0.0
     df["score_s"] = 0.0
-    df['x'] = 0.
-    df['y'] = 0.
-    df['xx'] = 1.0
-    df['xy'] = 1.0
+    df["x"] = 0.0
+    df["y"] = 0.0
+    df["xx"] = 1.0
+    df["xy"] = 1.0
 
     # Replace any NaNs with 0 and reindex
     df.fillna(0)

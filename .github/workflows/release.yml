@@ -58,6 +58,15 @@ jobs:
             do gh release upload "${{steps.release-status.outputs.tag}}" $file
           done
 
+      - if: steps.release-status.outputs.released == 'true'
+        name: Commit and push changelog and version bump
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add CHANGELOG.md pyproject.toml sdcat/__init__.py
+          git commit -m "chore(release): update changelog and version"
+          git push
+
 #      - if: steps.release-status.outputs.released == 'true'
 #        name: Release to Test PyPI
 #        id: test-pypi-release
