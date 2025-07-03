@@ -4,18 +4,24 @@
 [![Python](https://img.shields.io/badge/language-Python-blue.svg)](https://www.python.org/downloads/)
 [![Run pytest](https://github.com/mbari-org/sdcat/actions/workflows/pytest.yml/badge.svg)](https://github.com/mbari-org/sdcat/actions/workflows/pytest.yml)
 
-**sdcat**
+**sdcat*** Sliced Detection and Clustering Analysis Toolkit*
 
-*Sliced Detection and Clustering Analysis Toolkit*
+This tool processes images using a sliced detection and clustering workflow. This is a two-step process:
+1. **Detection**: Detects objects in images using a fine-grained saliency-based detection model, and/or one of the object detection models run with the SAHI algorithm. These two algorithms can be combined through NMS (Non-Maximum Suppression) to produce the final detections.
+   - The detection models include YOLOv8s, YOLOS, and various MBARI-specific models for midwater and UAV images.
+   - The SAHI algorithm slices images into smaller windows and runs a detection model on the windows to improve detection accuracy.
+2. **Clustering**: Clusters the detections using a Vision Transformer (ViT) model and the HDBSCAN algorithm.
+3. **Visualization**: Visualizes the detections and clusters in a user-friendly way with grid plots and images with bounding boxes.
 
-This repository processes images using a sliced detection and clustering workflow.
 If your images look something like the image below, and you want to detect objects in the images,
-and optionally cluster the detections, then this repository may be useful to you.
+and optionally cluster the detections, then this repository may be useful to you, particularly for discovery to quickly gather training data.
 The repository is designed to be run from the command line, and can be run in a Docker container,
 without or with a GPU (recommended).
 
 To use with a multiple gpus, use the --device cuda option
 To use with a single gpu, use the --device cuda:0,1 option
+
+Author: Danelle, dcline@mbari.org . Reach out if you have questions, comments, or suggestions.
 
 ---
 ![](https://raw.githubusercontent.com/mbari-org/sdcat/main/docs/imgs/example_images.jpg)
@@ -93,18 +99,19 @@ pip install sdcat
 
 Alternatively, [Docker](https://www.docker.com) can be used to run the code. A pre-built docker image is available at [Docker Hub](https://hub.docker.com/r/mbari/sdcat) with the latest version of the code.
 
+_Detection_
 ```bash
-Detection
 ```shell
 docker run -it -v $(pwd):/data mbari/sdcat detect --image-dir /data/images --save-dir /data/detections --model MBARI-org/uav-yolov5
 ```
-Followed by clustering
+Followed by _clustering_
 ```shell
 docker run -it -v $(pwd):/data mbari/sdcat cluster detections --det-dir /data/detections/ --save-dir /data/detections --model MBARI-org/uav-yolov5
 ```
 
 A GPU is recommended for clustering and detection.  If you don't have a GPU, you can still run the code, but it will be slower.
-If running on a CPU, multiple cores are recommended and will speed up processing.
+If running on a CPU, multiple cores are recommended to speed up processing.  Once your clustering is complete,  subsequent runs will be faster
+as the necessary information is cached to support fast iteration.
 
 ```shell
 docker run -it --gpus all -v $(pwd):/data mbari/sdcat:cuda124 detect --image-dir /data/images --save-dir /data/detections --model MBARI-org/uav-yolov5
@@ -225,16 +232,25 @@ sdcat cluster --det-dir <det-dir>/yolov8s/det_filtered --save-dir <save-dir>  --
 
 # Performance Notes
 
-To set an alternative temporary directory, set the environment variable `TMPDIR` to the desired path.
-This can be useful if you are running on a system with limited disk space, or if you want to use a faster disk for temporary files.
+🚀 The [__RAPIDS__](https://rapids.ai/) package is supported for speed-up with CUDA. No detailed documentation just yet. Enable by using the _--cuhdbscan_ option and installing RAPIDS
+
+__Large collections of images__ the HDBSCAN is inherently non-parallel, so to support processing large 
+colletions of detections/ROIs, e.g. 500000, you need to experiment with the batch sizes. 
+To enable batching, use the *--vits-batch-size* option to set the batch size for your ViTS model. 
+The default is 32. This means that the ViTS model will process 32 images at a time.
+To enable batching for HDBSCAN, use the *--hdbscan-batch-size* option to set the batch size for HDBSCAN.
+The default is 50000. This means that HDBSCAN will process 50000 detections at a time. You
+want to maximize both of these batch sizes to speed up processing.
+
+__Temporary Directory__ Sometimes it is useful to set an alternative temporary directory on systems with limited disk space, or if you want to use a faster disk for temporary files.
+To set a temporary directory, you can set the `TMPDIR` environment variable to the path of the directory you want to use.
+This directory is used to store temporary files created by the sdcat toolkit during processing.
+Most, but not all data is stored to what is specified with the `--save-dir` option, but some temporary files 
+are stored in the system's default temporary directory.
 
 ```shell
 export TMPDIR=/path/to/your/tmpdir
 ```
-
-🚀 The RAPIDS package is supported for speed-up with CUDA. No detailed documentation just yet. Enable by using the --cuhdbscan option and installing RAPIDS
-
-
 # Related work
 * https://github.com/obss/sahi SAHI
 * https://arxiv.org/abs/2010.11929 An Image is Worth 16x16 Words: Transformers for Image Recognition at Scale
