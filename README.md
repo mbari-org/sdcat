@@ -15,7 +15,7 @@ The repository is designed to be run from the command line, and can be run in a 
 without or with a GPU (recommended).
 
 To use with a multiple gpus, use the --device cuda option
-To use with single gpus, use the --device cuda:0,1 option
+To use with a single gpu, use the --device cuda:0,1 option
 
 ---
 ![](https://raw.githubusercontent.com/mbari-org/sdcat/main/docs/imgs/example_images.jpg)
@@ -89,11 +89,11 @@ Pip install the sdcat package with:
 ```bash
 pip install sdcat
 ```
-
-# To set an alternative temporary directory, set the environment variable `TMPDIR` to the desired path.
+ 
 
 Alternatively, [Docker](https://www.docker.com) can be used to run the code. A pre-built docker image is available at [Docker Hub](https://hub.docker.com/r/mbari/sdcat) with the latest version of the code.
 
+```bash
 Detection
 ```shell
 docker run -it -v $(pwd):/data mbari/sdcat detect --image-dir /data/images --save-dir /data/detections --model MBARI-org/uav-yolov5
@@ -110,7 +110,7 @@ If running on a CPU, multiple cores are recommended and will speed up processing
 docker run -it --gpus all -v $(pwd):/data mbari/sdcat:cuda124 detect --image-dir /data/images --save-dir /data/detections --model MBARI-org/uav-yolov5
 ```
 
-# Commands
+# Usage
 
 To get all options available, use the --help option.  For example:
 
@@ -222,6 +222,17 @@ features from the default Vision Transformer (ViT) model `google/vit-base-patch1
 ```shell
 sdcat cluster --det-dir <det-dir>/yolov8s/det_filtered --save-dir <save-dir>  --use-vits
 ```
+
+# Performance Notes
+
+To set an alternative temporary directory, set the environment variable `TMPDIR` to the desired path.
+This can be useful if you are running on a system with limited disk space, or if you want to use a faster disk for temporary files.
+
+```shell
+export TMPDIR=/path/to/your/tmpdir
+```
+
+🚀 The RAPIDS package is supported for speed-up with CUDA. No detailed documentation just yet. Enable by using the --cuhdbscan option and installing RAPIDS
 
 
 # Related work
