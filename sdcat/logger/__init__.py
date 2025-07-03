@@ -75,7 +75,7 @@ def create_logger_file(prefix: str = "sdcat"):
             test_file.touch()
             test_file.unlink()
         except PermissionError:
-            temp_dir = tempfile.gettempdir()
+            temp_dir = os.getenv("TMPDIR", tempfile.gettempdir())
             log_path = Path(temp_dir) / "sdcat" / "logs"
         except FileNotFoundError:
             # If the path doesn't exist, create it

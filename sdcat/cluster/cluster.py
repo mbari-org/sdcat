@@ -1,12 +1,15 @@
 # sdcat, Apache-2.0 license
 # Filename: sdcat/cluster/cluster.py
 # Description: Clustering using vision transformer features and HDBSCAN density-based clustering
+import uuid
 import warnings
 from importlib.util import find_spec
 
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed
 import os
+from typing import List
+
 import pandas
 import seaborn as sns
 import modin.pandas as pd
@@ -27,7 +30,6 @@ if find_spec("cuml"):
     info("=======> USING GPU for HDBSCAN AND UMAP <=========")
     from cuml.cluster import HDBSCAN as cuHDBSCAN  # pylint: disable=E0611, E0401
     from cuml.manifold.umap import UMAP as cuUMAP
-
     have_gpu = True
 else:
     have_gpu = False
@@ -77,7 +79,7 @@ def _summarize_clusters(
         },
     }
 
-    image_paths = {c: df.loc[df["cluster"] == c, "crop_path"][:150] for c in clusters}
+    image_paths = {c: df.loc[df["cluster"] == c, "crop_path"] for c in clusters}
 
     summary["statistics"]["top_predictions"] = [
         {"class": name, "percentage": f"{total:.2f}%"} for name, total in top20.items()
@@ -152,24 +154,25 @@ def _summarize_clusters(
 
     return summary
 
+def _reassign_noise(df: pd.DataFrame, exemplar_emb: np.ndarray, cluster: List[int], min_similarity: float, model: str):
+    """
+    Reassign the noise (-1) cluster to the nearest exemplar cluster based on cosine similarity.
+    """
+    noise_df = df[df["cluster"] == -1]
+    noise_embeddings = np.array([fetch_embedding(model, path)[0] for path in noise_df["crop_path"]])
+    similarities = cosine_similarity(noise_embeddings, exemplar_emb)
+    max_scores = similarities.max(axis=1)
+    best_sim_idx = similarities.argmax(axis=1)
+    valid = max_scores > min_similarity
+    valid_indices = noise_df.index[valid]
+    df.loc[valid_indices, "cluster"] = cluster[best_sim_idx[valid]]
+    return df
 
-def _similarity_merge(df: pd.DataFrame, exemplar_emb: np.ndarray, min_similarity: float, model: str) -> (pd.DataFrame, dict):
+def _similarity_merge(df: pd.DataFrame, exemplar_emb: np.ndarray, cluster: List[int], min_similarity: float, model: str) -> (pd.DataFrame, dict):
     """
     Merge clusters based on the linkage of the cosine similarity of their embeddings.
     """
     unique_clusters_before = df["cluster"].unique()
-
-    # Reassign the -1 cluster to the nearest exemplar cluster
-    noise_df = df[df["cluster"] == -1].copy()
-    noise_embeddings = np.array([fetch_embedding(model, path)[0] for path in noise_df["crop_path"]])
-    similarities = cosine_similarity(noise_embeddings, exemplar_emb)
-    max_scores = similarities.max(axis=1)
-    best_clusters = similarities.argmax(axis=1)
-    valid = max_scores > min_similarity
-    valid_indices = noise_df.index[valid]
-    df.loc[valid_indices, "cluster"] = best_clusters[valid]
-    for idx, cluster, score in zip(noise_df.index[valid], best_clusters[valid], max_scores[valid]):
-        debug(f"Noise {idx} is now {cluster} {score:.2f}")
 
     info(f"Merging clusters with similarity threshold {min_similarity:.2f} ...")
     info(
@@ -185,18 +188,74 @@ def _similarity_merge(df: pd.DataFrame, exemplar_emb: np.ndarray, min_similarity
     if len(np.unique(linkage_clusters)) == 1:
         info("No clusters to merge")
     else:
-
         def map_to_new_cluster(old_cluster):
-            if old_cluster == -1 or old_cluster > len(exemplar_emb):
-                return old_cluster
+            if old_cluster == -1:
+                debug(f"Cluster {old_cluster} is noise, skipping")
+                return -1
             new_cluster = linkage_clusters[old_cluster]
-            debug(f"Assigning cluster {old_cluster} to {new_cluster}")
-            return new_cluster
+            actual_cluster = cluster[new_cluster]
+            debug(f"Assigning cluster {old_cluster} to {actual_cluster}")
+            return actual_cluster
 
         df["cluster"] = df["cluster"].map(map_to_new_cluster)
         unique_clusters_after = df["cluster"].unique()
         info(f"Unique clusters after merging: {len(unique_clusters_after)}")
 
+    return df
+
+def _compute_exemplars(df: pd.DataFrame, model: str, device: str, vits_batch_size: int) -> pd.DataFrame:
+    non_noise_df = df[df["cluster"] != -1]
+    max_score_idx = non_noise_df.sort_values("cluster", ascending=True).groupby("cluster")["HDBSCAN_probability"].idxmax()
+
+    # Create a new dataframe with the exemplars for each cluster
+    df_exemplars = df.loc[
+        max_score_idx, ["cluster", "x", "y", "xx", "xy", "image_width", "image_height", "crop_path", "image_path"]].copy()
+    df_exemplars = df_exemplars.sort_values("cluster", ascending=True)
+    df_exemplars["angle"] = 0
+
+    # Add a new row for every row for every angle to be rotated
+    df_exemplars_final = pd.DataFrame()
+    for angle in [45, 135, 180, 225, 270, 315]:
+        new_rows = df_exemplars.copy()
+        new_rows["crop_path"] = new_rows["crop_path"].str.replace(".png", f"_rot{angle}.png")
+        new_rows["angle"] = angle
+        df_exemplars_final = pd.concat([df_exemplars_final, new_rows], ignore_index=True)
+
+    # Add the original exemplars without rotation
+    df_exemplars_final = pd.concat([df_exemplars_final, df_exemplars], ignore_index=True)
+
+    # Crop all exemplar images at rotated angles, skipping those that already exist
+    info(f"Cropping {len(df_exemplars_final)} exemplar images to square...")
+    existing = df_exemplars_final["crop_path"].apply(lambda x: os.path.exists(x))
+    rows_to_crop = df_exemplars_final[~existing]._to_pandas()
+    image_angle_group = rows_to_crop.groupby(["image_path", "angle"])
+    with ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
+        futures = [executor.submit(crop_all_square_images, image_angle[0], df, 224, image_angle[1]) for image_angle, df
+                   in image_angle_group]
+        for _ in tqdm(as_completed(futures), total=len(futures)):
+            pass
+
+    crop_paths = df_exemplars_final["crop_path"].values.tolist()
+    compute_norm_embedding(model_name=model, images=crop_paths, device=device, batch_size=vits_batch_size)
+
+    info("Computing mean embeddings for exemplars across all rotations ...")
+    df_exemplar_group = df_exemplars_final.groupby("cluster")
+
+    def calc_mean(group):
+        embeddings = [fetch_embedding(model, path)[0] for path in group["crop_path"]]
+        embeddings = [emb for emb in embeddings if len(emb) > 0]
+        if not embeddings:
+            raise RuntimeError(f"No embeddings found for {group['crop_path'].values}")
+        return np.mean(np.array(embeddings), axis=0)
+
+    # Apply the function to each group and get the mean embeddings array for the merge
+    exemplar_means = df_exemplar_group.apply(calc_mean)
+    exemplar_emb = np.stack(exemplar_means.values, axis=0)
+
+    cluster = df_exemplar_group["cluster"].first().values
+    return exemplar_emb, cluster
+
+def _compute_avg_sim(df: pd.DataFrame, model: str) -> (pd.DataFrame, dict):
     def compute_cluster_avg_similarity(cluster_df):
         if len(cluster_df) == 0:
             return None
@@ -207,12 +266,16 @@ def _similarity_merge(df: pd.DataFrame, exemplar_emb: np.ndarray, min_similarity
         # This computes self-similarity within the cluster
         return np.mean(cosine_similarity(cluster_emb))
 
+    # Report the number of items in each cluster
+    cluster_counts = df.groupby("cluster").size()
+    for cluster_id, count in cluster_counts.items():
+        info(f"Cluster {cluster_id}: {count} items")
+
     # Group by cluster and apply the function in parallel
     info("Computing average similarity scores for each cluster ...")
     cluster_scores = df.groupby("cluster").apply(compute_cluster_avg_similarity)
     avg_sim_scores = cluster_scores.dropna().to_dict()
-    return df, avg_sim_scores
-
+    return avg_sim_scores
 
 def _run_hdbscan_assign(
     df: pandas.DataFrame,
@@ -317,15 +380,24 @@ def _run_hdbscan_assign(
 
     info(f"Number of clusters including unassigned -1 cluster: {len(np.unique(labels))}")
 
-    # Save the probabilities and batch for each cluster which is used for merging
-    df["HDBSCAN_probability"] = scan.probabilities_
-    df["cluster_batch"] = [f"{batch:05d}_{i:05d}" for i in labels]
-    df["cluster"] = labels
-    unique_clusters = df["cluster"].unique()
-    info(f"Batch {batch} index: {df.index[0]} to {df.index[-1]}")
-    info(f"Maximum cluster id: {labels.max()} minimum cluster id: {labels.min()} unique clusters: {len(unique_clusters)}")
-    return df
-
+    df_ = df.copy()
+    # Save the probabilities and cluster_batch for each cluster which is used for merging
+    df_["HDBSCAN_probability"] = scan.probabilities_
+    df_["cluster"] = labels
+    # Set the cluster batch based on the batch number and cluster id,
+    # Create a UUID for each cluster batch to ensure uniqueness
+    # e.g. "9476e0d0-3ee3-492e-816c-050f02e07bdb_00000002" for batch 0 and cluster label 2
+    # or "-1" for noise
+    batch_uuid = str(uuid.uuid4())
+    def set_cluster_batch(x):
+        if x != -1:
+            return f"{batch:08d}{x:08d}_{batch_uuid}"
+        return "-1"
+    df_["cluster_batch"] = df_["cluster"].apply(set_cluster_batch)
+    unique_clusters = df_["cluster"].unique()
+    info(f"Batch {batch} index: {df_.index[0]} to {df_.index[-1]}")
+    info(f"Maximum cluster id: {labels.max()} minimum cluster id: {labels.min()} unique clusters: {len(unique_clusters)} noise: {np.sum(labels == -1)}")
+    return df_
 
 def cluster_vits(
     prefix: str,
@@ -401,9 +473,10 @@ def cluster_vits(
                 for _ in tqdm(as_completed(futures), total=len(futures)):
                     pass
 
-    # Drop any rows with crop_path that have files that don't exist - sometimes the crops fail
+    # Drop any rows with crop_path that have files that don't exist or are zero - sometimes the crops fail
     num_before = len(df_dets)
     df_dets = df_dets[df_dets["crop_path"].apply(lambda x: os.path.exists(x))]
+    df_dets = df_dets[df_dets["crop_path"].apply(lambda x: os.path.getsize(x) > 0)]
     num_after = len(df_dets)
     if num_before != num_after:
         info(f"Dropped {num_before - num_after} detections with missing crop_path files")
@@ -414,7 +487,7 @@ def cluster_vits(
     df_dets = df_dets.sort_index()
     df_dets["exemplar"] = 0
     df_dets["cluster"] = -1  # -1 means noise or unassigned
-    df_dets["cluster_batch"] = ""
+    df_dets["cluster_batch"] = "-1"
     df_dets["HDBSCAN_probability"] = 0
 
     # Get the list of images to crop
@@ -528,7 +601,7 @@ def cluster_vits(
         Disable df_ancillary for now
         """
         start = df.index[0]
-        end = df.index[-1] + 1
+        end = df.index[-1]
         info(f"Processing batch {i + 1} of {num_batches} {start} to {end}...")
         filepaths = df["crop_path"].values.tolist()
         info(f"Fetching batch {i + 1}  embeddings for {len(filepaths)} images...")
@@ -604,7 +677,7 @@ def cluster_vits(
                 process_batch,
                 i,
                 core_dist_n_jobs,
-                df_dets.iloc[i * hdbscan_batch_size : min((i + 1) * hdbscan_batch_size, len(crop_paths))],
+                df_dets.iloc[i * hdbscan_batch_size : min((i + 1) * hdbscan_batch_size, len(crop_paths))]._to_pandas(),
             )
             for i in range(num_batches)
         ]
@@ -627,99 +700,53 @@ def cluster_vits(
         return None
 
     # Drop any rows with NaN values
-    df_dets_clean = df_dets.dropna()
-    if df_dets_clean.empty:
+    df_dets = df_dets.dropna()
+    if df_dets.empty:
         warn("No detections left after dropping NaN values")
         return None
 
-    # Create an increasing array of integers based on the unique cluster_batch values, except for -1
+    # Create an increasing array of integers based on the unique cluster_batch values, except for the noise
     info("Mapping clusters to unique integers ...")
-    non_noise_df = df_dets_clean[df_dets_clean["cluster"] != -1]
-    unique_cluster_batch = non_noise_df.sort_values("cluster_batch").groupby("cluster_batch")
-    cluster_mapping = {cluster: i for i, cluster in enumerate(unique_cluster_batch.groups)}
-
-    def map_cluster(row):
-        if row["cluster"] == -1:
-            return -1
-        return cluster_mapping[row["cluster_batch"]]
+    non_noise_df = df_dets[df_dets["cluster"] != -1]
 
     if non_noise_df.empty:
         warn("No clusters found")
         return None
 
-    df_dets["cluster"] = df_dets.apply(map_cluster, axis=1)
+    unique_cluster_batch = non_noise_df.groupby("cluster_batch")
+    cluster_batch_group = {cg: i for i, cg in enumerate(unique_cluster_batch.groups)}
+    cluster_batch_group["-1"] = -1  # Ensure noise cluster is mapped to -1
+
+    info(f"Mapping {len(cluster_batch_group)} unique cluster batches to integers ...")
+    df_dets["cluster_org"] = df_dets["cluster"]  # Keep the original cluster for reference
+    values = df_dets["cluster_batch"].values
+    df_dets["cluster"] = [cluster_batch_group.get(c, -1) for c in values] # Map to contiguous integers
 
     unique_clusters = df_dets["cluster"].unique()
     info(f"Index: {df_dets.index[0]} to {df_dets.index[-1]}")
-    info(
-        f"Final maximum cluster id: {df_dets['cluster'].values.max()} minimum cluster id: {df_dets['cluster'].values.min()} unique clusters: {len(unique_clusters)}"
-    )
+    info(f"Remapped maximum cluster id: {df_dets['cluster'].values.max()} minimum cluster id: {df_dets['cluster'].values.min()} unique clusters: {len(unique_clusters)}")
 
-    max_scores = df_dets.sort_values("cluster", ascending=True).groupby("cluster")["HDBSCAN_probability"].idxmax()
-    # Remove the first element which is the -1 cluster
-    if -1 in max_scores.index:
-        max_scores = max_scores.drop(-1)
+    # Compute the exemplars for each cluster
+    exemplar_emb, cluster = _compute_exemplars(df_dets, model, device, vits_batch_size)
 
-    if len(max_scores) == 0:
-        warn("No clusters found")
-        return None
+    # Reassign noise (-1) cluster to the nearest exemplar cluster based on cosine similarity
+    df_dets_re = _reassign_noise(df_dets, exemplar_emb, cluster, min_similarity, model)
 
-    # Get the representative embeddings for the max scoring exemplars for each cluster and store them in a numpy array
-    exemplar_emb = [fetch_embedding(model, filename)[0] for filename in df_dets.loc[max_scores]["crop_path"]]
-    exemplar_emb = np.array(exemplar_emb)
+    # Merge by similarity to the exemplar embeddings
+    df_dets_final = _similarity_merge(df_dets_re, exemplar_emb, cluster, min_similarity, model)
 
-    # Create a new dataframe with the exemplars for each cluster
-    df_exemplars = df_dets.loc[max_scores, ["cluster", "x", "y", "xx", "xy", "image_width", "image_height", "crop_path", "image_path"]].copy()
-    df_exemplars = df_exemplars.sort_values("cluster", ascending=True)
-    df_exemplars["angle"] = 0
+    # We may have fewer clusters after merging, so reassign the cluster ids to contiguous integers
+    non_noise_df = df_dets_final[df_dets_final["cluster"] != -1]
+    unique_cluster = non_noise_df.groupby("cluster")
+    cluster_group = {cg: i for i, cg in enumerate(unique_cluster.groups)}
+    cluster_group["-1"] = -1  # Ensure noise cluster is mapped to -1
 
-    # Add a new row for every row for every angle to be rotated
-    df_exemplars_final = pd.DataFrame()
-    for angle in [45, 135, 180]:
-        new_rows = df_exemplars.copy()
-        new_rows["crop_path"] = new_rows["crop_path"].str.replace(".png", f"_rot{angle}.png")
-        new_rows["angle"] = angle
-        df_exemplars_final = pd.concat([df_exemplars_final, new_rows], ignore_index=True)
+    info(f"Mapping {len(unique_clusters)} unique cluster to contiguous integers ...")
+    values = df_dets_final["cluster"].values
+    df_dets["cluster"] = [cluster_group.get(c, -1) for c in values] # Map to contiguous integers
 
-    # Add the original exemplars without rotation
-    df_exemplars_final = pd.concat([df_exemplars_final, df_exemplars], ignore_index=True)
-
-    # Crop all exemplar images at rotated angles, skipping those that already exist
-    info(f"Cropping {len(df_exemplars_final)} exemplar images to square...")
-    existing = df_exemplars_final["crop_path"].apply(lambda x: os.path.exists(x))
-    rows_to_crop = df_exemplars_final[~existing]._to_pandas()
-    image_angle_group = rows_to_crop.groupby(["image_path", "angle"])
-    with ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
-        futures = [executor.submit(crop_all_square_images, image_angle[0], df, 224, image_angle[1]) for image_angle, df in image_angle_group]
-        for _ in tqdm(as_completed(futures), total=len(futures)):
-            pass
-
-    crop_paths = df_exemplars_final["crop_path"].values.tolist()
-    compute_norm_embedding(model_name=model, images=crop_paths, device=device, batch_size=vits_batch_size)
-
-    info("Computing median embeddings for exemplars across all rotations ...")
-    # Group by cluster and compute the median embedding for each clusters
-    df_exemplar_group = df_exemplars_final.groupby("cluster")
-    def calc_mean(group):
-        """Calculate the mean embedding for a group of exemplars."""
-        embeddings = [fetch_embedding(model, path)[0] for path in group["crop_path"]]
-        # Remove any empty embeddings
-        embeddings = [emb for emb in embeddings if len(emb) > 0]
-        if not embeddings:
-            raise RuntimeError(f"No embeddings found for {group['crop_path'].values}")
-        return np.median(np.array(embeddings), axis=0)
-
-    # Apply the function to each group and get the mean embeddings array for the merge
-    exemplar_emb = df_exemplar_group.apply(calc_mean).values
-    exemplar_emb = np.stack(exemplar_emb, axis=0)
-
-    # Merge by similarity to the median exemplar embeddings
-    df_dets_final, avg_sim_scores = _similarity_merge(df_dets, exemplar_emb, min_similarity, model)
-
-    # Drop any rows with NaN values in the cluster column
-    df_dets_final = df_dets_final.dropna(subset=["cluster"])
-
-    # Get the average similarity across all clusters
+    # Get the average similarity within and across all clusters
+    avg_sim_scores = _compute_avg_sim(df_dets_final, model)
     avg_similarity = np.mean(list(avg_sim_scores.values()))
 
     info(f"Average similarity: {avg_similarity:.2f} min {min_similarity:.2f}  ")

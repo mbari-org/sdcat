@@ -44,7 +44,6 @@ class ViTWrapper:
         return self.model.config.hidden_size
 
     def process_images(self, image_paths: list[str]):
-        info(f"Processing {len(image_paths)} images with {self.model_name}")
 
         # Load and preprocess images
         images = [Image.open(p).convert("RGB") for p in image_paths]

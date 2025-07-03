@@ -90,6 +90,8 @@ Pip install the sdcat package with:
 pip install sdcat
 ```
 
+# To set an alternative temporary directory, set the environment variable `TMPDIR` to the desired path.
+
 Alternatively, [Docker](https://www.docker.com) can be used to run the code. A pre-built docker image is available at [Docker Hub](https://hub.docker.com/r/mbari/sdcat) with the latest version of the code.
 
 Detection

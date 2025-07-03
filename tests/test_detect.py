@@ -1,7 +1,7 @@
 # sdcat, Apache-2.0 license
 # Filename: sdcat/tests/test_detect.py
 # Description:    Test the detect command.
-
+import os
 import tempfile
 from pathlib import Path
 import subprocess
@@ -19,7 +19,8 @@ def run_detect(data_dir: Path, scale: int) -> int:
 
     num_detections = 0
     # Run in temporary directory
-    with tempfile.TemporaryDirectory() as tmp_dir:
+    temp_dir = os.getenv("TMPDIR", tempfile.gettempdir())
+    with tempfile.TemporaryDirectory(dir=temp_dir) as tmp_dir:
         # Run sdcat
         proc = subprocess.Popen(
             [

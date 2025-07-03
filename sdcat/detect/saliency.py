@@ -141,7 +141,8 @@ def extract_blobs(saliency_map: np.ndarray, img_gray: np.ndarray, img_color: np.
     info(f"Using {num_processes} processes to compute {len(contours)} 100 at a time ...")
 
     # Work in a temporary directory
-    with tempfile.TemporaryDirectory() as temp_path:
+    tmp_dir = os.getenv("TMPDIR", tempfile.gettempdir())
+    with tempfile.TemporaryDirectory(dir=tmp_dir) as temp_path:
         temp_path = Path(temp_path)
         gray = img_gray
 

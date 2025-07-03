@@ -38,7 +38,7 @@ cluster_selection_method = click.option(
 )
 
 algorithm = click.option(
-    "--algorithm", type=str, help="Algorithm for clustering. Default is best.  bes, generic, prims_kdtree, boruvka_kdtree"
+    "--algorithm", type=str, help="Algorithm for clustering. Default is best.  best, generic, prims_kdtree, boruvka_kdtree"
 )
 
 min_cluster_size = click.option(

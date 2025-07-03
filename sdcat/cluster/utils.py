@@ -93,7 +93,7 @@ def cluster_grid(
 
 
 def clean_bad_images(filepaths: List[str]) -> List[str]:
-    """Remove dark, blurry, exact duplicate, and near duplicate images."""
+    """Remove blurry and near duplicate images."""
     imagelab = Imagelab(filepaths=filepaths)
 
     # Override the default configurations
@@ -107,10 +107,8 @@ def clean_bad_images(filepaths: List[str]) -> List[str]:
 
     # Detect dark and blurry images
     issue_types = {
-        "dark": {},
         "blurry": {"threshold": 0.52},  # Default is 0.5, but we want to be more strict
         "near_duplicates": {"hash_size": 4, "hash_types": ["whash", "phash"]},
-        "low_information": {"threshold": 0.52},
     }
     imagelab.find_issues(issue_types)
     # imagelab.report() Disabling report = this is causing a segfault when run on large datasets

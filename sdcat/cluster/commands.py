@@ -109,7 +109,8 @@ def run_cluster_det(
     crop_path = save_dir / "crops"
     crop_path.mkdir(parents=True, exist_ok=True)
 
-    with tempfile.TemporaryDirectory() as temp_dir:
+    tmp_dir = os.getenv("TMPDIR", tempfile.gettempdir())
+    with tempfile.TemporaryDirectory(dir=tmp_dir) as temp_dir:
         csv_file = combine_csv(csv_files, Path(temp_dir), crop_path)
 
         info("Loading detections")
@@ -128,6 +129,9 @@ def run_cluster_det(
 
         # Sort the dataframe by image_path to make sure the images are in order for start_image and end_image filtering
         df = df.sort_values(by="image_path")
+
+        # Remove any rows where the image_path does not exist
+        df = df[df["image_path"].apply(lambda x: Path(x).exists())]
 
         # If start_image is set, find the index of the start_image in the list of images
         if start_image:

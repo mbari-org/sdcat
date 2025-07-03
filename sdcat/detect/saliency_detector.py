@@ -1,6 +1,7 @@
 # sdcat, Apache-2.0 license
 # Filename: sdcat/ml/saliency.py
 # Description:  Miscellaneous saliency functions for detecting targets in images using saliency maps
+import os
 import tempfile
 import cv2
 import numpy as np
@@ -439,7 +440,8 @@ if __name__ == "__main__":
     num_images = len(list(test_path.glob(ext_glob)))
 
     # Do the work in a temporary directory
-    with tempfile.TemporaryDirectory() as temp_path:
+    tmp_dir = os.getenv("TMPDIR", tempfile.gettempdir())
+    with tempfile.TemporaryDirectory(dir=tmp_dir) as temp_path:
         temp_path = Path(temp_path)
 
         for in_image_file in test_path.glob(ext_glob):
