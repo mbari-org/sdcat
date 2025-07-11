@@ -1,8 +1,9 @@
 [![MBARI](https://www.mbari.org/wp-content/uploads/2014/11/logo-mbari-3b.png)](http://www.mbari.org)
 [![semantic-release](https://img.shields.io/badge/%20%20%F0%9F%93%A6%F0%9F%9A%80-semantic--release-e10079.svg)](https://github.com/semantic-release/semantic-release)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-[![Python](https://img.shields.io/badge/language-Python-blue.svg)](https://www.python.org/downloads/)
 [![Run pytest](https://github.com/mbari-org/sdcat/actions/workflows/pytest.yml/badge.svg)](https://github.com/mbari-org/sdcat/actions/workflows/pytest.yml)
+[![Docker Image Version (latest semver)](https://img.shields.io/docker/v/mbari/sdcat?sort=semver)](https://hub.docker.com/r/mbari/sdcat)
+[![Docker Pulls](https://img.shields.io/docker/pulls/mbari/sdcat)](https://hub.docker.com/r/mbari/sdcat)
 
 **sdcat*** Sliced Detection and Clustering Analysis Toolkit*
 
@@ -11,7 +12,7 @@ This tool processes images using a sliced detection and clustering workflow. Thi
    - The detection models include YOLOv8s, YOLOS, and various MBARI-specific models for midwater and UAV images.
    - The SAHI algorithm slices images into smaller windows and runs a detection model on the windows to improve detection accuracy.
 2. **Clustering**: Clusters the detections using a Vision Transformer (ViT) model and the HDBSCAN algorithm.
-3. **Visualization**: Visualizes the detections and clusters in a user-friendly way with grid plots and images with bounding boxes.
+3. **Visualization**: (optional) Visualizes the detections and clusters in a user-friendly way with grid plots and images with bounding boxes.
 
 If your images look something like the image below, and you want to detect objects in the images,
 and optionally cluster the detections, then this repository may be useful to you, particularly for discovery to quickly gather training data.
