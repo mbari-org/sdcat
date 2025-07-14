@@ -30,7 +30,7 @@ Author: Danelle, dcline@mbari.org . Reach out if you have questions, comments, o
 Detection
 ---
 Detection can be done with a fine-grained saliency-based detection model,  and/or one the following models run with the SAHI algorithm.
-Both detections algorithms (saliency and object dtection) are run by default and combined to produce the final detections.
+Both detections algorithms (saliency and object detection) are run by default and combined to produce the final detections.
 SAHI is short for Slicing Aided Hyper Inference, and is a method to slice images into smaller windows and run a detection model
 on the windows.
 
