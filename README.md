@@ -15,10 +15,68 @@ Author: Danelle, dcline@mbari.org . Reach out if you have questions, comments, o
   * The detection models include YOLOv8s, YOLOS, and various MBARI-specific models for midwater and UAV images.
   * The [__SAHI__](https://github.com/obss/sahi) algorithm slices images into smaller windows and runs a detection model on the windows to improve detection accuracy.
 - **Clustering**: Clusters the detections using a Vision Transformer (ViT) model and the [__HDBSCAN__](https://hdbscan.readthedocs.io/en/latest/how_hdbscan_works.html) algorithm with a cosine similarity metric.
-- **Visualization**: Visualizes the detections and clusters in a user-friendly way with grid plots and images with bounding boxes.
-Example grid plot of the clustering results:
-![](https://raw.githubusercontent.com/mbari-org/sdcat/main/docs/imgs/example_cluster_4_p0.png)
+- **Analysis**: Analyzes the clustering results.
+  * A summary of the is generated, including the number of clusters, cluster coverage, etc. in a JSON file. Example summary:
+```json
+{
+    "dataset": {
+        "output": "/data/output",
+        "clustering_algorithm": "HDBSCAN",
+        "clustering_parameters": {
+            "min_cluster_size": 2,
+            "min_samples": 1,
+            "cluster_selection_method": "leaf",
+            "metric": "precomputed",
+            "algorithm": "best",
+            "alpha": 1.3,
+            "cluster_selection_epsilon": 0.0,
+            "use_pca": false
+        },
+        "feature_embedding_model": "MBARI-org/mbari-uav-vit-b-16",
+        "roi": true,
+        "input": [
+            "/data/input"
+        ],
+        "image_resolution": "224x224 pixels",
+        "detection_count": 328
+    },
+    "statistics": {
+        "total_clusters": 4,
+        "cluster_coverage": "0.99 (99.09%)",
+        "top_predictions": [
+            {
+                "class": "Batray",
+                "percentage": "89.33%"
+            },
+            {
+                "class": "Buoy",
+                "percentage": "2.44%"
+            },
+            {
+                "class": "Otter",
+                "percentage": "4.57%"
+            },
+            {
+                "class": "Secci_Disc",
+                "percentage": "0.30%"
+            },
+            {
+                "class": "Shark",
+                "percentage": "3.35%"
+            }
+        ]
+    },
+    "sdcat_version": "1.27.8",
+    "command": "sdcat cluster roi --roi-dir /data/input --save-dir /data/output --device cpu --use-vits --vits-batch-size 10 --hdbscan-batch-size 100"
+}
+```
+- **Visualization**: Visualizes the detections and clusters.
+Example visualization generated of clustering results:
+![](https://raw.githubusercontent.com/mbari-org/sdcat/main/docs/imgs/MBARI-org_mbari-uav-vit-b-16_20250703_082829_cluster_1_p0.png)
+![](https://raw.githubusercontent.com/mbari-org/sdcat/main/docs/imgs/MBARI-org_mbari-uav-vit-b-16_20250703_082829_summary.png)
+![](https://raw.githubusercontent.com/mbari-org/sdcat/main/docs/imgs/DSC00770_crop.jpg)
 
+ 
 If your images look something like the image below, and you want to detect objects in the images,
 and optionally cluster the detections, then this repository may be useful to you, particularly for discovery to quickly gather training data.
 The repository is designed to be run from the command line, and can be run in a Docker container,
@@ -237,7 +295,9 @@ sdcat cluster --det-dir <det-dir>/yolov8s/det_filtered --save-dir <save-dir>  --
 
 # Performance Notes
 
-🚀 The [__RAPIDS__](https://rapids.ai/) package is supported for speed-up with CUDA. No detailed documentation just yet. Enable by using the _--cuhdbscan_ option and installing RAPIDS
+🚀 The [__RAPIDS__](https://rapids.ai/) package is supported for speed-up with CUDA. Enable by using the _--cuhdbscan_ option and installing RAPIDS.
+When RAPIDs is enabled, Euclidean distance as an approximation of cosine distance so the results may not be exactly the same as
+with the default HDBSCAN implementation.
 
 __Large collections of images__ the HDBSCAN is slow with cosine similarity , so to support processing large collections of detections/ROIs is done in batches. 
 The *--vits-batch-size* option to set the batch size for your ViTS model and is default is 32. This means that the ViTS model will process 32 images at a time.
