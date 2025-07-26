@@ -71,19 +71,23 @@ Author: Danelle, dcline@mbari.org . Reach out if you have questions, comments, o
 }
 ```
 - **Visualization**: Visualizes the detections and clusters.
-Example visualization generated of clustering results:
+## Grid output 
 ![](https://raw.githubusercontent.com/mbari-org/sdcat/main/docs/imgs/MBARI-org_mbari-uav-vit-b-16_20250703_082829_cluster_1_p0.png)
+## Cluster summary
 ![](https://raw.githubusercontent.com/mbari-org/sdcat/main/docs/imgs/MBARI-org_mbari-uav-vit-b-16_20250703_082829_summary.png)
+## Saliency detected bounding boxes
 ![](https://raw.githubusercontent.com/mbari-org/sdcat/main/docs/imgs/DSC00770_crop.jpg)
 
- 
-If your images look something like the image below, and you want to detect objects in the images,
-and optionally cluster the detections, then this repository may be useful to you, particularly for discovery to quickly gather training data.
-The repository is designed to be run from the command line, and can be run in a Docker container,
-without or with a GPU (recommended).
 
-To use with a multiple gpus, use the --device cuda option
-To use with a single gpu, use the --device cuda:0,1 option
+# Who is this for?
+ 
+__If your images__ look something like the image below, and you want to detect objects in the images,
+and optionally cluster the detections, then this repository may be useful to you, particularly for discovery and/or
+to quickly gather training data to train a custom model.
+
+The repository is designed to be run from the command line, and can be run in a Docker container,
+without or with a GPU (recommended).  To use with a multiple gpus, use the _--device cuda_ option
+To use with a single gpu, use the _--device cuda:0,1_ option
 
 
 ---
