@@ -7,12 +7,17 @@
 
 **sdcat*** Sliced Detection and Clustering Analysis Toolkit*
 
-This tool processes images using a sliced detection and clustering workflow. This is a two-step process:
-1. **Detection**: Detects objects in images using a fine-grained saliency-based detection model, and/or one of the object detection models run with the SAHI algorithm. These two algorithms can be combined through NMS (Non-Maximum Suppression) to produce the final detections.
-   - The detection models include YOLOv8s, YOLOS, and various MBARI-specific models for midwater and UAV images.
-   - The SAHI algorithm slices images into smaller windows and runs a detection model on the windows to improve detection accuracy.
-2. **Clustering**: Clusters the detections using a Vision Transformer (ViT) model and the HDBSCAN algorithm.
-3. **Visualization**: (optional) Visualizes the detections and clusters in a user-friendly way with grid plots and images with bounding boxes.
+Author: Danelle, dcline@mbari.org . Reach out if you have questions, comments, or suggestions.
+
+## Features
+
+- **Detection**: Detects objects in images using a fine-grained saliency-based detection model, and/or an object detection models with the [__SAHI__](https://github.com/obss/sahi) algorithm. These two algorithms can be combined through NMS (Non-Maximum Suppression) to produce the final detections.
+  * The detection models include YOLOv8s, YOLOS, and various MBARI-specific models for midwater and UAV images.
+  * The [__SAHI__](https://github.com/obss/sahi) algorithm slices images into smaller windows and runs a detection model on the windows to improve detection accuracy.
+- **Clustering**: Clusters the detections using a Vision Transformer (ViT) model and the [__HDBSCAN__](https://hdbscan.readthedocs.io/en/latest/how_hdbscan_works.html) algorithm with a cosine similarity metric.
+- **Visualization**: Visualizes the detections and clusters in a user-friendly way with grid plots and images with bounding boxes.
+Example grid plot of the clustering results:
+![](https://raw.githubusercontent.com/mbari-org/sdcat/main/docs/imgs/example_cluster_4_p0.png)
 
 If your images look something like the image below, and you want to detect objects in the images,
 and optionally cluster the detections, then this repository may be useful to you, particularly for discovery to quickly gather training data.
@@ -22,7 +27,6 @@ without or with a GPU (recommended).
 To use with a multiple gpus, use the --device cuda option
 To use with a single gpu, use the --device cuda:0,1 option
 
-Author: Danelle, dcline@mbari.org . Reach out if you have questions, comments, or suggestions.
 
 ---
 ![](https://raw.githubusercontent.com/mbari-org/sdcat/main/docs/imgs/example_images.jpg)
@@ -69,7 +73,10 @@ sdcat cluster roi --roi <roi> --save-dir <save-dir> --model <model>
 ```
 
 The clustering is done with a Vision Transformer (ViT) model, and a cosine similarity metric with the HDBSCAN algorithm.
-The ViT model is used to generate embeddings for the detections, and the HDBSCAN algorithm is used to cluster the detections.
+Clustering is generally done on a fine-grained scale, then clusters are combined using exemplars are extracted from each 
+cluster - this is helpful to reassign noisy detections to the nearest cluster. 
+This has been optimized to process data in batches of 50K (default) to support large collections of detections/rois.
+
 What is an embedding?  An embedding is a vector representation of an object in an image.
 
 The defaults are set to produce fine-grained clusters, but the parameters can be adjusted to produce coarser clusters.
@@ -209,9 +216,6 @@ For clustering, the output is organized in a folder with the following structure
         ├── dino_vits8.._cluster_noise_p0.png    # Noise (unclustered) page 0 grid plot
 ```
 
-Example grid plot of the clustering results:
-![](https://raw.githubusercontent.com/mbari-org/sdcat/main/docs/imgs/example_cluster_4_p0.png)
-
 ## Process images creating bounding box detections with the YOLOv8s model.
 The YOLOv8s model is not as accurate as other models, but is fast and good for detecting larger objects in images,
 and good for experiments and quick results.
@@ -235,18 +239,14 @@ sdcat cluster --det-dir <det-dir>/yolov8s/det_filtered --save-dir <save-dir>  --
 
 🚀 The [__RAPIDS__](https://rapids.ai/) package is supported for speed-up with CUDA. No detailed documentation just yet. Enable by using the _--cuhdbscan_ option and installing RAPIDS
 
-__Large collections of images__ the HDBSCAN is inherently non-parallel, so to support processing large 
-colletions of detections/ROIs, e.g. 500000, you need to experiment with the batch sizes. 
-To enable batching, use the *--vits-batch-size* option to set the batch size for your ViTS model. 
-The default is 32. This means that the ViTS model will process 32 images at a time.
-To enable batching for HDBSCAN, use the *--hdbscan-batch-size* option to set the batch size for HDBSCAN.
-The default is 50000. This means that HDBSCAN will process 50000 detections at a time. You
-want to maximize both of these batch sizes to speed up processing.
+__Large collections of images__ the HDBSCAN is slow with cosine similarity , so to support processing large collections of detections/ROIs is done in batches. 
+The *--vits-batch-size* option to set the batch size for your ViTS model and is default is 32. This means that the ViTS model will process 32 images at a time.
+For HDBSCAN, use the *--hdbscan-batch-size* option to set the batch size for HDBSCAN. You may want to maximize both of these batch sizes to speed up processing if you have a large collection of detections/ROIs.
 
 __Temporary Directory__ Sometimes it is useful to set an alternative temporary directory on systems with limited disk space, or if you want to use a faster disk for temporary files.
 To set a temporary directory, you can set the `TMPDIR` environment variable to the path of the directory you want to use.
 This directory is used to store temporary files created by the sdcat toolkit during processing.
-Most, but not all data is stored to what is specified with the `--save-dir` option, but some temporary files 
+Much of the data is stored in the directory specified with the `--save-dir` option, but there are some temporary files 
 are stored in the system's default temporary directory.
 
 ```shell
