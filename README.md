@@ -41,8 +41,8 @@ Author: Danelle, dcline@mbari.org . Reach out if you have questions, comments, o
         "detection_count": 328
     },
     "statistics": {
-        "total_clusters": 4,
-        "cluster_coverage": "0.99 (99.09%)",
+        "total_clusters": 5,
+        "cluster_coverage": "0.99 (99.99%)",
         "top_predictions": [
             {
                 "class": "Batray",
