@@ -2,6 +2,33 @@
 
 
 
+## v1.27.10 (2025-09-05)
+
+### Documentation
+
+* docs: minor correction to JSON ([`c84c260`](https://github.com/mbari-org/sdcat/commit/c84c260c6335e5aae3cb811495f7f4a1faa09146))
+
+* docs: minor reformatting ([`13a0371`](https://github.com/mbari-org/sdcat/commit/13a0371a9b614151c3e9f773d70126b8cda7a1f0))
+
+* docs: minor reformatting ([`c09d411`](https://github.com/mbari-org/sdcat/commit/c09d411a5d002639b2d30c46d4ca2c582485ee08))
+
+* docs: added more detail on visualization examples and analysis ([`3460cf3`](https://github.com/mbari-org/sdcat/commit/3460cf3f707c939f830d73e62aea32cb4aab2cc1))
+
+* docs: some reorg of order &amp; reformatting in README.md for clarity; better description of batching ([`f0d5260`](https://github.com/mbari-org/sdcat/commit/f0d5260740d7f77b26958973f96b04f5e4e3adb1))
+
+* docs: typo ([`f33c384`](https://github.com/mbari-org/sdcat/commit/f33c384f800b8f44d73393bf27f15e9d6ebf4572))
+
+* docs: minor addition to badge and intro ([`62de3ff`](https://github.com/mbari-org/sdcat/commit/62de3ff9708df9e439b82674923dbb6c4dfb0bc6))
+
+### Fix
+
+* fix: handle out of bounds cluster merge ([`4681cdd`](https://github.com/mbari-org/sdcat/commit/4681cdd8a00c2587d77950a4bd4f2ee48e939769))
+
+### Unknown
+
+* docs: ([`b9b8aa9`](https://github.com/mbari-org/sdcat/commit/b9b8aa91e65a10c486a5820e0868c51791a2e2ba))
+
+
 ## v1.27.9 (2025-07-03)
 
 ### Fix
