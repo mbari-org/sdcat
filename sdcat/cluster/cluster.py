@@ -199,6 +199,8 @@ def _similarity_merge(
                 debug(f"Cluster {old_cluster} is noise, skipping")
                 return -1
             new_cluster = linkage_clusters[old_cluster]
+            if new_cluster > len(cluster) - 1:
+                return old_cluster
             actual_cluster = cluster[new_cluster]
             debug(f"Assigning cluster {old_cluster} to {actual_cluster}")
             return actual_cluster
