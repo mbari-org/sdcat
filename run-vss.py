@@ -210,6 +210,14 @@ Examples:
     print("=" * 60)
     print("Done!")
 
+    # Save query image and similar exemplars to a CSV file
+    print(f"Saving results to run_vss.csv...")
+    with open("run_vss.csv", "w") as f:
+        f.write(f"query_image,{args.query_image}\n")
+        for rank, (idx, score) in enumerate(zip(top_indices, top_scores), 1):
+            exemplar_path = exemplar_paths[idx]
+            f.write(f"{rank},{exemplar_path}\n")
+
 
 if __name__ == "__main__":
     main()
