@@ -2,6 +2,17 @@
 
 
 
+## v1.27.11 (2025-12-14)
+
+### Fix
+
+* fix: handle cuda or cuda:1, cuda:0 device arguments ([`a60337d`](https://github.com/mbari-org/sdcat/commit/a60337db95d6c6f4f0938780081c425d5e4e933e))
+
+### Unknown
+
+* example vss processing ([`5c0a75e`](https://github.com/mbari-org/sdcat/commit/5c0a75e827a256e864e740c87e32a869c915ebc4))
+
+
 ## v1.27.10 (2025-09-05)
 
 ### Documentation
