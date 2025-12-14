@@ -22,9 +22,13 @@ class ViTWrapper:
         self.batch_size = batch_size
         self.name = model_name
 
-        # Initialize device
+        # Initialize device, e.g. cuda:0 for GPU 0, or cpu for CPU, or cuda
         if "cuda" in device and torch.cuda.is_available():
-            device_num = int(device.split(":")[-1])
+            device_split = device.split(":")
+            if len(device_split) > 1:
+                device_num = int(device_split[1])
+            else:
+                device_num = 0
             info(f"Using GPU device {device_num}")
             self.device = torch.device(f"cuda:{device_num}")
             torch.cuda.set_device(device_num)
