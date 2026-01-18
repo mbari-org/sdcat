@@ -20,7 +20,7 @@ from sdcat.detect.sahi_detector import run_sahi_detect_bulk, run_sahi_detect
 from sdcat.detect.saliency_detector import run_saliency_detect, run_saliency_detect_bulk
 from sdcat.logger import info, warn, create_logger_file
 
-default_model = "MBARI-org/megamidwater"
+default_model = "MBARI-org/megamidwater"  # Fallback if not in config
 
 
 @click.command(
@@ -48,7 +48,7 @@ default_model = "MBARI-org/megamidwater"
 @click.option("--skip-saliency", is_flag=True, help="Skip saliency detection.")
 @click.option("--conf", default=0.1, type=float, help="Confidence threshold.")
 @click.option("--scale-percent", default=80, type=int, help="Scaling factor to rescale the images before processing.")
-@click.option("--model", default=default_model, help=f"Model to use. Defaults to {default_model}")
+@click.option("--model", default=None, help=f"Model to use. Defaults to config.ini setting or {default_model}")
 @click.option("--model-type", help="Type of model, e.g. yolov5, yolov8. Defaults to auto-detect.")
 @click.option("--slice-size-width", type=int, help="Slice width size, leave blank for auto slicing")
 @click.option("--slice-size-height", type=int, help="Slice height size, leave blank for auto slicing")
@@ -89,6 +89,11 @@ def run_detect(
     end_image: str,
 ):
     config = cfg.Config(config_ini)
+    # Use model from config if not specified on command line
+    if model is None:
+        model = config("detect", "model")
+        if not model:
+            model = default_model
     clahe = clahe if clahe else config("detect", "clahe") == "True"
     block_size = int(config("detect", "block_size"))
     min_std = float(config("detect", "min_std"))
