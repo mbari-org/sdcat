@@ -42,7 +42,7 @@ def create_model(model: str, conf: float, device: str, model_type=None):
 
         return AutoDetectionModel.from_pretrained(
             model_type=model_type,
-            model_path=Path(model) / pt_files[0],
+            model_path=str(Path(model) / pt_files[0]),
             confidence_threshold=conf,
             device=device,
         )
