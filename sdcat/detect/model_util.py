@@ -23,36 +23,33 @@ def create_model(model: str, conf: float, device: str, model_type=None):
 
     # Check if the provided model is a local file path
     if os.path.exists(model):
-        if os.path.isdir(model):
-            dir_to_model_map = {"yolov5": "yolov5", "yolov8": "yolov8", "huggingface": "huggingface"}
-            model_path = [f for f in os.listdir(model) if f.endswith(".pt")]
-            if len(model_path) == 0:
-                err(f"No .pt file found in directory: {model}")
-                raise ValueError(f"No .pt file found in directory: {model}")
-            if model_type is None:
-                for k, v in dir_to_model_map.items():
-                    if k in model:
-                        model_type = v
-                        break
-            if model_type is None:
-                err(
-                    f"Could not determine model type from directory name: {model}. Try the --model-type option, e.g., --model-type yolov11"
-                )
-                raise ValueError(
-                    f"Could not determine model type from directory name: {model}. Try the --model-type option, e.g., --model-type yolov11"
-                )
-            detection_model = AutoDetectionModel.from_pretrained(
-                model_type=model_type,
-                model_path=Path(model) / model_path[0],
-                confidence_threshold=conf,
-                device=device,
-            )
-            return detection_model
-        else:
+        if not os.path.isdir(model):
             raise ValueError(f"Model path is not a directory: {model}")
+
+        pt_files = [f for f in os.listdir(model) if f.endswith(".pt")]
+        if not pt_files:
+            raise ValueError(f"No .pt file found in directory: {model}")
+
+        if model_type is None:
+            known_types = ["yolov5", "yolov8", "huggingface", "yolo11", "roboflow"]
+            model_type = next((t for t in known_types if t in model), None)
+
+        if model_type is None:
+            raise ValueError(
+                f"Could not determine model type from directory name: {model}. "
+                "Try the --model-type option, e.g., --model-type yolov11"
+            )
+
+        return AutoDetectionModel.from_pretrained(
+            model_type=model_type,
+            model_path=Path(model) / pt_files[0],
+            confidence_threshold=conf,
+            device=device,
+        )
 
     # Predefined model mapping
     model_map = {
+        "roboflow": {"model_type": "roboflow", "model_path": "roboflow/RFDETR"},
         "yolov8s": {"model_type": "yolov8", "model_path": "ultralyticsplus/yolov8s"},
         "yolov8x": {"model_type": "yolov8", "model_path": "yolov8x.pt"},
         "hustvl/yolos-small": {
@@ -72,6 +69,10 @@ def create_model(model: str, conf: float, device: str, model_type=None):
         "MBARI-org/uav-yolov5-30k": {
             "model_type": "yolov5",
             "model_path": lambda: hf_hub_download("MBARI-org/yolov5x6-uav-30k", "yolov5x6-uav-30k.pt"),
+        },
+        "MBARI-org/rf-detrLarge-uavs-detectv0": {
+            "model_type": "roboflow",
+            "model_path": lambda: hf_hub_download("MBARI-org/rf-detrLarge-uavs-detectv0", "checkpoint_best_total.pt"),
         },
         "MBARI-org/uav-yolov5-18k": {
             "model_type": "yolov5",
