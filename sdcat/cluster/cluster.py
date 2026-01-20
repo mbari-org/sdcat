@@ -87,71 +87,75 @@ def _summarize_clusters(
     ]
 
     if not skip_visualization:
-        # Cannot use init='spectral' when n_components is >= num_samples - default to 'random' instead
-        n_components = min(2, num_samples)
-        if n_components >= num_samples:
-            init = "random"
+        # Skip visualization if there are no clusters
+        if num_clusters == 0 or num_labels == 0:
+            warn("Not enough data for cluster visualization. Skipping joint plot and cluster grids.")
         else:
-            init = "spectral"
-
-        # Reduce the dimensionality of the embeddings using UMAP to 2 dimensions to visualize the clusters
-        # Only use the exemplars and a random sample of 5000 images to speed up the visualization
-        sampled_df = clustered_df.sample(n=min(num_labels, 5000), random_state=42, replace=False)
-        sampled_emb = [fetch_embedding(model, filename)[0] for filename in sampled_df["crop_path"]]
-        np_data = np.array(sampled_emb)
-
-        n_neighbors = min(15, num_samples - 1)
-        info(f"Using {n_neighbors} neighbors for dimensional reduction")
-        if n_neighbors < 2:
-            warn("Using PCA instead of UMAP to reduce for cluster 2D plot")
-            from sklearn.decomposition import PCA
-
-            pca = PCA(n_components=2)
-            xx = pca.fit_transform(np_data)
-        else:
-            if have_gpu:
-                info("Using GPU to reduce cluster 2D plot")
-                xx = cuUMAP(
-                    init=init,
-                    n_components=2,
-                    n_neighbors=n_neighbors,
-                    min_dist=0.1,
-                    metric="euclidean",
-                    verbose=False,  # print statements from the verbose flag are forcing an exit in rapids so disable it
-                ).fit_transform(np_data)
+            # Cannot use init='spectral' when n_components is >= num_samples - default to 'random' instead
+            n_components = min(2, num_samples)
+            if n_components >= num_samples:
+                init = "random"
             else:
-                info("Using UMAP to reduce cluster 2D plot")
-                xx = UMAP(init=init, n_components=2, n_neighbors=n_neighbors, metric="cosine").fit_transform(np_data)
+                init = "spectral"
 
-        df_joint = pandas.DataFrame({"x": xx[:, 0], "y": xx[:, 1], "labels": sampled_df["cluster"].values})
-        p = sns.jointplot(data=df_joint, x="x", y="y", hue="labels")
-        p.fig.suptitle(
-            f"{prefix}\nsdcat_version {sdcat_version}\nClusters {num_clusters} with {num_samples} samples", fontsize=14
-        )
-        p.fig.subplots_adjust(top=0.80)
-        p.savefig(f"{output_path}/{prefix}_summary.png")
-        info(f"Saved {output_path}/{prefix}_summary.png")
+            # Reduce the dimensionality of the embeddings using UMAP to 2 dimensions to visualize the clusters
+            # Only use the exemplars and a random sample of 5000 images to speed up the visualization
+            sampled_df = clustered_df.sample(n=min(num_labels, 5000), random_state=42, replace=False)
+            sampled_emb = [fetch_embedding(model, filename)[0] for filename in sampled_df["crop_path"]]
+            np_data = np.array(sampled_emb)
 
-        # Create a grid of the images to check the quality of the clustering results
-        num_processes = min(os.cpu_count(), num_clusters)
-        info(f"Using {num_processes} CPUs to visualize the {num_clusters} clusters")
+            n_neighbors = min(15, num_samples - 1)
+            info(f"Using {n_neighbors} neighbors for dimensional reduction")
+            if n_neighbors < 2:
+                warn("Using PCA instead of UMAP to reduce for cluster 2D plot")
+                from sklearn.decomposition import PCA
 
-        # Use a pool of processes to speed up the visualization of the clusters
-        # Skip modin here because it does not offer much speedup
-        with ProcessPoolExecutor(max_workers=num_processes) as executor:
-            futures = []
-            for c in image_paths:
-                grid_size = 4 if len(image_paths[c]) < 50 else 8  # grid size; larger clusters get larger grids
-                futures.append(
-                    executor.submit(cluster_grid, prefix, cluster_sim[c], c, grid_size, image_paths[c], output_path / prefix)
-                )
-            for future in as_completed(futures):
-                future.result()
+                pca = PCA(n_components=2)
+                xx = pca.fit_transform(np_data)
+            else:
+                if have_gpu:
+                    info("Using GPU to reduce cluster 2D plot")
+                    xx = cuUMAP(
+                        init=init,
+                        n_components=2,
+                        n_neighbors=n_neighbors,
+                        min_dist=0.1,
+                        metric="euclidean",
+                        verbose=False,  # print statements from the verbose flag are forcing an exit in rapids so disable it
+                    ).fit_transform(np_data)
+                else:
+                    info("Using UMAP to reduce cluster 2D plot")
+                    xx = UMAP(init=init, n_components=2, n_neighbors=n_neighbors, metric="cosine").fit_transform(np_data)
 
-        # Create a grid of the noise images last with a different prefix
-        if len(noise_df) > 0:
-            grid_size = 4 if len(noise_df) < 50 else 8
-            cluster_grid(prefix, 0, -1, grid_size, noise_df["crop_path"], output_path / prefix)
+            df_joint = pandas.DataFrame({"x": xx[:, 0], "y": xx[:, 1], "labels": sampled_df["cluster"].values})
+            p = sns.jointplot(data=df_joint, x="x", y="y", hue="labels")
+            p.fig.suptitle(
+                f"{prefix}\nsdcat_version {sdcat_version}\nClusters {num_clusters} with {num_samples} samples", fontsize=14
+            )
+            p.fig.subplots_adjust(top=0.80)
+            p.savefig(f"{output_path}/{prefix}_summary.png")
+            info(f"Saved {output_path}/{prefix}_summary.png")
+
+            # Create a grid of the images to check the quality of the clustering results
+            num_processes = min(os.cpu_count(), num_clusters)
+            info(f"Using {num_processes} CPUs to visualize the {num_clusters} clusters")
+
+            # Use a pool of processes to speed up the visualization of the clusters
+            # Skip modin here because it does not offer much speedup
+            with ProcessPoolExecutor(max_workers=num_processes) as executor:
+                futures = []
+                for c in image_paths:
+                    grid_size = 4 if len(image_paths[c]) < 50 else 8  # grid size; larger clusters get larger grids
+                    futures.append(
+                        executor.submit(cluster_grid, prefix, cluster_sim[c], c, grid_size, image_paths[c], output_path / prefix)
+                    )
+                for future in as_completed(futures):
+                    future.result()
+
+            # Create a grid of the noise images last with a different prefix
+            if len(noise_df) > 0:
+                grid_size = 4 if len(noise_df) < 50 else 8
+                cluster_grid(prefix, 0, -1, grid_size, noise_df["crop_path"], output_path / prefix)
 
     return summary
 
@@ -178,6 +182,11 @@ def _similarity_merge(
     Merge clusters based on the linkage of the cosine similarity of their embeddings.
     """
     unique_clusters_before = df["cluster"].unique()
+
+    # Check if there is enough data for clustering - need at least 2 exemplar embeddings
+    if len(exemplar_emb) < 2:
+        warn(f"Not enough data for clustering similarity merge. Found {len(exemplar_emb)} exemplar(s), need at least 2. Skipping merge.")
+        return df
 
     info(f"Merging clusters with similarity threshold {min_similarity:.2f} ...")
     info(
