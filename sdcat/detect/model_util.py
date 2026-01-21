@@ -1,10 +1,49 @@
+import json
 import os
 from pathlib import Path
 
 from sahi import AutoDetectionModel
 from huggingface_hub import hf_hub_download
+from transformers import AutoImageProcessor
 
-from sdcat.logger import err
+from sdcat.detect.rfdetr_model import RfdetrDetectionModel
+from sdcat.logger import err, info
+
+
+def load_category_names_from_coco(coco_json_path: str) -> list:
+    """
+    Load category names from a COCO format JSON file.
+
+    Args:
+        coco_json_path: Path to the COCO JSON file
+
+    Returns:
+        list: A list of category names ordered by ID, e.g., ["cat", "dog"]
+    """
+    with open(coco_json_path, "r") as f:
+        coco_data = json.load(f)
+
+    categories = coco_data.get("categories", [])
+    # Sort by ID to ensure correct indexing
+    categories.sort(key=lambda x: x["id"])
+    return [cat["name"] for cat in categories]
+
+
+def find_coco_json(model_path: str) -> str | None:
+    """
+    Search for a coco.json file in the same directory as the model checkpoint.
+
+    Args:
+        model_path: Path to the model checkpoint file (.pth, .pt, etc.)
+
+    Returns:
+        str: Path to coco.json if found, None otherwise
+    """
+    model_dir = Path(model_path).parent
+    coco_json_path = model_dir / "coco.json"
+    if coco_json_path.exists():
+        return str(coco_json_path)
+    return None
 
 
 def create_model(model: str, conf: float, device: str, model_type=None):
@@ -22,48 +61,66 @@ def create_model(model: str, conf: float, device: str, model_type=None):
     """
 
     # Check if the provided model is a local file path
+    category_names = None
     if os.path.exists(model):
-        if os.path.isdir(model):
-            dir_to_model_map = {"yolov5": "yolov5", "yolov8": "yolov8", "huggingface": "huggingface"}
-            model_path = [f for f in os.listdir(model) if f.endswith(".pt")]
-            if len(model_path) == 0:
-                err(f"No .pt file found in directory: {model}")
-                raise ValueError(f"No .pt file found in directory: {model}")
-            if model_type is None:
-                for k, v in dir_to_model_map.items():
-                    if k in model:
-                        model_type = v
-                        break
-            if model_type is None:
-                err(
-                    f"Could not determine model type from directory name: {model}. Try the --model-type option, e.g., --model-type yolov11"
-                )
-                raise ValueError(
-                    f"Could not determine model type from directory name: {model}. Try the --model-type option, e.g., --model-type yolov11"
-                )
-            detection_model = AutoDetectionModel.from_pretrained(
-                model_type=model_type,
-                model_path=Path(model) / model_path[0],
-                confidence_threshold=conf,
-                device=device,
-            )
-            return detection_model
-        else:
+        if not os.path.isdir(model):
             raise ValueError(f"Model path is not a directory: {model}")
+
+        pt_files = [f for f in os.listdir(model) if f.endswith((".pt", ".pth"))]
+        if not pt_files:
+            raise ValueError(f"No .pt or .pth file found in directory: {model}")
+
+        if model_type is None:
+            known_types = ["yolov5", "yolov8", "huggingface", "yolo11", "roboflow", "rfdetr"]
+            model_type = next((t for t in known_types if t in model), None)
+
+        if model_type is None:
+            raise ValueError(
+                f"Could not determine model type from directory name: {model}. "
+                "Try the --model-type option, e.g., --model-type yolov11"
+            )
+
+        model_path = str(Path(model) / pt_files[0])
+
+        # Search for coco.json in the same directory for category names
+        coco_json_path = find_coco_json(model_path)
+        if coco_json_path:
+            info(f"Found category names in {coco_json_path}")
+            category_names = load_category_names_from_coco(coco_json_path)
+
+        # Build kwargs for local models
+        kwargs = {
+            "model_type": model_type,
+            "model_path": model_path,
+            "confidence_threshold": conf,
+            "device": device,
+        }
+        if category_names:
+            kwargs["category_names"] = category_names
+
+        # HuggingFace models require an image processor - load from local directory
+        if model_type == "huggingface":
+            image_processor = AutoImageProcessor.from_pretrained(model)
+            kwargs["image_processor"] = image_processor
+
+        return AutoDetectionModel.from_pretrained(**kwargs)
 
     # Predefined model mapping
     model_map = {
+        "roboflow": {"model_type": "roboflow", "model": "RFDETRBase"},
         "yolov8s": {"model_type": "yolov8", "model_path": "ultralyticsplus/yolov8s"},
         "yolov8x": {"model_type": "yolov8", "model_path": "yolov8x.pt"},
         "hustvl/yolos-small": {
             "model_type": "huggingface",
             "model_path": "hustvl/yolos-small",
             "config_path": "hustvl/yolos-small",
+            "image_processor": "hustvl/yolos-small",
         },
         "hustvl/yolos-tiny": {
             "model_type": "huggingface",
             "model_path": "hustvl/yolos-tiny",
             "config_path": "hustvl/yolos-tiny",
+            "image_processor": "hustvl/yolos-tiny",
         },
         "MBARI-org/megamidwater": {
             "model_type": "yolov5",
@@ -72,6 +129,11 @@ def create_model(model: str, conf: float, device: str, model_type=None):
         "MBARI-org/uav-yolov5-30k": {
             "model_type": "yolov5",
             "model_path": lambda: hf_hub_download("MBARI-org/yolov5x6-uav-30k", "yolov5x6-uav-30k.pt"),
+        },
+        "MBARI-org/rf-detrLarge-uavs-detectv0": {
+            "model_type": "rfdetr",
+            "rfdetr_model_class": "RFDETRLarge",
+            "model_path": lambda: hf_hub_download("MBARI-org/rf-detrLarge-uavs-detectv0", "checkpoint_best_total.pth"),
         },
         "MBARI-org/uav-yolov5-18k": {
             "model_type": "yolov5",
@@ -95,19 +157,48 @@ def create_model(model: str, conf: float, device: str, model_type=None):
 
     model_info = model_map[model]
     model_type = model_info["model_type"]
-    model_path = model_info["model_path"]
+    model_path = model_info.get("model_path", None)
 
     if callable(model_path):  # If the path is a function (e.g., requires download)
         model_path = model_path()
 
     config_path = model_info.get("config_path", None)
+    image_processor_name = model_info.get("image_processor", None)
+ 
+    # Handle pretrained RF-DETR models with custom wrapper
+    if model_type == "rfdetr":
+        from rfdetr.detr import RFDETRBase, RFDETRLarge, RFDETRMedium, RFDETRNano, RFDETRSmall
+        rfdetr_model_class = model_info.get("rfdetr_model_class", "RFDETRLarge")
+        model_classes = {
+            "RFDETRBase": RFDETRBase,
+            "RFDETRLarge": RFDETRLarge,
+            "RFDETRMedium": RFDETRMedium,
+            "RFDETRNano": RFDETRNano,
+            "RFDETRSmall": RFDETRSmall,
+        }
+        model_class = model_classes.get(rfdetr_model_class, RFDETRLarge)
+        model = model_class(pretrain_weights=model_path)
+        detection_model = RfdetrDetectionModel(model=model, device=device, confidence_threshold=conf)
+        return detection_model
 
-    detection_model = AutoDetectionModel.from_pretrained(
-        model_type=model_type,
-        model_path=model_path,
-        config_path=config_path,
-        confidence_threshold=conf,
-        device=device,
-    )
+    # Build kwargs for AutoDetectionModel (for other model types)
+    kwargs = {
+        "model_type": model_type,
+        "confidence_threshold": conf,
+        "device": device,
+    }
+
+    if model_path:
+        kwargs["model_path"] = model_path
+    if category_names is not None:
+        kwargs["category_names"] = category_names
+    if config_path:
+        kwargs["config_path"] = config_path
+    if image_processor_name:
+        # HuggingFace models require an image processor
+        image_processor = AutoImageProcessor.from_pretrained(image_processor_name)
+        kwargs["image_processor"] = image_processor
+
+    detection_model = AutoDetectionModel.from_pretrained(**kwargs)
 
     return detection_model

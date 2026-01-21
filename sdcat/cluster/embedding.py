@@ -6,7 +6,7 @@ import os
 from PIL import Image
 from numpy import save, load
 import numpy as np
-from sahi.utils.torch import torch
+import torch
 import cv2
 from transformers import AutoModelForImageClassification, AutoImageProcessor
 import torch.nn.functional as F

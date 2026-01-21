@@ -100,15 +100,18 @@ Both detections algorithms (saliency and object detection) are run by default an
 SAHI is short for Slicing Aided Hyper Inference, and is a method to slice images into smaller windows and run a detection model
 on the windows.
 
-| Object Detection Model           | Description                                                        |
-|----------------------------------|--------------------------------------------------------------------|
-| yolov8s                          | YOLOv8s model from Ultralytics                                     |
-| hustvl/yolos-small               | YOLOS model a Vision Transformer (ViT)                             |
-| hustvl/yolos-tiny                | YOLOS model a Vision Transformer (ViT)                             |
-| MBARI-org/megamidwater (default) | MBARI midwater YOLOv5x for general detection in midwater images    |
-| MBARI-org/uav-yolov5             | MBARI UAV YOLOv5x for general detection in UAV images              |
-| MBARI-org/yolov5x6-uavs-oneclass | MBARI UAV YOLOv5x for general detection in UAV images single class |
-| FathomNet/MBARI-315k-yolov5      | MBARI YOLOv5x for general detection in benthic images              |
+| Object Detection Model           | Description                                                        | Installation                         |
+|----------------------------------|--------------------------------------------------------------------|--------------------------------------|
+| yolov8s                          | YOLOv8s model from Ultralytics                                     | `pip install -U ultralytics`         |
+| yolov11s                         | YOLOv11s model from Ultralytics                                    | `pip install -U ultralytics`         |
+| hustvl/yolos-small               | YOLOS model a Vision Transformer (ViT)                             | included                             |
+| hustvl/yolos-tiny                | YOLOS model a Vision Transformer (ViT)                             | included                             |
+| MBARI-org/megamidwater (default) | MBARI midwater YOLOv5x for general detection in midwater images    | `pip install -U yolov5==7.0.14`      |
+| MBARI-org/uav-yolov5             | MBARI UAV YOLOv5x for general detection in UAV images              | `pip install -U yolov5==7.0.14`      |
+| MBARI-org/yolov5x6-uavs-oneclass | MBARI UAV YOLOv5x for general detection in UAV images single class | `pip install -U yolov5==7.0.14`      |
+| FathomNet/MBARI-315k-yolov5      | MBARI YOLOv5x for general detection in benthic images              | `pip install -U yolov5==7.0.14`      |
+| rfdetr-base                      | RF-DETR base model                                                 | `pip install -U inference rfdetr`    |
+| rfdetr-large                     | RF-DETR large model                                                | `pip install -U inference rfdetr`    |
 
 
 To skip saliency detection, use the --skip-saliency option.
