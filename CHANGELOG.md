@@ -2,6 +2,21 @@
 
 
 
+## v1.28.0 (2026-01-21)
+
+### Feature
+
+* feat: rfdetr supports
+
+This adds support for running RF-DETR models from huggingface. For an example, see the MBARI UAV project repo here: https://huggingface.co/MBARI-org/rf-detrLarge-uavs-detectv0.   Also now supports defining the detection model in the config.ini file in the detect section, etc.. 
+
+```ini
+[detect] 
+# Detection model
+model = MBARI-org/rf-detrLarge-uavs-detectv0
+``` ([`b464677`](https://github.com/mbari-org/sdcat/commit/b464677b916ab71b4e4e5c8cdd8873aa09febf3f))
+
+
 ## v1.27.11 (2025-12-14)
 
 ### Fix
