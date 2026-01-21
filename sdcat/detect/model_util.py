@@ -61,6 +61,7 @@ def create_model(model: str, conf: float, device: str, model_type=None):
     """
 
     # Check if the provided model is a local file path
+    category_names = None
     if os.path.exists(model):
         if not os.path.isdir(model):
             raise ValueError(f"Model path is not a directory: {model}")
@@ -82,26 +83,10 @@ def create_model(model: str, conf: float, device: str, model_type=None):
         model_path = str(Path(model) / pt_files[0])
 
         # Search for coco.json in the same directory for category names
-        category_names = None
         coco_json_path = find_coco_json(model_path)
         if coco_json_path:
             info(f"Found category names in {coco_json_path}")
             category_names = load_category_names_from_coco(coco_json_path)
-
-        # Handle RF-DETR models with custom wrapper
-        if model_type == "rfdetr":
-            from rfdetr.detr import RFDETRLarge
-            # Convert category_names list to category_mapping dict if provided
-            category_mapping = None
-            if category_names:
-                category_mapping = {i: name for i, name in enumerate(category_names)}
-            return RfdetrDetectionModel(
-                model=RFDETRLarge,
-                model_path=model_path,
-                device=device,
-                confidence_threshold=conf,
-                category_mapping=category_mapping,
-            )
 
         # Build kwargs for local models
         kwargs = {
@@ -205,7 +190,7 @@ def create_model(model: str, conf: float, device: str, model_type=None):
 
     if model_path:
         kwargs["model_path"] = model_path
-    if category_names:
+    if category_names is not None:
         kwargs["category_names"] = category_names
     if config_path:
         kwargs["config_path"] = config_path

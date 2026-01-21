@@ -68,7 +68,7 @@ exclude_commit_patterns = [
 python = ">=3.9,<3.12"
 click = ">=8.1.7"
 hdbscan = "0.8.37"
-huggingface-hub = "0.24.0"
+huggingface-hub = ">=0.35"
 matplotlib = ">=3.7.0"
 numpy = ">=1.22"
 opencv-contrib-python-headless = "4.10.0.84"
