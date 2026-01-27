@@ -88,8 +88,13 @@ def run_sahi_detect(
         exception(f"Image path {image_path} is not a file")
         return df
     info(f"Processing {image_path}")
+    # Ensure writable array so PyTorch tensor conversion does not warn
     img_color = cv2.imread(image_path.as_posix())
+    if img_color is not None and not img_color.flags.writeable:
+        img_color = img_color.copy()
     img_color_rescaled = rescale(img_color, scale_percent=scale_percent)
+    if not img_color_rescaled.flags.writeable:
+        img_color_rescaled = img_color_rescaled.copy()
 
     # Calculate the slice size
     if slice_width and slice_height:

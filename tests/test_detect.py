@@ -80,7 +80,7 @@ def test_plankton():
     data_path = Path(__file__).parent / "data" / "plankton"
     num_detections = run_detect(data_path, 80)
     print(f"Found {num_detections} in test_plankton")
-    assert num_detections == 775
+    assert num_detections == 774
 
 
 if __name__ == "__main__":

@@ -26,7 +26,7 @@ default_model = "MBARI-org/megamidwater"  # Fallback if not in config
 @click.command(
     "detect",
     help=f"Detect objects in images.  By default, runs both SAHI and saliency blob detection and combines using NMS. "
-    f"Use --skip-sahi or --skip-saliency to exclude. "
+    f"Use --skip-sahi or --skip-saliency to exclude. Use --skip-existing to resume and skip images that already have results. "
     f"See --config-ini to override detection defaults in {default_config_ini}.",
 )
 @common_args.config_ini
@@ -64,6 +64,11 @@ default_model = "MBARI-org/megamidwater"  # Fallback if not in config
     is_flag=True,
     help="Run the CLAHE algorithm to contrast enhance before detection useful images with non-uniform lighting",
 )
+@click.option(
+    "--skip-existing",
+    is_flag=True,
+    help="Skip images that already have results in save-dir (resume; do not delete previous outputs).",
+)
 def run_detect(
     show: bool,
     image_dir: str,
@@ -87,6 +92,7 @@ def run_detect(
     clahe: bool,
     start_image: str,
     end_image: str,
+    skip_existing: bool,
 ):
     config = cfg.Config(config_ini)
     # Use model from config if not specified on command line
@@ -125,8 +131,7 @@ def run_detect(
     images_path = Path(image_dir)
     base_path = Path(save_dir) / model
 
-    # clean-up any previous results
-    if base_path.exists():
+    if not skip_existing and base_path.exists():
         info(f"Removing {base_path}")
         shutil.rmtree(base_path)
 
@@ -142,8 +147,9 @@ def run_detect(
 
     if save_roi:
         save_path_det_roi.mkdir(parents=True, exist_ok=True)
-        for f in save_path_det_roi.rglob("*"):
-            os.remove(f)
+        if not skip_existing:
+            for f in save_path_det_roi.rglob("*"):
+                os.remove(f)
     save_path_det_raw.mkdir(parents=True, exist_ok=True)
     save_path_det_filtered.mkdir(parents=True, exist_ok=True)
     save_path_viz.mkdir(parents=True, exist_ok=True)
@@ -181,25 +187,39 @@ def run_detect(
     num_images = len(images)
     info(f"Found {num_images} images in {images_path}")
 
-    if num_images == 0:
+    if skip_existing:
+        to_process = [im for im in images if not (save_path_det_filtered / f"{im.stem}.csv").exists()]
+        num_skipped = num_images - len(to_process)
+        if num_skipped:
+            info(f"Skipping {num_skipped} already processed, running on {len(to_process)} images")
+    else:
+        to_process = images
+
+    if len(to_process) == 0:
+        info("No images to process")
+        # Still report totals if resuming
+        if skip_existing and num_images > 0:
+            total_detections = sum(pd.read_csv(f).shape[0] for f in save_path_det_raw.rglob("*.csv"))
+            total_filtered = sum(pd.read_csv(f).shape[0] for f in save_path_det_filtered.rglob("*.csv"))
+            info(f"Existing results: {total_detections} raw localizations, {total_filtered} after NMS")
         return
 
-    num_processes = min(os.cpu_count(), num_images)
+    num_processes = min(os.cpu_count(), len(to_process))
     if not skip_saliency:
-        images_per_process = min(num_images, 2)  # Process 2 images at a time for saliency detection
-        info(f"Using {num_processes} processes to compute {num_images} images {images_per_process} at a time ...")
+        images_per_process = min(len(to_process), 2)  # Process 2 images at a time for saliency detection
+        info(f"Using {num_processes} processes to compute {len(to_process)} images {images_per_process} at a time ...")
         args = [
             (
                 spec_remove,
                 scale_percent,
-                images[i : i + images_per_process],
+                to_process[i : i + images_per_process],
                 save_path_det_raw,
                 min_std,
                 block_size,
                 clahe,
                 show,
             )
-            for i in range(0, num_images, images_per_process)
+            for i in range(0, len(to_process), images_per_process)
         ]
         with ProcessPoolExecutor(max_workers=num_processes) as executor:
             futures = [executor.submit(run_saliency_detect_bulk, *arg) for arg in args]
@@ -222,14 +242,14 @@ def run_detect(
                     allowable_classes,
                     class_agnostic,
                 )
-                for image in images
+                for image in to_process
             ]
             with ProcessPoolExecutor(max_workers=num_processes) as executor:
                 futures = [executor.submit(run_sahi_detect_bulk, *arg) for arg in args]
                 for future in futures:
                     future.result()
     else:
-        for f in tqdm(images):
+        for f in tqdm(to_process):
             if not skip_saliency:
                 run_saliency_detect(
                     spec_remove,
@@ -257,9 +277,8 @@ def run_detect(
                     class_agnostic,
                 )
 
-    # Count the number of detections in all the images
+    # Count the number of detections (all files in output dirs when resuming)
     total_detections = sum(pd.read_csv(f).shape[0] for f in save_path_det_raw.rglob("*.csv"))
-    total_images = len(images)
 
     args = [
         (
@@ -276,15 +295,15 @@ def run_detect(
             save_roi,
             roi_size,
         )
-        for image in images
+        for image in to_process
     ]
 
     # Process images in parallel
-    num_processes = min(os.cpu_count(), total_images)
+    num_processes = min(os.cpu_count(), len(to_process))
     with ProcessPoolExecutor(max_workers=num_processes) as executor:
         futures = [executor.submit(process_image, *arg) for arg in args]
         results = [future.result() for future in futures]  # raises exceptions if any
 
-    total_filtered = sum(results)
-    info(f"Found {total_detections} total localizations in {total_images} images with {total_filtered} after NMS")
+    total_filtered = sum(pd.read_csv(f).shape[0] for f in save_path_det_filtered.rglob("*.csv"))
+    info(f"Found {total_detections} total localizations in {num_images} images with {total_filtered} after NMS")
     info("Done")

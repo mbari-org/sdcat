@@ -139,6 +139,9 @@ class RfdetrDetectionModel(DetectionModel):
                 f"Model must be one of {model_names} models, got {self.model}."
             )
         self.set_model(model)
+        # Reduce inference latency when supported (e.g. RF-DETR)
+        if callable(getattr(self.model, "optimize_for_inference", None)):
+            self.model.optimize_for_inference()
 
     def perform_inference(
         self,

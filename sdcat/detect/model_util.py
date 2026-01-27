@@ -1,6 +1,7 @@
 import json
 import os
 from pathlib import Path
+from typing import Optional
 
 from sahi import AutoDetectionModel
 from huggingface_hub import hf_hub_download
@@ -29,7 +30,7 @@ def load_category_names_from_coco(coco_json_path: str) -> list:
     return [cat["name"] for cat in categories]
 
 
-def find_coco_json(model_path: str) -> str | None:
+def find_coco_json(model_path: str) -> Optional[str]:
     """
     Search for a coco.json file in the same directory as the model checkpoint.
 
