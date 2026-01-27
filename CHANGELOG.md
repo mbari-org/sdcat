@@ -2,6 +2,13 @@
 
 
 
+## v1.29.0 (2026-01-27)
+
+### Feature
+
+* feat: added support for --skip-existing in sdcat detect command and bumped to python3.12 ([`13a5958`](https://github.com/mbari-org/sdcat/commit/13a59581dec347296855728c2b418f29996c0a2c))
+
+
 ## v1.28.0 (2026-01-21)
 
 ### Feature
