@@ -90,6 +90,7 @@ umap-learn = ">=0.5.5"
 ephem = "^4.1.6"
 cleanvision = "^0.3.6"
 modin = {extras = ["all"], version = "^0.32.0"}
+nvidia-ml-py = ">=12.535"
 
 [tool.poetry.group.dev.dependencies]
 build = "^1.2.1"
