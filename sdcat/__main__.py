@@ -1,6 +1,12 @@
 # sdcat, Apache-2.0 license
 # Filename: __main__.py
 # Description: Main entry point for the sdcat command line interface
+import os
+
+# Configure Ray (used by Modin) before any import that loads modin/ray
+os.environ["RAY_ACCEL_ENV_VAR_OVERRIDE_ON_ZERO"] = "0"
+os.environ["RAY_METRICS_EXPORT_ENABLED"] = "0"
+
 from datetime import datetime
 from pathlib import Path
 
