@@ -10,9 +10,7 @@ os.environ["RAY_DEDUP_LOGS"] = "0"
 
 import ray
 
-ray.init(ignore_reinit_error=True)
-
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 import click
@@ -56,13 +54,19 @@ cli_cluster.add_command(run_cluster_roi)
 
 
 if __name__ == "__main__":
+    exit_code = 0
     try:
-        start = datetime.utcnow()
+        ray.init(ignore_reinit_error=True)
+        start = datetime.now(timezone.utc)
         cli()
-        end = datetime.utcnow()
+        end = datetime.now(timezone.utc)
         info(f"Done. Elapsed time: {end - start} seconds")
     except Exception as e:
         err(f"Exiting. Error: {e}")
-        exit(-1)
+        exit_code = 1
     finally:
-        ray.shutdown()
+        try:
+            ray.shutdown()
+        except Exception as e:
+            err(f"Error shutting down Ray: {e}")
+    sys.exit(exit_code)
