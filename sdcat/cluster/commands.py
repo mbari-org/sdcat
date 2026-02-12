@@ -492,6 +492,10 @@ def run_cluster_roi(
             allowable_classes=allowable_classes,
         )
 
+        if summary is None:
+            err("No summary returned from clustering (no detections left after clustering)")
+            return
+
         # Add more detail to the summary specific to ROIs
         summary["sdcat_version"] = sdcat_version
         summary["command"] = " ".join(sys.argv)

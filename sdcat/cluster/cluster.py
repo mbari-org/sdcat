@@ -630,6 +630,9 @@ def cluster_vits(
         Process a batch of images and return the clustered dataframe.
         Disable df_ancillary for now
         """
+        if df is None or df.empty:
+            warn(f"Batch {i + 1} of {num_batches} has no detections")
+            return None
         start = df.index[0]
         end = df.index[-1]
         info(f"Processing batch {i + 1} of {num_batches} {start} to {end}...")
@@ -715,14 +718,16 @@ def cluster_vits(
         for result in tqdm(as_completed(futures), total=len(futures)):
             if result:
                 df_batch = result.result()
+                if df_batch is None:
+                    warn("Batch returned no results (e.g. all bad images)")
+                    continue
+                if df_batch.empty:
+                    warn("Batch is empty after clustering")
+                    continue
                 info(f"Batch {df_batch.index[0]} to {df_batch.index[-1]} completed")
-                if df_batch is not None:
-                    if df_batch.empty:
-                        warn(f"Batch {df_batch.index[0]} to {df_batch.index[-1]} is empty after clustering")
-                    else:
-                        df_dets.update(df_batch["cluster_batch"])
-                        df_dets.update(df_batch["cluster"])
-                        df_dets.update(df_batch["HDBSCAN_probability"])
+                df_dets.update(df_batch["cluster_batch"])
+                df_dets.update(df_batch["cluster"])
+                df_dets.update(df_batch["HDBSCAN_probability"])
 
     info("All batch clusters processed")
     if df_dets.empty:
