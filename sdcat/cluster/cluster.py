@@ -165,6 +165,8 @@ def _reassign_noise(df: pd.DataFrame, exemplar_emb: np.ndarray, cluster: List[in
     Reassign the noise (-1) cluster to the nearest exemplar cluster based on cosine similarity.
     """
     noise_df = df[df["cluster"] == -1]
+    if len(noise_df) == 0:
+        return df
     noise_embeddings = np.array([fetch_embedding(model, path)[0] for path in noise_df["crop_path"]])
     similarities = cosine_similarity(noise_embeddings, exemplar_emb)
     max_scores = similarities.max(axis=1)
