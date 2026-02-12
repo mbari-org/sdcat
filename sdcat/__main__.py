@@ -1,15 +1,6 @@
 # sdcat, Apache-2.0 license
 # Filename: __main__.py
 # Description: Main entry point for the sdcat command line interface
-import warnings
-
-# Suppress pynvml deprecation warning from transitive deps (e.g. Ray);
-# we use nvidia-ml-py when GPU info is needed.
-warnings.filterwarnings(
-    "ignore",
-    category=FutureWarning,
-    message=".*pynvml.*deprecated.*nvidia-ml-py.*",
-)
 from datetime import datetime
 from pathlib import Path
 
