@@ -125,7 +125,7 @@ def _summarize_clusters(
                     ).fit_transform(np_data)
                 else:
                     info("Using UMAP to reduce cluster 2D plot")
-                    xx = UMAP(init=init, n_components=2, n_neighbors=n_neighbors, metric="cosine").fit_transform(np_data)
+                    xx = UMAP(init=init, n_components=2, n_neighbors=n_neighbors, metric="cosine", verbose=False).fit_transform(np_data)
 
             df_joint = pandas.DataFrame({"x": xx[:, 0], "y": xx[:, 1], "labels": sampled_df["cluster"].values})
             p = sns.jointplot(data=df_joint, x="x", y="y", hue="labels")
