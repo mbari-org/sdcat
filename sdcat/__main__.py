@@ -8,6 +8,10 @@ os.environ["RAY_ACCEL_ENV_VAR_OVERRIDE_ON_ZERO"] = "0"
 os.environ["RAY_METRICS_EXPORT_ENABLED"] = "0"
 os.environ["RAY_DEDUP_LOGS"] = "0"
 
+import ray
+
+ray.init(ignore_reinit_error=True)
+
 from datetime import datetime
 from pathlib import Path
 
@@ -60,3 +64,5 @@ if __name__ == "__main__":
     except Exception as e:
         err(f"Exiting. Error: {e}")
         exit(-1)
+    finally:
+        ray.shutdown()
