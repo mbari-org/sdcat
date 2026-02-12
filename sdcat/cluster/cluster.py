@@ -613,7 +613,7 @@ def cluster_vits(
     if ancillary_df:
         # Add in any numerical ancillary data and replace NaNs with 0
         numerical_df = ancillary_df.select_dtypes(include=["float", "int"])
-        numerical_df = numerical_df.fillna(0)
+        numerical_df = numerical_df.fillna(0).infer_objects(copy=False)
         # Normalize the numerical data from 0 to 1 - this is an important step!
         ancillary_df = (numerical_df - numerical_df.min()) / (numerical_df.max() - numerical_df.min())
 
