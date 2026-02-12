@@ -274,7 +274,7 @@ def run_cluster_det(
             # info(f'Removed {size_before - size_after} detections that were at night')
 
         # Replace any NaNs with 0 and reindex
-        df = df.fillna(0).infer_objects(copy=False)
+        df.fillna(0)
         df = df.reset_index(drop=True)
 
         # Print the first 5 rows of the dataframe
@@ -455,7 +455,7 @@ def run_cluster_roi(
     df["xy"] = 1.0
 
     # Replace any NaNs with 0 and reindex
-    df = df.fillna(0).infer_objects(copy=False)
+    df.fillna(0)
     df = df.reset_index(drop=True)
 
     # Print the first 5 rows of the dataframe
