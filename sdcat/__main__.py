@@ -7,6 +7,7 @@ import os
 os.environ["RAY_ACCEL_ENV_VAR_OVERRIDE_ON_ZERO"] = "0"
 os.environ["RAY_METRICS_EXPORT_ENABLED"] = "0"
 os.environ["RAY_DEDUP_LOGS"] = "0"
+os.environ["RAY_TQDM_PATCH_PRINT"]="0"
 
 import ray
 
