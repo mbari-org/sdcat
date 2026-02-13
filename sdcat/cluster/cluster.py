@@ -259,7 +259,13 @@ def _compute_exemplars(df: pd.DataFrame, model: str, device: str, vits_batch_siz
             pass
 
     crop_paths = df_exemplars_final["crop_path"].values.tolist()
-    compute_norm_embedding(model_name=model, images=crop_paths, device=device, batch_size=vits_batch_size)
+    compute_norm_embedding(
+        model_name=model,
+        images=crop_paths,
+        device=device,
+        batch_size=vits_batch_size,
+        progress_description="Extracting embeddings (exemplars)",
+    )
 
     info("Computing mean embeddings for exemplars across all rotations ...")
     df_exemplar_group = df_exemplars_final.groupby("cluster")
@@ -534,7 +540,9 @@ def cluster_vits(
     # Skip the embedding extraction if all the embeddings are cached
     if num_cached != len(crop_paths):
         debug(f"Extracted embeddings from {len(crop_paths)} images using model {model}...")
-        compute_norm_embedding(model, crop_paths, device, vits_batch_size)
+        compute_norm_embedding(
+            model, crop_paths, device, vits_batch_size, progress_description="Extracting embeddings (images)"
+        )
 
     def load_model_results(crop_path):
         try:

@@ -132,18 +132,21 @@ def encode_image(filename):
     return keep
 
 
-def compute_embedding_vits(vit: ViTWrapper, images: list, batch_size: int = 32):
+def compute_embedding_vits(
+    vit: ViTWrapper, images: list, batch_size: int = 32, progress_description: str = "Extracting embeddings (images)"
+):
     """
     Compute the embedding for the given images using the given model
     :param vitwrapper: Wrapper for the ViT model
     :param images: List of image filenames
     :param batch_size: Number of images to process in a batch
+    :param progress_description: Description for the Rich progress bar (e.g. "Extracting embeddings (images)" or "Extracting embeddings (exemplars)")
     """
     model_name = vit.model_name
 
     # Batch process the images
     batches = [images[i : i + batch_size] for i in range(0, len(images), batch_size)]
-    for batch in track(batches, description="Extracting embeddings"):
+    for batch in track(batches, description=progress_description):
         try:
             # Skip running the model if the embeddings already exist
             if all([has_cached_embedding(model_name, filename) for filename in batch]):
@@ -159,7 +162,13 @@ def compute_embedding_vits(vit: ViTWrapper, images: list, batch_size: int = 32):
             err(f"Error processing {batch}: {e}")
 
 
-def compute_norm_embedding(model_name: str, images: list, device: str = "cpu", batch_size: int = 32):
+def compute_norm_embedding(
+    model_name: str,
+    images: list,
+    device: str = "cpu",
+    batch_size: int = 32,
+    progress_description: str = "Extracting embeddings (images)",
+):
     """
     Compute the embedding for a list of images and save them to disk.
     Args:
@@ -167,6 +176,7 @@ def compute_norm_embedding(model_name: str, images: list, device: str = "cpu", b
     :param model_name: Name of the model to use for the embedding generation
     :param device: Device to use for the computation (cpu or cuda:0, cuda:1, etc.)
     :param batch_size: Number of images to process in a batch
+    :param progress_description: Description for the Rich progress bar (e.g. "Extracting embeddings (images)" or "Extracting embeddings (exemplars)")
     Returns:
 
     """
@@ -179,10 +189,10 @@ def compute_norm_embedding(model_name: str, images: list, device: str = "cpu", b
     if torch.cuda.is_available() and "cuda" in device:
         if torch.cuda.device_count() > 1 and device == "cuda":
             torch.cuda.empty_cache()
-            compute_embedding_multi_gpu(model_name, images, batch_size)
+            compute_embedding_multi_gpu(model_name, images, batch_size, progress_description)
         else:
             vit_wrapper = ViTWrapper(device=device, model_name=model_name)
-            compute_embedding_vits(vit_wrapper, images, batch_size)
+            compute_embedding_vits(vit_wrapper, images, batch_size, progress_description)
     else:
         # TODO: replace this - modin does not work well here
         vit_wrapper = ViTWrapper(device="cpu", model_name=model_name)
@@ -193,7 +203,9 @@ def compute_norm_embedding(model_name: str, images: list, device: str = "cpu", b
         )
 
         def compute_embedding_wrapper(row):
-            return compute_embedding_vits(row.vit_wrapper, row.images_batch, row.batch_size)
+            return compute_embedding_vits(
+                row.vit_wrapper, row.images_batch, row.batch_size, progress_description
+            )
 
         info(f"Compute embeddings for {len(images)} images on CPU ...")
         df_args.apply(compute_embedding_wrapper, axis=1)
