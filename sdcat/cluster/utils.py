@@ -410,14 +410,14 @@ def compute_embedding_multi_gpu(model_name: str, images: list, batch_size: int =
 
 
 def combine_csv(csv_files: List[Path], temp_path: Path, crop_path: str) -> str:
-    from tqdm import tqdm
+    from rich.progress import track
 
     output_file = temp_path / "combined.csv"
 
     info(f"Combining detection files to {output_file}...")
     with open(output_file, "w", encoding="utf-8") as outfile:
         first_file = True
-        for file in tqdm(csv_files, desc="Combining detection files", unit="file"):
+        for file in track(csv_files, description="Combining detection files"):
             # Create a crop directory for each detection file
             crop_root = crop_path / file.stem
             crop_root.mkdir(parents=True, exist_ok=True)

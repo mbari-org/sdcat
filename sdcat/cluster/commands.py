@@ -16,7 +16,7 @@ import os
 import modin.pandas as pd
 import pytz
 from PIL import Image
-from tqdm import tqdm
+from rich.progress import track
 
 from sdcat import __version__ as sdcat_version
 from sdcat.cluster.utils import filter_images, combine_csv
@@ -218,7 +218,7 @@ def run_cluster_det(
                     return 1
                 return 0
 
-            for index, row in tqdm(df.iterrows(), total=len(df), desc="Extracting metadata", unit="image"):
+            for index, row in track(df.iterrows(), total=len(df), description="Extracting metadata"):
                 image_name = Path(row.image_path).name
                 if pattern_date0.search(image_name):
                     match = pattern_date0.search(image_name).groups()
@@ -434,7 +434,11 @@ def run_cluster_roi(
     if to_copy.empty:
         info(f"No images to copy to {crop_path}")
     else:
-        for src, dst in tqdm(zip(to_copy["image_path"], to_copy["crop_path"]), total=len(to_copy), desc="Copying images"):
+        for src, dst in track(
+            zip(to_copy["image_path"], to_copy["crop_path"]),
+            total=len(to_copy),
+            description="Copying images",
+        ):
             shutil.copy(src, dst)
 
     df = filter_images(min_area, max_area, min_saliency, min_score, df)

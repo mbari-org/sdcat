@@ -11,12 +11,12 @@ import os
 from typing import List
 
 import pandas
+from rich.progress import track
 import seaborn as sns
 import modin.pandas as pd
 import numpy as np
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import normalize
-from tqdm import tqdm
 from umap import UMAP
 from hdbscan import HDBSCAN
 from scipy.cluster.hierarchy import linkage, fcluster
@@ -255,7 +255,7 @@ def _compute_exemplars(df: pd.DataFrame, model: str, device: str, vits_batch_siz
             executor.submit(crop_all_square_images, image_angle[0], df, 224, image_angle[1])
             for image_angle, df in image_angle_group
         ]
-        for _ in tqdm(as_completed(futures), total=len(futures)):
+        for _ in track(as_completed(futures), total=len(futures)):
             pass
 
     crop_paths = df_exemplars_final["crop_path"].values.tolist()
@@ -502,7 +502,7 @@ def cluster_vits(
 
             with ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
                 futures = [executor.submit(crop_all_square_images, group, df, 224, 0) for group, df in grouped]
-                for _ in tqdm(as_completed(futures), total=len(futures)):
+                for _ in track(as_completed(futures), total=len(futures)):
                     pass
 
     # Drop any rows with crop_path that have files that don't exist or are zero - sometimes the crops fail
@@ -717,7 +717,7 @@ def cluster_vits(
             for i in range(num_batches)
         ]
         # Wait for all the futures to complete
-        for result in tqdm(as_completed(futures), total=len(futures)):
+        for result in track(as_completed(futures), total=len(futures), description="Clustering batches"):
             if result:
                 df_batch = result.result()
                 if df_batch is None:
