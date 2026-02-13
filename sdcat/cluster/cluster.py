@@ -526,7 +526,9 @@ def cluster_vits(
     crop_paths = df_dets["crop_path"].values
 
     # Count how many files have the .npy extension
-    num_cached = sum([has_cached_embedding(model, filename) for filename in crop_paths])
+    num_cached = 0
+    for filename in track(crop_paths, description="Checking cached embeddings"):
+        num_cached += has_cached_embedding(model, filename)
     info(f"Found {num_cached} cached embeddings for {len(crop_paths)} images")
 
     # Skip the embedding extraction if all the embeddings are cached
@@ -549,7 +551,10 @@ def cluster_vits(
         info(f"Loading ViTS model {model} results into dataframe ...")
 
         # Add in column if missing and apply the function to each row in the dataframe
-        results_df = df_dets["crop_path"].apply(load_model_results).apply(pandas.Series)
+        results_list = [
+            load_model_results(cp) for cp in track(df_dets["crop_path"].values, description="Loading ViTS results")
+        ]
+        results_df = pandas.DataFrame(results_list)
         df_dets["class"] = results_df["class"]
         df_dets["score"] = results_df["score"]
         df_dets["class_s"] = results_df["class_s"]

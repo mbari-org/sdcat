@@ -11,6 +11,8 @@ import cv2
 from transformers import AutoModelForImageClassification, AutoImageProcessor
 import torch.nn.functional as F
 
+from rich.progress import track
+
 from sdcat.cluster.utils import compute_embedding_multi_gpu
 from sdcat.logger import info, err
 
@@ -141,7 +143,7 @@ def compute_embedding_vits(vit: ViTWrapper, images: list, batch_size: int = 32):
 
     # Batch process the images
     batches = [images[i : i + batch_size] for i in range(0, len(images), batch_size)]
-    for batch in batches:
+    for batch in track(batches, description="Extracting embeddings"):
         try:
             # Skip running the model if the embeddings already exist
             if all([has_cached_embedding(model_name, filename) for filename in batch]):
