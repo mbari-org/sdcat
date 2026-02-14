@@ -2,6 +2,19 @@
 
 
 
+## v1.29.1 (2026-02-14)
+
+### Documentation
+
+* docs: correct CHANGE formatting which was munged with b464677 commit ([`1d9d5e2`](https://github.com/mbari-org/sdcat/commit/1d9d5e21385764f979c654e82dae82209bd51b4a))
+
+### Fix
+
+* fix: ray, cleanvision  (#28)
+
+This fixes issues with clean vision not including low information/dark cleaning, cleaner ray startup/shutdown,  and adds rich library to display more visually appealing text progress ([`31aaafb`](https://github.com/mbari-org/sdcat/commit/31aaafbbd928589b9525f7b010bb8e439b3e0a56))
+
+
 ## v1.29.0 (2026-01-27)
 
 ### Feature
@@ -21,8 +34,7 @@ This adds support for running RF-DETR models from huggingface. For an example, s
 [detect] 
 # Detection model
 model = MBARI-org/rf-detrLarge-uavs-detectv0
-``` 
-([`b464677`](https://github.com/mbari-org/sdcat/commit/b464677b916ab71b4e4e5c8cdd8873aa09febf3f))
+``` ([`b464677`](https://github.com/mbari-org/sdcat/commit/b464677b916ab71b4e4e5c8cdd8873aa09febf3f))
 
 
 ## v1.27.11 (2025-12-14)
