@@ -93,7 +93,7 @@ def cluster_grid(
 
 
 def clean_bad_images(filepaths: List[str]) -> List[str]:
-    """Remove blurry and near duplicate images."""
+    """Remove low-information, dark, blurry, and near duplicate images."""
     imagelab = Imagelab(filepaths=filepaths)
 
     # Override the default configurations
@@ -105,8 +105,10 @@ def clean_bad_images(filepaths: List[str]) -> List[str]:
     }
     imagelab._config = config
 
-    # Detect dark and blurry images
+    # Detect dark, blurry, low-information, and near-duplicate images
     issue_types = {
+        "low_information": {},
+        "dark": {},
         "blurry": {"threshold": 0.52},  # Default is 0.5, but we want to be more strict
         "near_duplicates": {"hash_size": 4, "hash_types": ["whash", "phash"]},
     }
@@ -114,33 +116,39 @@ def clean_bad_images(filepaths: List[str]) -> List[str]:
     # imagelab.report() Disabling report = this is causing a segfault when run on large datasets
 
     bad_images = []
+    issues = imagelab.issues
 
-    # Remove all low information images
-    low_info_images = imagelab.issues[imagelab.issues["is_low_information_issue"]].index
-    if len(low_info_images) > 0:
-        info(f"Removing {len(low_info_images)} low information images")
-        bad_images.extend(low_info_images)
+    # Remove all low information images (only if this issue type was computed)
+    if "is_low_information_issue" in issues.columns:
+        low_info_images = issues[issues["is_low_information_issue"]].index
+        if len(low_info_images) > 0:
+            info(f"Removing {len(low_info_images)} low information images")
+            bad_images.extend(low_info_images)
 
-    # Remove all dark images
-    dark_images = imagelab.issues[imagelab.issues["is_dark_issue"]].index
-    if len(dark_images) > 0:
-        info(f"Removing {len(dark_images)} dark images")
-        bad_images.extend(dark_images)
+    # Remove all dark images (only if this issue type was computed)
+    if "is_dark_issue" in issues.columns:
+        dark_images = issues[issues["is_dark_issue"]].index
+        if len(dark_images) > 0:
+            info(f"Removing {len(dark_images)} dark images")
+            bad_images.extend(dark_images)
 
-    # Remove all blurry images
-    blurry_images = imagelab.issues[imagelab.issues["is_blurry_issue"]].index
-    if len(blurry_images) > 0:
-        info(f"Removing {len(blurry_images)} blurry images")
-        bad_images.extend(blurry_images)
+    # Remove all blurry images (only if this issue type was computed)
+    if "is_blurry_issue" in issues.columns:
+        blurry_images = issues[issues["is_blurry_issue"]].index
+        if len(blurry_images) > 0:
+            info(f"Removing {len(blurry_images)} blurry images")
+            bad_images.extend(blurry_images)
 
     # Remove one image from each near duplicate set (keep the best blurry score)
-    near_duplicates_image_sets = imagelab.info["near_duplicates"]["sets"]
-    near_duplicates_scores = (
-        imagelab.issues[imagelab.issues["is_near_duplicates_issue"]]
-        .sort_values(by="blurry_score")
-        .reset_index()[["index", "blurry_score"]]
-        .values.tolist()
-    )
+    near_duplicates_image_sets = imagelab.info.get("near_duplicates", {}).get("sets", [])
+    near_duplicates_scores = []
+    if "is_near_duplicates_issue" in issues.columns:
+        near_duplicates_scores = (
+            issues[issues["is_near_duplicates_issue"]]
+            .sort_values(by="blurry_score")
+            .reset_index()[["index", "blurry_score"]]
+            .values.tolist()
+        )
 
     info(f"Removing {len(near_duplicates_image_sets)} duplicated image sets, keeping the least blurry image")
     for dup_set in near_duplicates_image_sets:
@@ -368,7 +376,12 @@ def filter_images(min_area: int, max_area: int, min_saliency: int, min_score: fl
     return df
 
 
-def compute_embedding_multi_gpu(model_name: str, images: list, batch_size: int = 32):
+def compute_embedding_multi_gpu(
+    model_name: str,
+    images: list,
+    batch_size: int = 32,
+    progress_description: str = "Extracting embeddings (images)",
+):
     from concurrent.futures import ThreadPoolExecutor
     from sdcat.cluster.embedding import ViTWrapper, compute_embedding_vits
     import torch
@@ -383,33 +396,35 @@ def compute_embedding_multi_gpu(model_name: str, images: list, batch_size: int =
         return [images[i * batch_size : (i + 1) * batch_size] for i in range(num_splits)]
 
     # Compute embeddings per GPU
-    def compute_on_device(device, model_name, images, batch_size):
+    def compute_on_device(device, model_name, images, batch_size, progress_description):
         vit_wrapper = ViTWrapper(device=device, model_name=model_name)
-        compute_embedding_vits(vit_wrapper, images, batch_size)
+        compute_embedding_vits(vit_wrapper, images, batch_size, progress_description)
 
-    def multi_gpu_compute(model_name, images, batch_size):
+    def multi_gpu_compute(model_name, images, batch_size, progress_description):
         image_batches = split_batches(images, len(devices))
         with ThreadPoolExecutor(max_workers=len(devices)) as executor:
             futures = [
-                executor.submit(compute_on_device, device, model_name, batch, batch_size)
+                executor.submit(
+                    compute_on_device, device, model_name, batch, batch_size, progress_description
+                )
                 for device, batch in zip(devices, image_batches)
             ]
             # Wait for all tasks to complete
             for f in futures:
                 f.result()
 
-    multi_gpu_compute(model_name, images, batch_size)
+    multi_gpu_compute(model_name, images, batch_size, progress_description)
 
 
 def combine_csv(csv_files: List[Path], temp_path: Path, crop_path: str) -> str:
-    from tqdm import tqdm
+    from rich.progress import track
 
     output_file = temp_path / "combined.csv"
 
     info(f"Combining detection files to {output_file}...")
     with open(output_file, "w", encoding="utf-8") as outfile:
         first_file = True
-        for file in tqdm(csv_files, desc="Combining detection files", unit="file"):
+        for file in track(csv_files, description="Combining detection files"):
             # Create a crop directory for each detection file
             crop_root = crop_path / file.stem
             crop_root.mkdir(parents=True, exist_ok=True)

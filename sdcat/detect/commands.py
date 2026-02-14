@@ -7,8 +7,8 @@ import shutil
 from pathlib import Path
 
 import click
-from tqdm import tqdm
 import pandas as pd
+from rich.progress import track
 import torch
 
 from sdcat import common_args
@@ -249,7 +249,7 @@ def run_detect(
                 for future in futures:
                     future.result()
     else:
-        for f in tqdm(to_process):
+        for f in track(to_process, description="Processing images"):
             if not skip_saliency:
                 run_saliency_detect(
                     spec_remove,

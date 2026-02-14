@@ -11,12 +11,12 @@ import os
 from typing import List
 
 import pandas
+from rich.progress import track
 import seaborn as sns
 import modin.pandas as pd
 import numpy as np
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import normalize
-from tqdm import tqdm
 from umap import UMAP
 from hdbscan import HDBSCAN
 from scipy.cluster.hierarchy import linkage, fcluster
@@ -125,7 +125,7 @@ def _summarize_clusters(
                     ).fit_transform(np_data)
                 else:
                     info("Using UMAP to reduce cluster 2D plot")
-                    xx = UMAP(init=init, n_components=2, n_neighbors=n_neighbors, metric="cosine").fit_transform(np_data)
+                    xx = UMAP(init=init, n_components=2, n_neighbors=n_neighbors, metric="cosine", verbose=False).fit_transform(np_data)
 
             df_joint = pandas.DataFrame({"x": xx[:, 0], "y": xx[:, 1], "labels": sampled_df["cluster"].values})
             p = sns.jointplot(data=df_joint, x="x", y="y", hue="labels")
@@ -165,6 +165,8 @@ def _reassign_noise(df: pd.DataFrame, exemplar_emb: np.ndarray, cluster: List[in
     Reassign the noise (-1) cluster to the nearest exemplar cluster based on cosine similarity.
     """
     noise_df = df[df["cluster"] == -1]
+    if len(noise_df) == 0:
+        return df
     noise_embeddings = np.array([fetch_embedding(model, path)[0] for path in noise_df["crop_path"]])
     similarities = cosine_similarity(noise_embeddings, exemplar_emb)
     max_scores = similarities.max(axis=1)
@@ -253,11 +255,17 @@ def _compute_exemplars(df: pd.DataFrame, model: str, device: str, vits_batch_siz
             executor.submit(crop_all_square_images, image_angle[0], df, 224, image_angle[1])
             for image_angle, df in image_angle_group
         ]
-        for _ in tqdm(as_completed(futures), total=len(futures)):
+        for _ in track(as_completed(futures), total=len(futures)):
             pass
 
     crop_paths = df_exemplars_final["crop_path"].values.tolist()
-    compute_norm_embedding(model_name=model, images=crop_paths, device=device, batch_size=vits_batch_size)
+    compute_norm_embedding(
+        model_name=model,
+        images=crop_paths,
+        device=device,
+        batch_size=vits_batch_size,
+        progress_description="Extracting embeddings (exemplars)",
+    )
 
     info("Computing mean embeddings for exemplars across all rotations ...")
     df_exemplar_group = df_exemplars_final.groupby("cluster")
@@ -500,7 +508,7 @@ def cluster_vits(
 
             with ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
                 futures = [executor.submit(crop_all_square_images, group, df, 224, 0) for group, df in grouped]
-                for _ in tqdm(as_completed(futures), total=len(futures)):
+                for _ in track(as_completed(futures), total=len(futures)):
                     pass
 
     # Drop any rows with crop_path that have files that don't exist or are zero - sometimes the crops fail
@@ -524,13 +532,17 @@ def cluster_vits(
     crop_paths = df_dets["crop_path"].values
 
     # Count how many files have the .npy extension
-    num_cached = sum([has_cached_embedding(model, filename) for filename in crop_paths])
+    num_cached = 0
+    for filename in track(crop_paths, description="Checking cached embeddings"):
+        num_cached += has_cached_embedding(model, filename)
     info(f"Found {num_cached} cached embeddings for {len(crop_paths)} images")
 
     # Skip the embedding extraction if all the embeddings are cached
     if num_cached != len(crop_paths):
         debug(f"Extracted embeddings from {len(crop_paths)} images using model {model}...")
-        compute_norm_embedding(model, crop_paths, device, vits_batch_size)
+        compute_norm_embedding(
+            model, crop_paths, device, vits_batch_size, progress_description="Extracting embeddings (images)"
+        )
 
     def load_model_results(crop_path):
         try:
@@ -547,7 +559,10 @@ def cluster_vits(
         info(f"Loading ViTS model {model} results into dataframe ...")
 
         # Add in column if missing and apply the function to each row in the dataframe
-        results_df = df_dets["crop_path"].apply(load_model_results).apply(pandas.Series)
+        results_list = [
+            load_model_results(cp) for cp in track(df_dets["crop_path"].values, description="Loading ViTS results")
+        ]
+        results_df = pandas.DataFrame(results_list)
         df_dets["class"] = results_df["class"]
         df_dets["score"] = results_df["score"]
         df_dets["class_s"] = results_df["class_s"]
@@ -630,6 +645,9 @@ def cluster_vits(
         Process a batch of images and return the clustered dataframe.
         Disable df_ancillary for now
         """
+        if df is None or df.empty:
+            warn(f"Batch {i + 1} of {num_batches} has no detections")
+            return None
         start = df.index[0]
         end = df.index[-1]
         info(f"Processing batch {i + 1} of {num_batches} {start} to {end}...")
@@ -712,17 +730,19 @@ def cluster_vits(
             for i in range(num_batches)
         ]
         # Wait for all the futures to complete
-        for result in tqdm(as_completed(futures), total=len(futures)):
+        for result in track(as_completed(futures), total=len(futures), description="Clustering batches"):
             if result:
                 df_batch = result.result()
+                if df_batch is None:
+                    warn("Batch returned no results (e.g. all bad images)")
+                    continue
+                if df_batch.empty:
+                    warn("Batch is empty after clustering")
+                    continue
                 info(f"Batch {df_batch.index[0]} to {df_batch.index[-1]} completed")
-                if df_batch is not None:
-                    if df_batch.empty:
-                        warn(f"Batch {df_batch.index[0]} to {df_batch.index[-1]} is empty after clustering")
-                    else:
-                        df_dets.update(df_batch["cluster_batch"])
-                        df_dets.update(df_batch["cluster"])
-                        df_dets.update(df_batch["HDBSCAN_probability"])
+                df_dets.update(df_batch["cluster_batch"])
+                df_dets.update(df_batch["cluster"])
+                df_dets.update(df_batch["HDBSCAN_probability"])
 
     info("All batch clusters processed")
     if df_dets.empty:

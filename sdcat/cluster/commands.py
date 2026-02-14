@@ -16,7 +16,9 @@ import os
 import modin.pandas as pd
 import pytz
 from PIL import Image
-from tqdm import tqdm
+from rich.console import Console
+from rich.progress import track
+from rich.tree import Tree
 
 from sdcat import __version__ as sdcat_version
 from sdcat.cluster.utils import filter_images, combine_csv
@@ -24,6 +26,40 @@ from sdcat import common_args
 from sdcat.config import config as cfg
 from sdcat.logger import info, err, warn
 from sdcat.cluster.cluster import cluster_vits
+
+
+def _print_output_tree(save_dir: Path) -> None:
+    """Print a Rich tree of the cluster output directory structure."""
+    save_dir = Path(save_dir)
+    if not save_dir.exists():
+        return
+    console = Console()
+    root_name = str(save_dir.resolve())
+    tree = Tree(f"[bold]{root_name}[/bold]")
+    try:
+        entries = sorted(save_dir.iterdir(), key=lambda p: (not p.is_dir(), p.name.lower()))
+    except OSError:
+        return
+    max_files_in_dir = 20  # show at most this many files per subdir
+    for entry in entries:
+        if entry.is_file():
+            tree.add(entry.name)
+        elif entry.is_dir():
+            sub = tree.add(f"[dim]{entry.name}/[/dim]")
+            try:
+                children = sorted(entry.iterdir(), key=lambda p: p.name.lower())
+            except OSError:
+                continue
+            if entry.name == "crops":
+                n = len(children)
+                sub.add(f"({n} image{'s' if n != 1 else ''})")
+            else:
+                for i, child in enumerate(children):
+                    if i >= max_files_in_dir:
+                        sub.add(f"... and {len(children) - max_files_in_dir} more")
+                        break
+                    sub.add(child.name if child.is_file() else f"{child.name}/")
+    console.print(tree)
 
 
 @click.command("detections", help="Cluster detections. See cluster --config-ini to override cluster defaults.")
@@ -218,7 +254,7 @@ def run_cluster_det(
                     return 1
                 return 0
 
-            for index, row in tqdm(df.iterrows(), total=len(df), desc="Extracting metadata", unit="image"):
+            for index, row in track(df.iterrows(), total=len(df), description="Extracting metadata"):
                 image_name = Path(row.image_path).name
                 if pattern_date0.search(image_name):
                     match = pattern_date0.search(image_name).groups()
@@ -332,6 +368,9 @@ def run_cluster_det(
             save_ini = save_dir / f"{prefix}_config.ini"
             shutil.copy(Path(config_ini), save_ini)
             info(f"Config saved to {save_ini}")
+
+            info("Output structure:")
+            _print_output_tree(save_dir)
         else:
             warn(f"No detections found to cluster in {det_dir}'")
 
@@ -434,7 +473,11 @@ def run_cluster_roi(
     if to_copy.empty:
         info(f"No images to copy to {crop_path}")
     else:
-        for src, dst in tqdm(zip(to_copy["image_path"], to_copy["crop_path"]), total=len(to_copy), desc="Copying images"):
+        for src, dst in track(
+            zip(to_copy["image_path"], to_copy["crop_path"]),
+            total=len(to_copy),
+            description="Copying images",
+        ):
             shutil.copy(src, dst)
 
     df = filter_images(min_area, max_area, min_saliency, min_score, df)
@@ -492,6 +535,10 @@ def run_cluster_roi(
             allowable_classes=allowable_classes,
         )
 
+        if summary is None:
+            err("No summary returned from clustering (no detections left after clustering)")
+            return
+
         # Add more detail to the summary specific to ROIs
         summary["sdcat_version"] = sdcat_version
         summary["command"] = " ".join(sys.argv)
@@ -508,5 +555,8 @@ def run_cluster_roi(
         # Save a copy of the config.ini file
         shutil.copy(Path(config_ini), save_dir / f"{prefix}_config.ini")
         info(f'Config saved to {save_dir / f"{prefix}_config.ini"}')
+
+        info("Output structure:")
+        _print_output_tree(save_dir)
     else:
         warn(f"No images found to cluster in {roi_dir}'")

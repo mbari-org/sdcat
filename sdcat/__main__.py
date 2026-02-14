@@ -1,7 +1,17 @@
 # sdcat, Apache-2.0 license
 # Filename: __main__.py
 # Description: Main entry point for the sdcat command line interface
-from datetime import datetime
+import os
+
+# Configure Ray (used by Modin) before any import that loads modin/ray
+os.environ["RAY_ACCEL_ENV_VAR_OVERRIDE_ON_ZERO"] = "0"
+os.environ["RAY_METRICS_EXPORT_ENABLED"] = "0"
+os.environ["RAY_DEDUP_LOGS"] = "0"
+os.environ["RAY_TQDM_PATCH_PRINT"]="0"
+
+import ray
+
+from datetime import datetime, timezone
 from pathlib import Path
 
 import click
@@ -45,11 +55,19 @@ cli_cluster.add_command(run_cluster_roi)
 
 
 if __name__ == "__main__":
+    exit_code = 0
     try:
-        start = datetime.utcnow()
+        ray.init(ignore_reinit_error=True)
+        start = datetime.now(timezone.utc)
         cli()
-        end = datetime.utcnow()
+        end = datetime.now(timezone.utc)
         info(f"Done. Elapsed time: {end - start} seconds")
     except Exception as e:
         err(f"Exiting. Error: {e}")
-        exit(-1)
+        exit_code = 1
+    finally:
+        try:
+            ray.shutdown()
+        except Exception as e:
+            err(f"Error shutting down Ray: {e}")
+    sys.exit(exit_code)
