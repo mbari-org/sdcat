@@ -4,6 +4,7 @@
 import json
 import re
 import shutil
+import subprocess
 import sys
 import tempfile
 import uuid
@@ -60,6 +61,23 @@ def _print_output_tree(save_dir: Path) -> None:
                         break
                     sub.add(child.name if child.is_file() else f"{child.name}/")
     console.print(tree)
+
+
+def _get_git_hash() -> str:
+    """Return the current repo HEAD hash for provenance, or 'unknown' if unavailable."""
+    try:
+        repo_root = Path(__file__).resolve().parents[2]
+        return (
+            subprocess.check_output(
+                ["git", "rev-parse", "HEAD"],
+                cwd=repo_root,
+                stderr=subprocess.DEVNULL,
+                text=True,
+            )
+            .strip()
+        )
+    except (subprocess.CalledProcessError, FileNotFoundError, OSError):
+        return "unknown"
 
 
 @click.command("detections", help="Cluster detections. See cluster --config-ini to override cluster defaults.")
@@ -354,6 +372,7 @@ def run_cluster_det(
 
             # Add more detail to the summary specific to detections
             summary["sdcat_version"] = sdcat_version
+            summary["git_hash"] = _get_git_hash()
             summary["command"] = " ".join(sys.argv)
             summary["dataset"]["input"] = det_dir
             summary["dataset"]["image_resolution"] = f"{df['image_width'].iloc[0]}x{df['image_height'].iloc[0]} pixels"
@@ -541,6 +560,7 @@ def run_cluster_roi(
 
         # Add more detail to the summary specific to ROIs
         summary["sdcat_version"] = sdcat_version
+        summary["git_hash"] = _get_git_hash()
         summary["command"] = " ".join(sys.argv)
         summary["dataset"]["roi"] = True
         summary["dataset"]["input"] = roi_dir
