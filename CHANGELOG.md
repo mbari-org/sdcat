@@ -2,6 +2,13 @@
 
 
 
+## v1.31.0 (2026-05-08)
+
+### Feature
+
+* feat: add support for roi-dir and roi-listing ([`99c3a07`](https://github.com/mbari-org/sdcat/commit/99c3a072a2014449bec7452e115ce5a15ee47fc1))
+
+
 ## v1.30.0 (2026-05-08)
 
 ### Feature
