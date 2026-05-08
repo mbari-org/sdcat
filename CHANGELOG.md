@@ -2,6 +2,13 @@
 
 
 
+## v1.30.0 (2026-05-08)
+
+### Feature
+
+* feat: add git hash to clustering summary provenance ([`a9b4df8`](https://github.com/mbari-org/sdcat/commit/a9b4df874df9729361c1e5699f2129d05d0d290f))
+
+
 ## v1.29.1 (2026-02-14)
 
 ### Documentation
