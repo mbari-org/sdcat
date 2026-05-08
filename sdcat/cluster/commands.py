@@ -407,15 +407,17 @@ def run_cluster_det(
 @common_args.min_sample_size
 @common_args.vits_batch_size
 @common_args.hdbscan_batch_size
-@click.option("--roi-dir", help="Input folder(s) with raw ROI images", multiple=True, required=True)
+@click.option("--roi-dir", help="Input folder(s) with raw ROI images", multiple=True, required=False)
 @click.option("--save-dir", help="Output directory to save clustered detection results", required=True)
 @click.option("--device", help="Device to use, e.g. cpu or cuda:0 or cuda to use all cuda devices", type=str)
 @click.option("--use-vits", help="Set to using the predictions from the vits cluster model", is_flag=True)
+@click.option("--roi-listing", help="File containing list of full paths to ROI images", type=click.Path(exists=True))
 def run_cluster_roi(
     roi_dir,
     save_dir,
     device,
     use_vits,
+    roi_listing,
     config_ini,
     alpha,
     cluster_selection_epsilon,
@@ -454,22 +456,33 @@ def run_cluster_roi(
     save_dir = Path(save_dir)
     save_dir.mkdir(parents=True, exist_ok=True)
 
+    if not roi_dir and not roi_listing:
+        err("Must provide either --roi-dir or --roi-listing")
+        return
+
+    input_source = roi_listing if roi_listing else roi_dir
+
     # Grab all images from the input directories
     supported_extensions = [".png", ".jpg", ".jpeg", ".JPG", ".JPEG", ".PNG"]
     images = []
 
-    for r in roi_dir:
-        roi_path = Path(r)
-        for ext in supported_extensions:
-            images.extend(list(roi_path.rglob(f"*{ext}")))
+    if roi_listing:
+        with open(roi_listing, "r") as f:
+            roi_listing_paths = [line.strip() for line in f if line.strip()]
+        images = [Path(p) for p in roi_listing_paths]
+    elif roi_dir:
+        for r in roi_dir:
+            roi_path = Path(r)
+            for ext in supported_extensions:
+                images.extend(list(roi_path.rglob(f"*{ext}")))
 
     # Create a dataframe to store the combined data in an image_path column in sorted order
     df = pd.DataFrame({"image_path": [str(p) for p in images]})
 
-    info(f"Found {len(df)} detections in {roi_dir}")
+    info(f"Found {len(df)} detections in {input_source}")
 
     if df.empty:
-        info(f"No detections found in {roi_dir}")
+        info(f"No detections found in {input_source}")
         return
 
     # Sort the dataframe by image_path to make sure the images are in order for start_image and end_image filtering
@@ -563,7 +576,7 @@ def run_cluster_roi(
         summary["git_hash"] = _get_git_hash()
         summary["command"] = " ".join(sys.argv)
         summary["dataset"]["roi"] = True
-        summary["dataset"]["input"] = roi_dir
+        summary["dataset"]["input"] = input_source
         summary["dataset"]["image_resolution"] = "224x224 pixels"
         summary["dataset"]["detection_count"] = len(df)
 
@@ -579,4 +592,4 @@ def run_cluster_roi(
         info("Output structure:")
         _print_output_tree(save_dir)
     else:
-        warn(f"No images found to cluster in {roi_dir}'")
+        warn(f"No images found to cluster in {input_source}'")

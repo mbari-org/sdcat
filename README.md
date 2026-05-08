@@ -134,7 +134,13 @@ detections can be clustered from a collection of images, sometimes referred to a
 region of interests (ROIs) by providing the detections in a folder with the roi option.
 
 ```shell
-sdcat cluster roi --roi <roi> --save-dir <save-dir> --model <model>
+sdcat cluster roi --roi-dir <roi-dir> --save-dir <save-dir> --model <model>
+```
+
+Alternatively, you can provide a file containing a list of full paths to ROI images:
+
+```shell
+sdcat cluster roi --roi-listing <roi-listing-file> --save-dir <save-dir> --model <model>
 ```
 
 The clustering is done with a Vision Transformer (ViT) model, and a cosine similarity metric with the HDBSCAN algorithm.
@@ -188,7 +194,7 @@ If running on a CPU, multiple cores are recommended to speed up processing.  Onc
 as the necessary information is cached to support fast iteration.
 
 ```shell
-docker run -it --gpus all -v $(pwd):/data mbari/sdcat:cuda124 detect --image-dir /data/images --save-dir /data/detections --model MBARI-org/uav-yolov5
+docker run -it --gpus all -v $(pwd):/data mbari/sdcat:cuda13 detect --image-dir /data/images --save-dir /data/detections --model MBARI-org/uav-yolov5
 ```
 
 # Usage
