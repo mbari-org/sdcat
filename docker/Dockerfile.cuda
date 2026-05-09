@@ -1,27 +1,74 @@
-FROM python:3.12-slim
+FROM nvidia/cuda:12.1-runtime-ubuntu22.04 AS builder
+ENV DEBIAN_FRONTEND=noninteractive
 
 LABEL vendor="MBARI"
 LABEL maintainer="dcline@mbari.org"
 LABEL license="Apache License 2.0"
 
-RUN python3 -m venv /venv
+# Install Python 3.12 + venv
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends software-properties-common && \
+    add-apt-repository ppa:deadsnakes/ppa && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends \
+        python3.12 python3.12-venv python3.12-dev && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
+RUN python3.12 -m venv /venv
+ENV PATH="/venv/bin:$PATH"
+
+WORKDIR /app
 
 ARG GIT_VERSION=latest
-ARG IMAGE_URI=mbari/sdcat:${GIT_VERSION}
 
-# Set environment variables
-ENV PATH="/venv/bin:$PATH"
 ENV APP_HOME=/app
 ENV HF_HOME=/tmp/transformers_cache
 
+COPY requirements.txt /app/requirements.txt
+
 RUN pip install --upgrade pip
-RUN if GIT_VERSION=latest; then pip install sdcat; else pip install sdcat==${GIT_VERSION}; fi
+
+# Install CUDA 12.1-enabled PyTorch wheels (cu121).
+# Note: sdcat's dependency constraints on torchvision are updated to match the available cu121 wheels,
+# so we install sdcat with `--no-deps` to keep the CUDA-enabled torch/vision versions.
+RUN pip install --no-cache-dir \
+    torch==2.4.1 torchvision==0.19.1 \
+    --index-url https://download.pytorch.org/whl/cu121 && \
+    pip install --no-cache-dir yolov5 --index-url https://pypi.org/simple
+
+RUN grep -vE '^(torch|torchvision)==' requirements.txt > /tmp/reqs-no-torch.txt && \
+    pip install --no-cache-dir -r /tmp/reqs-no-torch.txt
+
+RUN if [ "$GIT_VERSION" = "latest" ]; then pip install --no-deps sdcat; else pip install --no-deps "sdcat==${GIT_VERSION}"; fi
+
+# Reduce image size
+RUN find /venv -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
+
+# -----------------------------------------------------------------------------
+FROM nvidia/cuda:12.1-base-ubuntu22.04
+ENV DEBIAN_FRONTEND=noninteractive
+
+LABEL vendor="MBARI"
+LABEL maintainer="dcline@mbari.org"
+LABEL license="Apache License 2.0"
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends software-properties-common && \
+    add-apt-repository ppa:deadsnakes/ppa && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends \
+        python3.12 python3.12-venv \
+        curl libxcb1 libxcb-xinerama0 libxrender1 libxext6 libsm6 libice6 libgl1 && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
+ENV PATH="/venv/bin:$PATH"
+ENV APP_HOME=/app
+ENV HF_HOME=/tmp/transformers_cache
+ENV HOME=${APP_HOME}
 
 WORKDIR ${APP_HOME}
-ENV HOME=${APP_HOME}
-RUN chmod a+rwx -R ${APP_HOME}
+RUN mkdir -p "${HF_HOME}" && chmod a+rwx -R "${APP_HOME}"
 
-RUN pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cu121 && \
-    pip install --no-cache-dir yolov5 --index-url https://pypi.org/simple
+COPY --from=builder /venv /venv
 
 ENTRYPOINT ["sdcat"]
