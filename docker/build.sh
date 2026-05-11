@@ -73,6 +73,8 @@ docker buildx build "${EXTRA_FLAGS[@]}" \
   --label "IMAGE_URI=mbari/sdcat:${VERSION}-cuda13" \
   -f docker/Dockerfile.cuda .
 
+docker push "mbari/sdcat:${VERSION}-cuda13"
+
 echo "Building CPU image for VERSION=${VERSION} ..."
 docker buildx build "${EXTRA_FLAGS[@]}" \
   -t "mbari/sdcat:${VERSION}" \
@@ -80,5 +82,7 @@ docker buildx build "${EXTRA_FLAGS[@]}" \
   --label "GIT_VERSION=${VERSION}" \
   --label "IMAGE_URI=mbari/sdcat:${VERSION}" \
   -f docker/Dockerfile .
+
+docker push "mbari/sdcat:${VERSION}"
 
 echo "Done."
