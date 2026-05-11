@@ -74,6 +74,7 @@ docker buildx build "${EXTRA_FLAGS[@]}" \
   -f docker/Dockerfile.cuda .
 
 docker push "mbari/sdcat:${VERSION}-cuda13"
+docker push "mbari/sdcat:cuda13"
 
 echo "Building CPU image for VERSION=${VERSION} ..."
 docker buildx build "${EXTRA_FLAGS[@]}" \
@@ -84,5 +85,6 @@ docker buildx build "${EXTRA_FLAGS[@]}" \
   -f docker/Dockerfile .
 
 docker push "mbari/sdcat:${VERSION}"
+docker push "mbari/sdcat:latest"
 
 echo "Done."
