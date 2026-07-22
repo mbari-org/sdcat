@@ -102,7 +102,12 @@ def _summarize_clusters(
             # Only use the exemplars and a random sample of 5000 images to speed up the visualization
             sampled_df = clustered_df.sample(n=min(num_labels, 5000), random_state=42, replace=False)
             sampled_emb = [fetch_embedding(model, filename)[0] for filename in sampled_df["crop_path"]]
-            np_data = np.array(sampled_emb)
+            has_embedding = [len(emb) > 0 for emb in sampled_emb]
+            num_missing = len(has_embedding) - sum(has_embedding)
+            if num_missing > 0:
+                warn(f"Excluding {num_missing} sampled crop(s) with no cached embedding from visualization")
+            sampled_df = sampled_df[has_embedding]
+            np_data = np.array([emb for emb, ok in zip(sampled_emb, has_embedding) if ok])
 
             n_neighbors = min(15, num_samples - 1)
             info(f"Using {n_neighbors} neighbors for dimensional reduction")
@@ -167,12 +172,25 @@ def _reassign_noise(df: pd.DataFrame, exemplar_emb: np.ndarray, cluster: List[in
     noise_df = df[df["cluster"] == -1]
     if len(noise_df) == 0:
         return df
-    noise_embeddings = np.array([fetch_embedding(model, path)[0] for path in noise_df["crop_path"]])
+
+    # Some crops may be missing a cached embedding (e.g. a corrupt/unreadable image that could not
+    # be embedded). fetch_embedding returns [] in that case, which would otherwise produce a ragged
+    # array when stacked with valid embeddings. Filter those out and skip reassignment for them.
+    raw_embeddings = [fetch_embedding(model, path)[0] for path in noise_df["crop_path"]]
+    has_embedding = np.array([len(emb) > 0 for emb in raw_embeddings])
+    num_missing = int((~has_embedding).sum())
+    if num_missing > 0:
+        warn(f"Skipping noise reassignment for {num_missing} crop(s) with no cached embedding")
+    if not has_embedding.any():
+        return df
+
+    noise_embeddings = np.array([emb for emb, ok in zip(raw_embeddings, has_embedding) if ok])
+    valid_noise_index = noise_df.index[has_embedding]
     similarities = cosine_similarity(noise_embeddings, exemplar_emb)
     max_scores = similarities.max(axis=1)
     best_sim_idx = similarities.argmax(axis=1)
     valid = max_scores > min_similarity
-    valid_indices = noise_df.index[valid]
+    valid_indices = valid_noise_index[valid]
     df.loc[valid_indices, "cluster"] = cluster[best_sim_idx[valid]]
     return df
 
@@ -291,6 +309,9 @@ def _compute_avg_sim(df: pd.DataFrame, model: str) -> (pd.DataFrame, dict):
             return None
 
         cluster_emb = [fetch_embedding(model, f)[0] for f in cluster_df["crop_path"]]
+        cluster_emb = [emb for emb in cluster_emb if len(emb) > 0]
+        if len(cluster_emb) == 0:
+            return None
         cluster_emb = np.array(cluster_emb)
 
         # This computes self-similarity within the cluster

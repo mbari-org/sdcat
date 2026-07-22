@@ -147,11 +147,11 @@ def compute_embedding_vits(
     # Batch process the images
     batches = [images[i : i + batch_size] for i in range(0, len(images), batch_size)]
     for batch in track(batches, description=progress_description):
-        try:
-            # Skip running the model if the embeddings already exist
-            if all([has_cached_embedding(model_name, filename) for filename in batch]):
-                continue
+        # Skip running the model if the embeddings already exist
+        if all([has_cached_embedding(model_name, filename) for filename in batch]):
+            continue
 
+        try:
             batch_embeddings, batch_labels, batch_scores = vit.process_images(batch)
 
             # Save the embeddings
@@ -159,7 +159,20 @@ def compute_embedding_vits(
                 emb = emb.astype(np.float32)
                 cache_embedding(emb, pred, score, model_name, filename)
         except Exception as e:
-            err(f"Error processing {batch}: {e}")
+            # A single corrupt/unreadable image can otherwise silently drop the embeddings for the
+            # entire batch, which later causes ragged-array errors when the cached embeddings are
+            # loaded back (some crops have an embedding, others don't). Fall back to processing the
+            # batch one image at a time so a single bad image only affects itself.
+            err(f"Error processing batch of {len(batch)} images: {e}. Retrying images individually to isolate the failure...")
+            for filename in batch:
+                if has_cached_embedding(model_name, filename):
+                    continue
+                try:
+                    single_embeddings, single_labels, single_scores = vit.process_images([filename])
+                    emb = single_embeddings[0].astype(np.float32)
+                    cache_embedding(emb, single_labels[0], single_scores[0], model_name, filename)
+                except Exception as e_single:
+                    err(f"Skipping {filename}: failed to compute embedding: {e_single}")
 
 
 def compute_norm_embedding(
