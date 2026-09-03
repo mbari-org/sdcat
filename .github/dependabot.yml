@@ -1,0 +1,89 @@
+version: 2
+updates:
+  # Python dependencies: pyproject.toml / poetry.lock plus the exported requirements.txt
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "build"
+      prefix-development: "chore"
+      include: "scope"
+    groups:
+      python-security:
+        applies-to: security-updates
+        patterns:
+          - "*"
+      python-runtime:
+        applies-to: version-updates
+        dependency-type: "production"
+        update-types:
+          - "minor"
+          - "patch"
+      python-dev:
+        applies-to: version-updates
+        dependency-type: "development"
+        update-types:
+          - "minor"
+          - "patch"
+    ignore:
+      # torch/torchvision are pinned to the CUDA wheels installed in docker/Dockerfile.cuda,
+      # and the OpenCV headless builds are pinned to keep sahi working; major bumps need a
+      # coordinated change, so only take security fixes for these.
+      - dependency-name: "torch"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "torchvision"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "opencv-python-headless"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "opencv-contrib-python-headless"
+        update-types: ["version-update:semver-major"]
+
+  # Base images in docker/Dockerfile and docker/Dockerfile.cuda
+  - package-ecosystem: "docker"
+    directory: "/docker"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "build"
+      include: "scope"
+    ignore:
+      # Interpreter version is constrained by python = ">=3.12,<3.13" in pyproject.toml.
+      - dependency-name: "python"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+      # A CUDA major bump has to be matched by new torch wheels.
+      - dependency-name: "nvidia/cuda"
+        update-types: ["version-update:semver-major"]
+
+  # Workflow actions in .github/workflows
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+
+  # Hook revisions in .pre-commit-config.yaml
+  - package-ecosystem: "pre-commit"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    groups:
+      pre-commit:
+        patterns:
+          - "*"
