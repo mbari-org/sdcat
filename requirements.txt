@@ -714,9 +714,9 @@ jupyterlab-server==2.28.0 ; python_version >= "3.12" and python_version < "3.13"
 jupyterlab-widgets==3.0.16 ; python_version >= "3.12" and python_version < "3.13" \
     --hash=sha256:423da05071d55cf27a9e602216d35a3a65a3e41cdf9c5d3b643b814ce38c19e0 \
     --hash=sha256:45fa36d9c6422cf2559198e4db481aa243c7a32d9926b500781c830c80f7ecf8
-jupyterlab==4.5.7 ; python_version >= "3.12" and python_version < "3.13" \
-    --hash=sha256:55a9822c4754da305f41e113452c68383e214dcf96de760146af89ce5d5117b0 \
-    --hash=sha256:fba4cb0e2c44a52859669d8c98b45de029d5e515f8407bf8534d2a8fc5f0964d
+jupyterlab==4.5.10 ; python_version >= "3.12" and python_version < "3.13" \
+    --hash=sha256:5967ca61e692e67a2f30b5a2b901c941dc6ce56c0b0e357bc6d34fed5ec095f6 \
+    --hash=sha256:77e8d80b78be59b2eaba2154562e21caa6e79c2f1281d6f486584f7144ee2f47
 kiwisolver==1.5.0 ; python_version >= "3.12" and python_version < "3.13" \
     --hash=sha256:012b1eb16e28718fa782b5e61dc6f2da1f0792ca73bd05d54de6cb9561665fc9 \
     --hash=sha256:01808c6d15f4c3e8559595d6d1fe6411c68e4a3822b4b9972b44473b24f4e679 \
