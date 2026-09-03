@@ -1,4 +1,4 @@
-FROM nvidia/cuda:13.0.1-runtime-ubuntu22.04 AS builder
+FROM nvidia/cuda:13.3.1-runtime-ubuntu22.04 AS builder
 ENV DEBIAN_FRONTEND=noninteractive
 
 LABEL vendor="MBARI"
@@ -44,7 +44,7 @@ RUN if [ "$GIT_VERSION" = "latest" ]; then pip install --no-deps sdcat; else pip
 RUN find /venv -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
 
 # -----------------------------------------------------------------------------
-FROM nvidia/cuda:13.0.1-base-ubuntu22.04
+FROM nvidia/cuda:13.3.1-base-ubuntu22.04
 ENV DEBIAN_FRONTEND=noninteractive
 
 LABEL vendor="MBARI"
