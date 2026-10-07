@@ -1,6 +1,6 @@
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v2.3.0
+    rev: v6.0.0
     hooks:
       - id: end-of-file-fixer
         exclude: "^stream/old/.*"
@@ -8,7 +8,7 @@ repos:
         exclude: "^stream/old/.*"
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.3.4  # Replace with latest version if needed
+    rev: v0.16.5  # Replace with latest version if needed
     hooks:
       - id: ruff
       - id: ruff-format
