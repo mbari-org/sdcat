@@ -8,7 +8,7 @@ repos:
         exclude: "^stream/old/.*"
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.16.5  # Replace with latest version if needed
+    rev: v0.17.3  # Replace with latest version if needed
     hooks:
       - id: ruff
       - id: ruff-format
